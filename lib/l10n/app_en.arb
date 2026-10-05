@@ -1,0 +1,183 @@
+{
+
+  "ok": "OK",
+  "cancel": "Cancel",
+  "apply": "Apply",
+
+
+  "title": "File Manager",
+  "hello": "Hello",
+
+  "settings": "Settings",
+
+  "general": "General",
+  "design": "Design",
+  "danger_zone": "Danger Zone",
+  "language": "Language",
+
+  "dark_mode": "Dark Mode",
+  "accent_color": "Accent Color",
+  "advanced_color_settings": "Advanced Color Settings",
+  "primary_color": "Primary Color",
+  "on_primary_color": "On Top Primary Color",
+  "primary_color_containers": "Primary Color Containers",
+  "on_primary_color_containers": "On Top Primary Color Containers",
+  "secondary_color": "Secondary Color",
+  "on_secondary_color": "On Top Secondary Color",
+  "surface_color": "Surface Color",
+  "on_surface_color": "On Top Surface Color",
+  "error_color": "Error Color",
+  "on_error_color": "on_error_color",
+  "changing_accent_color": "Changing the Accent Color will overwrite Advanced Color Settings",
+  "color_themes": "Color Themes",
+  "enter_matrix": "Enter Matrix",
+  "relaxing_blue": "Relaxing Blue",
+  "retrowave": "Retrowave",
+  "excellence": "Excellence",
+  "kernel": "Kernel",
+
+
+  "editor": "Editor",
+  "customize_tools": "Customize Tools",
+  "number_of_widths": "Number of Penwidths",
+  "number_of_colors": "Number of Colors",
+  "tools": "Tools",
+  "widths": "Widths",
+  "colors": "Colors",
+  "undo_redo": "Undo/Redo",
+
+ "document": "Document",
+ "default_page_setup": "Default Page Setup",
+ "page_height": "Page Height",
+ "page_width": "Page Width",
+ "page_size_presets": "Page Size Presets",
+ "portrait": "Portrait",
+ "landscape": "Landscape",
+ "page_color": "Page Color",
+ "vertical_space": "Vertical Spaces",
+ "horizontal_space": "Horizontal Spaces",
+ "background_lines_width": "Background Lines Width",
+ "background_lines_color": "Background Lines Color",
+
+  "danger_zone": "Advanced",
+  "debug_mode": "Debug Mode",
+  "manage_app_permissions":"Manage App Permissions",
+
+
+
+
+
+
+
+  "about": "About",
+  "app_version": "App Version",
+  "build_number": "Build Number",
+  "developed_by": "Developed by",
+  "open_source_licenses": "Open Source Licenses",
+  "view_licenses_of_used_libraries": "View licenses of used libraries",
+
+
+
+
+
+  "new_directory": "New Directory",
+      "create_new_directory": "Create New Directory",
+      "directory_name": "Directory Name",
+
+  "new_document": "New Document",
+  "create_new_document": "Create New Document",
+  "document_name": "Document Name",
+  "create": "Create",
+  "name_cannot_be_empty": "Name cannot be empty.",
+  "already_exists": "already exists.",
+
+
+  "back": "Back",
+  "save": "Save",
+  "import_image": "Import Image",
+
+  "adjust_eraser_width": "Adjust Eraser Width:",
+  "current": "Current: ",
+  "erase_with_finger": "Erase with Finger",
+
+  "selection_shape": "Selection Shape",
+  "lasso": "Lasso",
+  "rectangle": "Rectangle",
+  "selection_rule": "Selection Rule",
+  "select_on_touch": "Select on touch",
+  "will_select_touching": "When activated selects everything that touches the selected area.",
+  "select_with_finger": "Select with Finger",
+
+  "pen_type": "Pen Type",
+  "normal": "Normal",
+  "fountain_pen": "Fountain Pen",
+  "pencil": "Pencil",
+  "marker": "Marker",
+  "draw_straight_lines": "Draw Straight Lines",
+  "disabled": "Disabled",
+  "auto_detect": "Auto-Detect",
+  "hold_for_line": "Hold for Line",
+  "align_xy": "Align XY",
+  "lines_will_tend_to" : "Lines will tend to run parallel to XY",
+  "input": "Input",
+  "draw_with_finger": "Draw with Finger",
+
+  "shape": "Shape",
+  "line": "Line",
+  "arrow": "Arrow",
+  "rect": "Rectangle",
+  "circle": "Circle",
+  "triangle": "Triangle",
+  "pentagon": "Pentagon",
+  "hexagon": "Hexagon",
+  "octagon": "Octagon",
+  "shape_origin": "Shape Origin",
+  "corner": "Corner",
+  "center": "Center",
+  "snap_to_grid": "Snap to Grid",
+
+  "laser_width": "Laser Width",
+  "leave_trail": "Leave Trail",
+  "fade_out_duration": "Fade Out Duration",
+  "fade_out": "Fade Out",
+
+
+
+  "adjust_stroke_width": "Adjust Stroke Width",
+  "select_color": "Select Color",
+
+  "gallery": "Gallery",
+  "camera": "Camera",
+
+  "page_setup": "Page Setup",
+  "page_size": "Page Size",
+  "height": "Height",
+  "width": "Width",
+  "background": "Background",
+  "background_color": "Background Color",
+  "set_new_color": "Set New Color",
+  "apply_to_all_pages": "Apply to all Pages",
+  "old": "Old",
+  "new_": "New",
+
+
+  "palette": "Palette",
+  "rgba": "RGBA",
+  "wheel": "Wheel",
+  "hex_code": "Hex Code",
+
+
+
+  "selected": "Selected",
+  "copy": "Copy",
+  "move": "Move",
+  "rename": "Rename",
+  "new_name": "New Name",
+  "delete": "Delete",
+  "elements": "Elements",
+
+  "coming_soon": "COMING SOON"
+
+
+
+}

@@ -1,0 +1,172 @@
+{
+
+
+    "ok": "OK",
+    "cancel": "Abbrechen",
+    "apply": "Anwenden",
+
+  "title": "File Manager",
+  "hello": "Hello",
+
+  "settings": "Einstellungen",
+
+  "general": "Allgemein",
+  "language": "Sprache",
+   "design": "Erscheinungsbild",
+
+   "language": "Sprache",
+
+     "dark_mode": "Dunkler Modus",
+     "accent_color": "Akzentfarbe",
+     "advanced_color_settings": "Erweiterte Farbeinstellungen",
+     "primary_color": "Primärfarbe",
+     "on_primary_color": "Über Primärfarbe",
+     "primary_color_containers": "Primärfarbencontainer",
+     "on_primary_color_containers": "Über Primärfarbencontainer",
+     "secondary_color": "Sekundärfarbe",
+     "on_secondary_color": "Über Sekundärfarbe",
+     "surface_color": "Hintergrundfarbe",
+     "on_surface_color": "Über Hintergrundfarbe",
+     "error_color": "Fehlerfarbe",
+       "on_error_color": "Über Fehlerfarbe",
+     "changing_accent_color": "Das Ändern der Akzentfarbe überschreibt die Erweiterten Farbeinstellungen.",
+
+   "color_themes": "Farbthemen",
+   "enter_matrix": "Matrix",
+   "relaxing_blue": "Nettes Blau",
+   "retrowave": "Retrowelle",
+   "excellence": "Exzellenz",
+   "kernel": "Kernel",
+
+   "editor": "Editor",
+   "customize_tools": "Werkzeuge anpassen",
+   "number_of_widths": "Anzahl Stiftbreiten",
+   "number_of_colors": "Anzahl Farben",
+   "tools": "Werkzeuge",
+   "widths": "Stiftbreiten",
+   "colors": "Farben",
+   "undo_redo": "Zurück/Vor",
+
+
+   "document": "Dokument",
+   "default_page_setup": "Einstellung Standardseite",
+   "page_height": "Seitenhöhe",
+   "page_width": "Seitenbreite",
+   "page_size_presets": "Vorlagen Seitengröße",
+   "portrait": "Hochkant",
+   "landscape": "Querkant",
+   "page_color": "Seitenfarbe",
+   "vertical_space": "Vertikale Abstände",
+   "horizontal_space": "Horizontal Abstände",
+   "background_lines_width": "Hintergrundlinienbreite",
+   "background_lines_color": "Hintergrundlinienfarbe",
+
+
+ "danger_zone": "Erweitert",
+ "debug_mode": "Entwicklermodus",
+ "manage_app_permissions":"App Berechtigungen Verwalten",
+
+
+    "about": "Über",
+    "app_version": "App Version",
+    "build_number": "Build Nummer",
+    "developed_by": "Entwickelt von",
+    "open_source_licenses": "Open Source Lizenzen",
+    "view_licenses_of_used_libraries": "Lizenzen verwendeter Bibliotheken",
+
+
+    "new_directory": "Neuer Ordner",
+    "create_new_directory": "Neuen Ordner erstellen",
+    "directory_name": "Name",
+
+    "new_document": "Neues Dokument",
+      "create_new_document": "Neues Dokument Erstellen",
+      "document_name": "Name",
+      "create": "Erstellen",
+
+      "name_cannot_be_empty": "Name kann nicht leer sein.",
+      "already_exists": "existiert bereits.",
+
+        "back": "Zurück",
+        "save": "Speichern",
+        "import_image": "Bild einfügen",
+
+        "adjust_eraser_width": "Radierergröße anpassen:",
+        "current": "Momentan: ",
+        "erase_with_finger": "Mit Finger radieren",
+
+        "selection_shape": "Auswahlform",
+        "lasso": "Freie Auswahl",
+        "rectangle": "Rechteck",
+        "selection_rule": "Auswahlkriterium",
+        "select_on_touch": "Auswahl bei Berührung",
+        "will_select_touching": "Wenn aktiv, wählt alles aus, was den Auswahlbereich berührt.",
+        "select_with_finger": "Mit Finger auswählen",
+
+      "pen_type": "Stiftart",
+      "normal": "Normal",
+      "fountain_pen": "Füller",
+      "pencil": "Bleistift",
+      "marker": "Textmarker",
+      "draw_straight_lines": "Gerade Linien Zeichnen",
+      "disabled": "Aus",
+      "auto_detect": "Automatisch erkennen",
+      "hold_for_line": "Halten für Linie",
+      "align_xy": "Ausrichten nach XY",
+      "lines_will_tend_to" : "Linien tendieren parallel zu XY zu verlaufen",
+      "input": "Eingabe",
+      "draw_with_finger": "Mit Finger zeichnen",
+
+    "shape": "Form",
+    "line": "Linie",
+    "arrow": "Pfeil",
+    "rect": "Rechteck",
+    "circle": "Kreis",
+    "triangle": "Dreieck",
+    "pentagon": "Fünfeck",
+    "hexagon": "Sechseck",
+    "octagon": "Achteck",
+    "shape_origin": "Ursprung Form",
+    "corner": "Ecke",
+    "center": "Mitte",
+    "snap_to_grid": "Anpassen an Gitter",
+
+    "laser_width": "Laser Breite",
+    "leave_trail": "Pfad hinterlassen",
+    "fade_out_duration": "Nachbrenndauer",
+    "fade_out": "Nachbrennen",
+
+    "adjust_stroke_width": "Linienbreite anpassen",
+    "select_color": "Farbe auswählen",
+
+    "gallery": "Gallerie",
+    "camera": "Kamera",
+
+    "page_setup": "Seiteneinstellungen",
+    "page_size": "Seitenmaße",
+    "height": "Höhe",
+    "width": "Breite",
+    "background": "Hintergrund",
+    "background_color": "Hintergrundfarbe",
+    "set_new_color": "Neue Farbesetzen",
+    "apply_to_all_pages": "Auf alle Seiten anwenden",
+
+  "old": "Alt",
+  "new_": "Neu",
+
+    "palette": "Palette",
+    "rgba": "RGBA",
+    "wheel": "Rad",
+    "hex_code": "Hex Code",
+
+  "selected": "ausgewählt",
+  "copy": "Kopieren",
+  "move": "Verschieben",
+  "rename": "Umbenennen",
+  "new_name": "Neuer Name",
+  "delete": "Löschen von",
+  "elements": "Elementen",
+
+  "coming_soon": "BALD"
+
+}

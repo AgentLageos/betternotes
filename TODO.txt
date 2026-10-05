@@ -1,0 +1,24 @@
+------ TODO ------
+
+implement localization for pdf import
+import pass-word protected pdf
+
+
+
+------ known issues ------
+
+
+undo/redo for deleting pages is funky, undo after deleting a page seems to work, but redo then breaks everything idk
+reload file manager after importing files
+
+
+import pdf (file_manager_list _importPdf) better without loading entire file and showing progress screen
+also reload file manager after importing pdf
+
+temp pages while loading are always a4
+
+
+
+
+
+
