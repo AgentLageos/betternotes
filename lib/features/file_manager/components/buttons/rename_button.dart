@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:betternotes/l10n/app_localizations.dart';
+import 'package:path/path.dart' as p;
 
 class RenameButton extends StatelessWidget {
   final Function(Directory) onLoadDir;
@@ -80,7 +81,7 @@ class RenameButton extends StatelessWidget {
                   if (name.isEmpty) {
                     setState(() => errorText = text.name_cannot_be_empty);
                   } else if (existingNames.contains("$name.bnf")) {
-                    setState(() => errorText = '\"$name\" '+text.already_exists);
+                    setState(() => errorText = '"$name" ${text.already_exists}');
                   } else {
                     Navigator.of(context).pop();
                     renameFile(name).then((_) {
@@ -105,21 +106,20 @@ class RenameButton extends StatelessWidget {
     if (entity is File) {
       final file = entity as File;
 
-      final newFilePath;
+      final String newFilePath;
       if (file.toString().contains(".bnf")) {
-        newFilePath = '${currentDir.path}/$name.bnf';                         //put together new file name
+        newFilePath = p.join(currentDir.path, '$name.bnf');                         //put together new file name
       } else {
-        newFilePath = '${currentDir.path}/$name';
+        newFilePath = p.join(currentDir.path, name);
       }
 
 
       try {
-        // Datei umbenennen
+        // rename the file
         await file.rename(newFilePath);
-        //print('Datei erfolgreich umbenannt zu: $newFilePath');
         onLoadDir(currentDir);
       } catch (e) {
-        print('Fehler beim Umbenennen der Datei: $e');
+        print('Error renaming the file: $e');
       }
 
 
@@ -129,15 +129,14 @@ class RenameButton extends StatelessWidget {
     } else if (entity is Directory ){
       final dir = entity as Directory;
 
-      final newFilePath = '${currentDir.path}/$name';                         //put together new dir name
+      final newFilePath = p.join(currentDir.path, name);                         //put together new dir name
 
       try {
-        // Datei umbenennen
+        // rename the file
         await dir.rename(newFilePath);
-        //print('Datei erfolgreich umbenannt zu: $newFilePath');
         onLoadDir(currentDir);
       } catch (e) {
-        print('Fehler beim Umbenennen der Datei: $e');
+        print('Error renaming the file: $e');
       }
     }
     else {

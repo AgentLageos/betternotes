@@ -1,9 +1,7 @@
-import 'dart:ui';
 
 import 'package:betternotes/core/utils/draw_strokes.dart';
 import 'package:flutter/material.dart';
 
-import 'package:flutter/cupertino.dart';
 
 import 'package:betternotes/features/editor/models/page/stroke.dart';
 import 'package:betternotes/features/editor/models/page/point.dart';
@@ -14,7 +12,8 @@ import 'dart:core';
 import '../../../core/providers/global_providers.dart';
 import '../models/page/image_model.dart';
 import '../models/page/page_model.dart';
-import '../models/page/tile2.dart';
+import '../models/page/tile.dart';
+import 'package:betternotes/core/utils/color_channels.dart';
 
 
 
@@ -29,14 +28,14 @@ class DrawerWidget extends ConsumerStatefulWidget {
 
 
   const DrawerWidget({
-    Key? key,
+    super.key,
     required this.pageID,
     required this.docID,
     required this.activeStrokes,
     required this.erasedStrokes,
     required this.laserStrokes,
 
-  }) : super(key: key);
+  });
 
 
   @override
@@ -55,23 +54,15 @@ class DrawerWidgetState extends ConsumerState<DrawerWidget> {
 
   bool erased = false;
   bool active = false;
-  //List<int> erasedStrokeIDs = [];
   List<Stroke> oldErasedStrokes = [];
   List<Stroke> oldActiveStrokes = [];
-
-
-
-  //late final tiles = Tiles(ref, pageID, docID);
 
 
 
   @override
   Widget build(BuildContext context) {
 
-  //print("drawer_widget: drawing");
 
-
-    //final List<Stroke> activeStrokes = [];
     final activeStrokes = widget.activeStrokes;
 
 
@@ -96,27 +87,21 @@ class DrawerWidgetState extends ConsumerState<DrawerWidget> {
 
 
 
-    //List<int> erasedStrokeIDs = page.erasedIDs;
-
     if(erasedStrokes.isNotEmpty) {
-      //erasedStrokeIDs = erasedStrokes.map((s) => s.strokeID).toList();
       oldErasedStrokes = erasedStrokes;
       erased = true;
     }
     if(erasedStrokes.isEmpty && !erased) {
       oldErasedStrokes = [];
-      //print("cleared");
     }
 
     if(erasedStrokes.isEmpty) {
       erased = false;
-      //print("setfalse");
     }
 
 
 
     if(activeStrokes.isNotEmpty) {
-      //erasedStrokeIDs = erasedStrokes.map((s) => s.strokeID).toList();
       oldActiveStrokes = activeStrokes;
       active = true;
     }
@@ -126,15 +111,10 @@ class DrawerWidgetState extends ConsumerState<DrawerWidget> {
 
     if(activeStrokes.isEmpty) {
       active = false;
-      //print("setfalse");
     }
 
 
 
-
-    //print(erasedStrokes.length);
-    //print(oldErasedStrokes.length);
-    //print(erased);
 
       final tiles = page.tiles;
 
@@ -163,13 +143,11 @@ class DrawerWidgetState extends ConsumerState<DrawerWidget> {
 class ActivePainter extends CustomPainter {
   final List<List<Tile>> tiles;
   final List<Stroke> erasedStrokes;
-  //final List<int> erasedStrokeIDs;
   final List<Stroke> activeStrokes;
   final PageModel page;
   final List<ImageModel> images;
   final ImageModel? backgroundImage;
   final bool debugMode;
-  //final List<ui.Image> images;
   final List<Stroke> laserStrokes;
 
   ActivePainter({required this.tiles, //required this.erasedStrokes,
@@ -182,8 +160,6 @@ class ActivePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
 
     var drawnStrokesIDs = <int>[];
-
-    //print("draw");
 
 
     final erasedStrokeIDs = erasedStrokes.map((s) => s.strokeID).toList();
@@ -246,7 +222,6 @@ class ActivePainter extends CustomPainter {
     }
 
     for(final image in images){
-      //final image = images.first;
       Rect src = Rect.fromLTWH(0, 0, image.image.width.toDouble(), image.image.height.toDouble(),);
       Rect dst = Rect.fromPoints(image.position, image.position + Offset(image.width, image.height),);
       final center = dst.center;
@@ -269,14 +244,10 @@ class ActivePainter extends CustomPainter {
         bool drawTile = true;
 
 
-        //else canvas.drawRect(tile.rect, Paint()..color = page.pageColor);
-
-
         for (int i = 0; i<erasedStrokes.length; i++) {
           if (tile.checkIfStrokeInRect(erasedStrokes[i])) {                     //check if this tile is affected by erasing
-            //canvas.drawRect(tile.rect, Paint()..color = page.pageColor);
 
-            if (debugMode) canvas.drawRect(tile.rect, Paint()..color = Colors.red.withOpacity(0.4));
+            if (debugMode) canvas.drawRect(tile.rect, Paint()..color = Colors.red.withValues(alpha: 0.4));
 
             for (final abs in tile.aStrokes) {          //add the other strokes that the tile touches to the active strokes, but not the ones being erased
               if (erasedStrokeIDs.any((s) => s == abs.strokeID)) continue;
@@ -315,18 +286,10 @@ class ActivePainter extends CustomPainter {
 
 
     List<Stroke> strokes = page.strokes.where((s) => idSet.contains(s.strokeID)).toList();
-    //tiles.vektorStrokes.addAll(activeStrokes);
-    //strokes = tiles.vektorStrokes;
     strokes.addAll(activeStrokes);
-    //print("activestrokes: $strokes");
-
-    //List<Stroke> strokes =activeStrokes;
-    //print(strokes.length);
-
-    //strokes.addAll(tiles.vektorStrokes);
 
 
-    drawStrokes2(canvas, strokes, 1, 0);
+    drawStrokes(canvas, strokes, 1, 0);
 
 
     if (laserStrokes.isNotEmpty) {
@@ -337,13 +300,12 @@ class ActivePainter extends CustomPainter {
         for (int j= 0; j<laserStrokes[i].points.length; j++){
           points.add(PointModel(pos: laserStrokes[i].points[j].pos, width: laserStrokes[i].points[j].width/2));
         }
-        laserCores.add(Stroke(color: Colors.white.withAlpha(laserStrokes[i].color.alpha), width: -1, points: points));
+        laserCores.add(Stroke(color: Colors.white.withAlpha(laserStrokes[i].color.alpha8), width: -1, points: points));
       }
 
-      //laserCores.addAll(laserStrokes);
 
-      drawStrokes2(canvas, laserStrokes, 1, 0);
-      drawStrokes2(canvas, laserCores, 1, 0);
+      drawStrokes(canvas, laserStrokes, 1, 0);
+      drawStrokes(canvas, laserCores, 1, 0);
 
     }
 
@@ -354,7 +316,6 @@ class ActivePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant ActivePainter oldDelegate) {
-    //return oldDelegate.tiles != tiles || oldDelegate.activeStrokes != activeStrokes || oldDelegate.images != images;
     return false;
   }
 }

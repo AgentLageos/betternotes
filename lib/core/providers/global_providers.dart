@@ -1,4 +1,3 @@
-import 'package:betternotes/core/navigation/navigator_state_notifier.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:betternotes/features/editor/models/page/document_model.dart';
 import 'package:betternotes/features/editor/models/page/editor_setup.dart';
@@ -20,14 +19,4 @@ final settingsProvider = NotifierProvider<SettingsNotifier, Settings>(SettingsNo
 
 final platformProvider = NotifierProvider<PlatformSettingsNotifier, PlatformSettings>(() => PlatformSettingsNotifier('', ''));
 
-
-
-//final navigatonStateProvider = NotifierProvider<NavigatonStateNotifier, NavigationState>(() => NavigatonStateNotifier());
-//final platformProvider = NotifierProvider<PlatformSettingsNotifier, PlatformSettings>(PlatformSettingsNotifier.new);
-
-
-//final navigatorProvider = NotifierProvider<NavigatorNotifier, NavigatorModel>(NavigatorNotifier.new);
-
-
-//final currentPagesProvider = NotifierProvider<CurrentPagesNotifier, List<int>>(CurrentPagesNotifier.new);
 

@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
 
@@ -25,13 +24,6 @@ class Settings {
   final Color onError;
   final ThemeData theme;
   final bool restartRequest;
-  //final Color appColor; //color of onSurfaces, etc
-  //final Color textColor; //color of text, buttons
-  //final Color barColor; //color of top bars, highlighting
-
-
-
-
 
 
   //danger zone
@@ -77,8 +69,6 @@ class Settings {
   ;
 
 
-
-  //selectorPools ?? [ToolSelector(tools: [0, 1, 2]), WidthSelector(widths: [0.4, 1.2, 4.0]), ColorSelector(colors: [Colors.black, Colors.red, Colors.green, Colors.blue, Colors.yellow])];
 
   Settings copyWith({
     bool? darkMode,

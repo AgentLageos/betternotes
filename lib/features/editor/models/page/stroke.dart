@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:betternotes/core/utils/id_generator.dart';
@@ -112,7 +111,7 @@ class Stroke {
 
   Map<String, dynamic> toJson() {
     return {
-      'color': color.value,
+      'color': color.toARGB32(),
       'width': width,
       'points': points.map((point) => point.toJson()).toList(),
       'strokeType': strokeType.toJson(),
@@ -126,7 +125,7 @@ class Stroke {
       width: json['width']?.toDouble() ?? 0.0,
       points: (json['points'] as List).map((pointJson) => PointModel.fromJson(Map<String, dynamic>.from(pointJson))).toList(), //reconstruct  point from json
       strokeType: StrokeTypeExtension.fromJson(json['strokeType'] ?? 'normal'),
-      //strokeID: json['strokeID'] ?? IdGenerator.next(), // strokeID aus dem JSON oder eine neue ID generieren
+      //strokeID: json['strokeID'] ?? IdGenerator.next(), // strokeID from the JSON or a newly generated ID
     );
   }
 
@@ -139,7 +138,7 @@ class Stroke {
 
     builder.add(strokeId.buffer.asUint8List());
 
-    final colorData = ByteData(4)..setUint32(0, color.value, Endian.little);
+    final colorData = ByteData(4)..setUint32(0, color.toARGB32(), Endian.little);
 
     builder.add(colorData.buffer.asUint8List());
 

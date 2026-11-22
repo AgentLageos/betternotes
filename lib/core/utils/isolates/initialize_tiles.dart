@@ -1,13 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui';
 
-import 'package:betternotes/features/editor/models/page/abstract_stroke.dart';
 
-import '../../../features/editor/models/page/page_model.dart';
 import '../../../features/editor/models/page/stroke.dart';
-import '../../../features/editor/models/page/tile2.dart';
+import '../../../features/editor/models/page/tile.dart';
 
 
 Future<({
@@ -124,9 +121,9 @@ Future<({
 
         tileTileStrokes.add(Stroke(color : color, width: width, points: []));
 
-        aStrokes[i].pointIndexes.forEach((j) {
+        for (var j in aStrokes[i].pointIndexes) {
           tileTileStrokes[i].points.add(stroke.points[j]);
-        });
+        }
 
         final sameWidth = tileTileStrokes[i].points.every((p) => p.width == tileTileStrokes[i].points.first.width);
 
@@ -170,16 +167,15 @@ Future<({
 
         final backgroundStroke = backgroundStrokeMap[aBackgroundStrokes[i].strokeID];
         if (backgroundStroke == null) continue;
-        //print("hi");
 
         Color color = backgroundStroke.color;
         double width = backgroundStroke.width;
 
         tileBackgroundTileStrokes.add(Stroke(color : color, width: width, points: []));
 
-        aBackgroundStrokes[i].pointIndexes.forEach((j) {
+        for (var j in aBackgroundStrokes[i].pointIndexes) {
           tileBackgroundTileStrokes[i].points.add(backgroundStroke.points[j]);
-        });
+        }
 
         final sameWidth = tileBackgroundTileStrokes[i].points.every((p) => p.width == tileBackgroundTileStrokes[i].points.first.width);
 
@@ -223,7 +219,6 @@ Future<({
       rowBackgroundRights.add(tileBackgroundRights);
       rowBackgroundSameWidths.add(tileBackgroundSameWidths);
 
-      //print(rowBackgroundTileStrokes[0].length);
     }
 
     tileStrokes.add(rowTileStrokes);
@@ -237,10 +232,6 @@ Future<({
     backgroundSameWidths.add(rowBackgroundSameWidths);
 
   }
-
-  //print(backgroundTileStrokes[0][0].length);
-
-
 
 
   return (
@@ -272,7 +263,6 @@ List<List<List<bool>>> backgroundSameWidths
 }) preCalculation(double pageHeight, double pageWidth, Rect rect, List<Stroke> strokes, List<Stroke> backgroundStrokes, double scale, {required bool Function() cancelledChecker,}) {
 
 
-  bool canceled = false;
 
 
   final tiles = <List<Tile>>[];
@@ -351,9 +341,9 @@ List<List<List<bool>>> backgroundSameWidths
 
 
         if (0<=aStrokes[i].pointIndexes.first-1) tileTileStrokes[i].points.add(stroke.points[aStrokes[i].pointIndexes.first-1]);
-        aStrokes[i].pointIndexes.forEach((j) {
+        for (var j in aStrokes[i].pointIndexes) {
           tileTileStrokes[i].points.add(stroke.points[j]);
-        });
+        }
 
         if (stroke.points.length>aStrokes[i].pointIndexes.last+1) tileTileStrokes[i].points.add(stroke.points[aStrokes[i].pointIndexes.last+1]);
 
@@ -399,16 +389,15 @@ List<List<List<bool>>> backgroundSameWidths
 
         final backgroundStroke = backgroundStrokeMap[aBackgroundStrokes[i].strokeID];
         if (backgroundStroke == null) continue;
-        //print("hi");
 
         Color color = backgroundStroke.color;
         double width = backgroundStroke.width;
 
         tileBackgroundTileStrokes.add(Stroke(color : color, width: width, points: []));
 
-        aBackgroundStrokes[i].pointIndexes.forEach((j) {
+        for (var j in aBackgroundStrokes[i].pointIndexes) {
           tileBackgroundTileStrokes[i].points.add(backgroundStroke.points[j]);
-        });
+        }
 
         final sameWidth = tileBackgroundTileStrokes[i].points.every((p) => p.width == tileBackgroundTileStrokes[i].points.first.width);
 
@@ -452,7 +441,6 @@ List<List<List<bool>>> backgroundSameWidths
       rowBackgroundRights.add(tileBackgroundRights);
       rowBackgroundSameWidths.add(tileBackgroundSameWidths);
 
-      //print(rowBackgroundTileStrokes[0].length);
     }
 
     tileStrokes.add(rowTileStrokes);
@@ -466,8 +454,6 @@ List<List<List<bool>>> backgroundSameWidths
     backgroundSameWidths.add(rowBackgroundSameWidths);
 
   }
-
-  //print(backgroundTileStrokes[0][0].length);
 
 
   return (
@@ -527,9 +513,9 @@ List<bool> backgroundSameWidths
 
 
     if (0<=aStrokes[i].pointIndexes.first-1) tileTileStrokes[i].points.add(stroke.points[aStrokes[i].pointIndexes.first-1]);
-    aStrokes[i].pointIndexes.forEach((j) {
+    for (var j in aStrokes[i].pointIndexes) {
       tileTileStrokes[i].points.add(stroke.points[j]);
-    });
+    }
 
     if (stroke.points.length>aStrokes[i].pointIndexes.last+1) tileTileStrokes[i].points.add(stroke.points[aStrokes[i].pointIndexes.last+1]);
 
@@ -575,16 +561,15 @@ List<bool> backgroundSameWidths
 
     final backgroundStroke = backgroundStrokeMap[aBackgroundStrokes[i].strokeID];
     if (backgroundStroke == null) continue;
-    //print("hi");
 
     Color color = backgroundStroke.color;
     double width = backgroundStroke.width;
 
     tileBackgroundTileStrokes.add(Stroke(color : color, width: width, points: []));
 
-    aBackgroundStrokes[i].pointIndexes.forEach((j) {
+    for (var j in aBackgroundStrokes[i].pointIndexes) {
       tileBackgroundTileStrokes[i].points.add(backgroundStroke.points[j]);
-    });
+    }
 
     final sameWidth = tileBackgroundTileStrokes[i].points.every((p) => p.width == tileBackgroundTileStrokes[i].points.first.width);
 
@@ -617,8 +602,6 @@ List<bool> backgroundSameWidths
     tileBackgroundLefts.add(left);
     tileBackgroundSameWidths.add(sameWidth);
   }
-
-  //print(backgroundTileStrokes[0][0].length);
 
 
   return (

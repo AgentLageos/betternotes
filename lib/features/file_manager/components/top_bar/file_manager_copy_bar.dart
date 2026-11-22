@@ -8,7 +8,6 @@ class FileManagerCopyBar extends StatelessWidget implements PreferredSizeWidget 
 
   final dynamic currentDir;
   final void Function(Directory) onLoadDir;
-  //final VoidCallback? onCreateNewFolder;
   final VoidCallback onCancelSelection;
   final VoidCallback onCopyEntities;
   final height1 = 40.0;      //height of the upper container
@@ -53,7 +52,7 @@ class FileManagerCopyBar extends StatelessWidget implements PreferredSizeWidget 
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
 
-                    if (currentDir.path != '/')
+                    if (currentDir.parent.path != currentDir.path)         //not the filesystem root
                       IconButton(
                         icon: const Icon(Icons.drive_folder_upload),
                         onPressed: () {
@@ -67,23 +66,23 @@ class FileManagerCopyBar extends StatelessWidget implements PreferredSizeWidget 
                     Spacer(),                                                    //move everything after this to the right
 
                     ElevatedButton(
-                      child: Text(text.copy, style: TextStyle(fontSize: 10)),
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(0, 30),
 
                       ),
                       onPressed: onCopyEntities,
+                      child: Text(text.copy, style: TextStyle(fontSize: 10)),
                     ),
 
                     SizedBox(width: 10),
 
                     ElevatedButton(
-                      child: Text(text.cancel, style: TextStyle(fontSize: 10)),
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(0, 30),
 
                       ),
                       onPressed: onCancelSelection,
+                      child: Text(text.cancel, style: TextStyle(fontSize: 10)),
                     ),
 
                     SizedBox(width: 20), // kleiner Abstand zwischen Buttons

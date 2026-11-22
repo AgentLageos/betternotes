@@ -176,8 +176,30 @@
   "delete": "Delete",
   "elements": "Elements",
 
-  "coming_soon": "COMING SOON"
+  "coming_soon": "COMING SOON",
 
-
-
+  "import_pdf_title": "Import PDF?",
+  "import_pdf_question": "Do you want to import this PDF file?",
+  "import_action": "Import",
+  "import_failed": "Import failed",
+  "import_pdf_failed": "The PDF could not be imported.\n\n{error}",
+  "@import_pdf_failed": {"placeholders": {"error": {"type": "String"}}},
+  "invalid_input": "Invalid input",
+  "advanced_settings": "Advanced Settings",
+  "more_settings_here": "More settings will appear here",
+  "saved": "Saved",
+  "access_denied": "Access denied: {path}",
+  "@access_denied": {"placeholders": {"path": {"type": "String"}}},
+  "choose_destination": "Choose Destination",
+  "files_exported_to": "All files exported to: {path}",
+  "@files_exported_to": {"placeholders": {"path": {"type": "String"}}},
+  "export_error": "Error while exporting: {error}",
+  "@export_error": {"placeholders": {"error": {"type": "String"}}},
+  "import_starting": "Starting import...",
+  "importing_progress": "Importing {done} of {total}",
+  "@importing_progress": {"placeholders": {"done": {"type": "int"}, "total": {"type": "int"}}},
+  "import_finished": "Import finished.",
+  "files_imported": "Files imported successfully.",
+  "import_error": "Error while importing: {error}",
+  "@import_error": {"placeholders": {"error": {"type": "String"}}}
 }

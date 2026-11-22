@@ -31,8 +31,6 @@ class _StrokeWidthSelectorBarState extends ConsumerState<StrokeWidthSelectorBar>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       setState(() {
-        //selectedIndex = context.read<GlobalState>().selectedStrokeWidthIndex;       //overwrite colors and currently selected with global_state
-        //strokeWidths = context.read<GlobalState>().strokeWidths;
         selectedIndex =ref.read(editorSetupProvider.select((editors) => editors[editorIndex].widthIndex));
         strokeWidths = ref.read(editorSetupProvider.select((editors) => editors[editorIndex].widths));
       });
@@ -61,7 +59,7 @@ class _StrokeWidthSelectorBarState extends ConsumerState<StrokeWidthSelectorBar>
                     min: 0.2,
                     max: 10.0,
                     divisions: 49,
-                    label: '${tempWidth.toStringAsFixed(1)}',
+                    label: tempWidth.toStringAsFixed(1),
                     onChanged: (v) {
                       setDialogState(() => tempWidth = v);
                     },
@@ -86,7 +84,6 @@ class _StrokeWidthSelectorBarState extends ConsumerState<StrokeWidthSelectorBar>
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context, tempWidth);
-                //Provider.of<GlobalState>(context, listen: false).setStrokeWidths(strokeWidths);     //globally set strokeWidths
               },
               child: Text(text.apply),
             ),
@@ -101,8 +98,6 @@ class _StrokeWidthSelectorBarState extends ConsumerState<StrokeWidthSelectorBar>
       });
       if (index == selectedIndex) {
         widget.onStrokeWidthSelected(picked);
-        //Provider.of<GlobalState>(context, listen: false).setStrokeWidth(strokeWidths[index]);     //globally set current strokeWidth
-        //Provider.of<GlobalState>(context, listen: false).setSelectedStrokeWidthIndex(index);        //globally set currently selected strokewidth button
       }
     }
   }
@@ -117,8 +112,6 @@ class _StrokeWidthSelectorBarState extends ConsumerState<StrokeWidthSelectorBar>
     widget.onStrokeWidthSelected(strokeWidths[index]);
 
     ref.read(editorSetupProvider.notifier).setWidthIndex(editorIndex, index);
-    //Provider.of<GlobalState>(context, listen: false).setStrokeWidth(strokeWidths[index]);     //globally set current strokeWidth
-    //Provider.of<GlobalState>(context, listen: false).setSelectedStrokeWidthIndex(index);        //globally set currently selected strokewidth button
   }
 
   @override
@@ -127,13 +120,12 @@ class _StrokeWidthSelectorBarState extends ConsumerState<StrokeWidthSelectorBar>
 
     return Container(
       height: widget.height,
-      //color: Theme.of(context).colorScheme.surface,
       alignment: Alignment.centerLeft,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 10),
         itemCount: strokeWidths.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           final isSelected = index == selectedIndex;
           final strokeWidth = strokeWidths[index];

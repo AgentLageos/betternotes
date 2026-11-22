@@ -1,14 +1,12 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:betternotes/features/editor/models/page/image_model.dart';
-import 'package:betternotes/features/editor/providers/documents_notifier.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
-import 'package:provider/provider.dart';
 
-//import 'package:betternotes/page_list_screen.dart';                  //no longer exists
 
 import 'package:betternotes/features/editor/editor_screen.dart';
 
@@ -18,7 +16,6 @@ import '../../editor/models/page/page_model.dart';
 import '../../../l10n/app_localizations.dart';
 
 import 'package:pdfx/pdfx.dart';
-import 'dart:typed_data';
 
 class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
 
@@ -57,7 +54,6 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
 
       itemCount: files.length,
       itemBuilder: (context, index) {
-        final text = AppLocalizations.of(context)!;
         final f = files[index];
         final isDir = FileSystemEntity.isDirectorySync(f.path);
         final isSelected = selectedFiles.contains(f);
@@ -65,12 +61,10 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
         return ListTile(
           leading: Icon(
             isDir ? Icons.folder : Icons.insert_drive_file,
-            //color: isSelected ? Theme.of(context).colorScheme.onPrimaryContainer : Theme.of(context).colorScheme.onSurface,
           ),
           title: Text(
-            f.path.split('/').last,
+            p.basename(f.path),
             style: TextStyle(
-              //color: isSelected ? Theme.of(context).colorScheme.onPrimaryContainer : Theme.of(context).colorScheme.onSurface,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
           ),
@@ -87,12 +81,11 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
             } else if (f.path.endsWith('.bnf') || f.path.endsWith('.bnf2')) {
               final stringFile = f.path;
 
-              //print("file_manager_list: currentDir= ${ref.read(platformProvider).currentDirectory}");
               Navigator.push(context, MaterialPageRoute(builder: (_) => const LoadingPage()),);
 
-              final docID = await ref.read(documentsProvider.notifier).loadDoc2(stringFile);
+              final docID = await ref.read(documentsProvider.notifier).loadDoc(stringFile);
               if (docID != null) {
-                ref.read(documentsProvider.notifier).updateIsolatedPages(docID);
+                unawaited(ref.read(documentsProvider.notifier).updateIsolatedPages(docID));    //pages load while the editor opens
               }
 
               if (!context.mounted) return;
@@ -152,24 +145,21 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
   }
 
   Future<bool> _showImportPdfDialog(BuildContext context) async {
-    final text = AppLocalizations.of(context)!;
     final result = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
 
-          title: const Text('PDF importieren?'),
-          content: const Text(
-            'Möchtest du diese PDF-Datei importieren?',
-          ),
+          title: Text(AppLocalizations.of(context)!.import_pdf_title),
+          content: Text(AppLocalizations.of(context)!.import_pdf_question),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Abbrechen'),
+              child: Text(AppLocalizations.of(context)!.cancel),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Importieren'),
+              child: Text(AppLocalizations.of(context)!.import_action),
             ),
           ],
         );
@@ -188,14 +178,12 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Import fehlgeschlagen'),
-          content: Text(
-            'Die PDF konnte nicht importiert werden.\n\n$error',
-          ),
+          title: Text(AppLocalizations.of(context)!.import_failed),
+          content: Text(AppLocalizations.of(context)!.import_pdf_failed(error.toString())),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
+              child: Text(AppLocalizations.of(context)!.ok),
             ),
           ],
         );
@@ -212,7 +200,7 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
 
     final document = await PdfDocument.openFile(path);
 
-    print('Anzahl Seiten: ${document.pagesCount}');
+    print('Page count: ${document.pagesCount}');
 
     if (document.pagesCount == 0) return;
 
@@ -222,11 +210,8 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
     final bytes = await newDoc.toBytes();
     await file.writeAsBytes(bytes, flush: true,);
 
-    List<PageModel> pages = [];
-    List<double> pageHeights = [];
-    List<int> pageIds = [];
 
-    final docID = await ref.read(documentsProvider.notifier).loadDoc2(newPath);
+    final docID = await ref.read(documentsProvider.notifier).loadDoc(newPath);
     if (docID == null) {
       await document.close();
       return;
@@ -237,9 +222,9 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
     for (int i = 1; i <= document.pagesCount; i++) {
       final page = await document.getPage(i);
 
-      print('Seite $i');
-      print('Breite: ${page.width}');
-      print('Höhe: ${page.height}');
+      print('Page $i');
+      print('Width: ${page.width}');
+      print('Height: ${page.height}');
 
       // PDF page sizes are in points (1/72 inch); page units are millimetres.
       final height = page.height * 25.4 / 72;
@@ -271,9 +256,8 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
           throw StateError('The document was closed during the import, $newPath is incomplete.');
         }
         await ref.read(documentsProvider.notifier).modifyPages(docID, [newPage], [document.pageList.length], []);
-        await ref.read(documentsProvider.notifier).saveDoc2(docID, [newPage]);
+        await ref.read(documentsProvider.notifier).saveDoc(docID, [newPage]);
 
-        //await writeDoc(newPath, [newPage], newDoc);
 
       }
       await page.close();
@@ -325,7 +309,7 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
 
 
   @override
-  Size get preferredSize => Size.fromHeight(height1); // Höhe frei wählbar
+  Size get preferredSize => Size.fromHeight(height1); // any height
 }
 
 

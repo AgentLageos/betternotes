@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:archive/archive.dart';
@@ -12,7 +11,6 @@ class ImageModel {
   double height;
   Offset position;
   double rotation;
-  //final int path;
   final ui.Image image;
   final int imageID;
 
@@ -38,8 +36,8 @@ class ImageModel {
       height: height ?? this.height,
       width: width ?? this.width,
       position: position ?? this.position,
-      rotation: rotation ?? this.rotation,
-      image: image ?? this.image,
+      rotation: rotation,
+      image: image,
       //path : path ?? this.path,
       imageID: imageID ?? this.imageID
     );
@@ -56,7 +54,6 @@ class ImageModel {
       width: width,
       rotation: rotation,
       image: image,
-      //path: path,
       imageID: IdGenerator.next(),
     );
   }
@@ -92,7 +89,7 @@ class ImageModel {
     );
 
     if (byteData == null) {
-      throw Exception('Image konnte nicht konvertiert werden');
+      throw Exception('Image could not be converted');
     }
 
     final pngBytes = byteData.buffer.asUint8List();
@@ -171,22 +168,11 @@ class ImageModel {
       return null;
     }
 
-    final bytes = png.content as Uint8List;
+    final bytes = png.content;
 
     final codec = await ui.instantiateImageCodec(bytes);
     final frame = await codec.getNextFrame();
     final uiImage = frame.image;
-
-
-    /*
-    final bytes = await loadImageBytes(json['imageID']);
-
-    final codec = await ui.instantiateImageCodec(bytes);
-    final frame = await codec.getNextFrame();
-
-     */
-
-
 
 
     return ImageModel(

@@ -26,16 +26,14 @@ import '../models/tools/line_tool.dart';
 
 
 class PageWidget extends ConsumerStatefulWidget {
-  int pageIndex = 0;
+  final int pageIndex;
   final int pageID;
 
 
 
 
 
-  //final GlobalKey<PageWidgetState> pageKey;
-
-  PageWidget({
+  const PageWidget({
     super.key,
     required this.pageIndex,
     required this.pageID,
@@ -58,9 +56,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
 
 
-  //int selectedTool=0;
-
-
   double eraseRadius = 10.0;      //size of the eraser
   Offset? _eraserPosition;        //position of eraser
   Offset? _currentPosition;        //position of eraser
@@ -69,12 +64,11 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
   bool penUsed = false;
 
-  //List<Stroke> erasedStrokes = [];                                              //stores all the strokes that get removed by the eraser in one move. needed for undo/redo
   bool eraserUsed = false;                                                      //used for undo, preventing adding command when eraser instead of pen was used
 
   int pageIndex = 0;
 
-  late final pageID;
+  late final int pageID;
 
   double variableWidth = 0.5;
 
@@ -85,10 +79,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
 
 
-  //late Tile tile;
-
   Rect rect = Rect.fromLTWH(0, 0, 53, 50);
-  //late Tiles tiles;
 
 
   List<Stroke> selectionStrokes = [];           //used for displaying and calculation the selection area
@@ -137,7 +128,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     pageID = widget.pageID;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      //ref.read(documentsProvider.notifier).initializeAllPageTiles(docID);
     });
 
   }
@@ -145,7 +135,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
   @override
   void dispose() {
     activeStrokes.clear();
-    //erasedStrokes.clear();
 
     super.dispose();
   }
@@ -154,19 +143,15 @@ class PageWidgetState extends ConsumerState<PageWidget> {
   @override
   Widget build(BuildContext context) {
 
-    //print("PageWidget build triggered. Reason: ${context.owner?.debugBuilding}");
-    //debugPrintStack(maxFrames: 10);
 
     final docs = ref.watch(documentsProvider);
 
 
 
     final setup =ref.read(editorSetupProvider.select((setup) => setup[editorIndex]));
-    //final Tool selectedTool = EraserTool();
 
     Tool selectedTool = ref.read(editorSetupProvider)[editorIndex].tools[setup.toolIndex];
     final selectionColor = setup.selectionColor;
-    //final selectionColor = Colors.black;
 
 
     if (docIndex < 0 || docIndex >= docs.length) {
@@ -208,13 +193,11 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
             ),
             if (settings.debugMode && ref.read(documentsProvider)
-              [docIndex].pages.firstWhere((p) => p.pageID == page.pageID) == page.pageID
-
+              [docIndex].pages.any((p) => p.pageID == page.pageID)
             ) Container(
               height: pageHeight,
               width: pageWidth,
               decoration: BoxDecoration(
-                //color: Colors.red.withAlpha(64),
                 border: Border.all(
                   color: Colors.red,
                   width: 2,
@@ -231,7 +214,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
                   }
 
                   activePointers.add(event.pointer);
-                  //print(activePointers);
                   _pointerMove(event, activePointers.length);
                 },
                 onPointerMove: (event) {_pointerMove(event, activePointers.length);},
@@ -244,7 +226,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
                       //ActiveDrawer(pageWidth: pageWidth, pageHeight: pageHeight, tiles: tiles, activeStrokes: activeStrokes, page: page, images: page.images),          //drawing currently active strokes, drawing images, manages smooth erasing behavior
                       //VVV  displaying selection outline and selection menu   VVV
                       SelectionDrawer(width: pageWidth, height: pageHeight, selectionStrokes: selectionStrokes, selectionActive: selectionActive, selectionOperation: selectionOperation, selectionColor: selectionColor, deleteSelection: () { deleteSelection(); }, copySelection: () { copySelection();}, colorSelection: () { colorSelection(ref); },),
-                      if (settings.debugMode) Positioned(right: 16, bottom: 16, child: Text("${pageID}    ${pageIndex + 1}", style: TextStyle(fontSize: 12, color: Colors.grey.shade700),),)       //displaying pagenumber and pageid, NEEDS TO BE HERE SO STYLUS IS RECOGNIZED OVER TEXT AND DOESNT GET OVERLAYED WHILE ERASING
+                      if (settings.debugMode) Positioned(right: 16, bottom: 16, child: Text("$pageID    ${pageIndex + 1}", style: TextStyle(fontSize: 12, color: Colors.grey.shade700),),)       //displaying pagenumber and pageid, NEEDS TO BE HERE SO STYLUS IS RECOGNIZED OVER TEXT AND DOESNT GET OVERLAYED WHILE ERASING
                       else Positioned(right: 16, bottom: 16, child: Text("${pageIndex + 1}", style: TextStyle(fontSize: 12, color: Colors.grey.shade700),),),
                       if(page.tiles[0].isEmpty)   Positioned.fill(
                         child: IgnorePointer(
@@ -292,7 +274,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
                     height: selectedTool.width * 2,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                       border: Border.all(color: Colors.black54, width: selectedTool.width / 20),
                     ),
                   ),
@@ -307,7 +289,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
   void _pointerMove(PointerEvent event, int activePointers) {
 
-    //print("move");
 
     final setup = ref.read(editorSetupProvider.select((setup) => setup[editorIndex]));
     final color = setup.colors[setup.colorIndex];
@@ -319,23 +300,23 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
     //prevents writing next to page
 
-    //print(activePointers);
 
     if (event.kind == PointerDeviceKind.stylus || event.kind == PointerDeviceKind.invertedStylus || selectedTool.finger && activePointers == 1) {
       final RenderBox canvasBox = _canvasKey.currentContext!.findRenderObject() as RenderBox;
       final Offset localPosition = canvasBox.globalToLocal(event.position);
-      //print("hi");
       if (selectedTool is PenTool) {                                                             //if pen (selectedTool==0)is selected
 
-        //print("pentool");
         if(selectedTool.penType == PenType.normal || selectedTool.penType == PenType.fountain && selectedTool.finger) {
           addPointsToActiveStrokes(color, PointModel(pos: localPosition, width: width));
         }
         else if (selectedTool.penType == PenType.fountain) {
           double pressure = width*((event.pressure)*1.5);
           if(activeStrokes.isNotEmpty && activeStrokes.last.points.isNotEmpty){
-            if (pressure-activeStrokes.last.points.last.width>0.1) pressure = activeStrokes.last.points.last.width+0.1;
-            else if(pressure-activeStrokes.last.points.last.width<-0.1) pressure = activeStrokes.last.points.last.width-0.1;
+            if (pressure-activeStrokes.last.points.last.width>0.1) {
+              pressure = activeStrokes.last.points.last.width+0.1;
+            } else if(pressure-activeStrokes.last.points.last.width<-0.1) {
+              pressure = activeStrokes.last.points.last.width-0.1;
+            }
           }
 
 
@@ -349,7 +330,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
         eraseRadius = selectedTool.width;
         _eraserPosition = localPosition; //update eraser circle  position
-        //erasedStrokes.insertAll(0, page.strokes.where((stroke) {final isInEraseRadius = stroke.points.any((point) => (point.pos - localPosition).distance < eraseRadius,);final notAlreadyErased = !erasedStrokes.contains(stroke);return isInEraseRadius && notAlreadyErased;}).toList(),);
 
         erasedStrokes.insertAll(0, page.strokes.where((stroke) {return !erasedStrokes.contains(stroke) && strokeHitByEraser(stroke, localPosition, eraseRadius);}).toList(),);
 
@@ -361,7 +341,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
           erasedImages.add(img);
 
-          //ref.read(documentsProvider.notifier).removeElements(docID, pageID, [], [img.imageID]);
           ref.read(documentsProvider.notifier).modifyElementsExecute(docID, pageID,[], [], [], [img.imageID]);
         }
 
@@ -390,17 +369,13 @@ class PageWidgetState extends ConsumerState<PageWidget> {
       else if (selectedTool is SelectionTool && selectionActive==false) {
         addPointsToSelectionStrokes(setup.selectionColor, PointModel(pos : localPosition, width: 0.3), selectedTool);
         setState(() {});
-        //print("renew");
 
       }
       else if (selectedTool is SelectionTool && selectionActive==true) {
-        //print("setstate selectiuon");
         setState(() {
-          //print("active");
           handleSelectionAction(localPosition);
         });
 
-        //print(selectionStrokes.length);
 
       }
 
@@ -412,11 +387,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
   Future<void> _pointerUp(PointerEvent event) async {
 
-    //print("up");
-    //ref.read(documentsProvider.notifier).initializeAllPageTiles(docID);
-
-    //ref.read(documentsProvider.notifier).setBackgroundStrokesExecute(docID, pageID, 150, 150, Colors.black, 1);
-    //tiles.updateBackground();
 
     activePointers.remove(event.pointer);
 
@@ -425,7 +395,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
 
     if(selectionOperation == 0){
-      //print("moved");
     }
 
     oldPosition=Offset(0,0);
@@ -434,21 +403,19 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
     if (event.kind == PointerDeviceKind.stylus || event.kind == PointerDeviceKind.invertedStylus || event.pressure!=variableWidth) {
 
-      if (activeStrokes.length>0 && (selectedTool is PenTool || selectedTool is ShapeTool || selectedTool is LineTool)) {
-        //print(activeStrokes.last.points.length);
-        ref.read(documentsProvider.notifier).modifyElements(docID, pageID, activeStrokes, [], [], []);
+      if (activeStrokes.isNotEmpty && (selectedTool is PenTool || selectedTool is ShapeTool || selectedTool is LineTool)) {
+        unawaited(ref.read(documentsProvider.notifier).modifyElements(docID, pageID, activeStrokes, [], [], []));
         activeStrokes = [];
       }
-      else if ((erasedImages.length>0 || erasedStrokes.length>0) && selectedTool is EraserTool) {
+      else if ((erasedImages.isNotEmpty || erasedStrokes.isNotEmpty) && selectedTool is EraserTool) {
         Set<int>idsToRemove = erasedStrokes.map((s) => s.strokeID).toSet();
-        List<int>erasedImageIDs = erasedImages.map((s) => s.imageID).toList();
         _eraserPosition = null;
         await ref.read(documentsProvider.notifier).modifyElements(docID, pageID, [], [], idsToRemove.toList(), erasedImages);
         erasedImages = [];
         erasedStrokes =[];
       }
 
-      if (laserStrokes.length>0 && selectedTool is LaserTool) {
+      if (laserStrokes.isNotEmpty && selectedTool is LaserTool) {
         finishAddingPointsToLaserStrokes(selectedTool.color, selectedTool);
 
       }
@@ -456,13 +423,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
 
 
-      else if(selectionStrokes.length>0 && selectionActive == false && selectionStrokes.last.points.length>0){
-
-        //print(selectionStrokes.length);
-        //print(selectionActive);
-        //print("selection");
-
-
+      else if(selectionStrokes.isNotEmpty && selectionActive == false && selectionStrokes.last.points.isNotEmpty){
 
 
         final page = ref.read(documentsProvider.select((docs) => docs[docIndex].pages[pageIndex]));          //important: this isnt a copy of the provider but a reference! youre modifying the provider live by calling this!
@@ -470,12 +431,10 @@ class PageWidgetState extends ConsumerState<PageWidget> {
         final images = page.images;
 
         final Rect selectionBounds = selectionStrokes.last.getStrokeBounds();
-        //Rect selectionHighlight = Rect.fromCenter(center: selectionBounds.center, width: 0, height: 0);
         Rect selectionHighlight = Rect.fromLTRB(0, 0, 0, 0);
 
         final setup = ref.read(editorSetupProvider.select((setup) => setup[editorIndex]));
 
-        //print(selectionBounds);
         for (int i = 0; i<strokes.length; i++) {
 
           Rect strokeBounds = strokes[i].getStrokeBounds();
@@ -485,13 +444,11 @@ class PageWidgetState extends ConsumerState<PageWidget> {
           }
 
           if(setup.selectionMode==false && strokeInsideLasso(strokes[i], selectionStrokes.last)) {
-            //tiles.erasedStrokes.add(strokes[i]);
             erasedStrokes.add(strokes[i].copyWithID());
             activeStrokes.add(strokes[i].copyWithID());
             selectionHighlight=adjustSelectionHighlight(selectionHighlight, strokeBounds);
           }
           else if (setup.selectionMode==true && strokeTouchesLasso(strokes[i], selectionStrokes.last)){
-            //tiles.erasedStrokes.add(strokes[i]);
             erasedStrokes.add(strokes[i].copyWithID());
             activeStrokes.add(strokes[i].copyWithID());
             selectionHighlight=adjustSelectionHighlight(selectionHighlight, strokeBounds);
@@ -512,13 +469,11 @@ class PageWidgetState extends ConsumerState<PageWidget> {
           final imgStroke = Stroke(color: Colors.white, width: 0, points: [PointModel(pos: img.position, width:  0), PointModel(pos: img.position+Offset(0, img.height), width:  0), PointModel(pos: img.position+Offset(img.width, img.height), width:  0), PointModel(pos: img.position+Offset(img.width, 0), width:  0),]);
 
           if(setup.selectionMode==false && strokeInsideLasso(imgStroke, selectionStrokes.last)) {
-            //tiles.erasedStrokes.add(strokes[i]);
             activeImages.add(img);
             erasedImages.add(img.copyWithID());
             selectionHighlight=adjustSelectionHighlight(selectionHighlight, imgBounds);
           }
           else if (setup.selectionMode==true && strokeTouchesLasso(imgStroke, selectionStrokes.last)){
-            //tiles.erasedStrokes.add(strokes[i]);
             activeImages.add(img);
             erasedImages.add(img.copyWithID());
             selectionHighlight=adjustSelectionHighlight(selectionHighlight, imgBounds);
@@ -527,7 +482,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
 
         selectionStrokes.last.points.clear();
-        if(activeStrokes.length>0 || activeImages.length>0){
+        if(activeStrokes.isNotEmpty || activeImages.isNotEmpty){
 
           selectionStrokes.last.points.add(PointModel(pos: selectionHighlight.topLeft, width: 0.3));
           selectionStrokes.last.points.add(PointModel(pos: selectionHighlight.bottomLeft, width: 0.3));
@@ -536,60 +491,35 @@ class PageWidgetState extends ConsumerState<PageWidget> {
           selectionActive = true;
 
         }
-        else selectionStrokes = [];
+        else {
+          selectionStrokes = [];
+        }
 
 
 
       }
 
-      //print("setstate51");
 
       setState(() {
-        //print("setstate52");
         newStroke = true;
         _eraserPosition = null;
         _currentPosition = null;
       });
-      //print("setstate53");
-
-
-
 
 
     }
 
-    //print(selectionOperation);
   }
-
-
-
-  /*
-  void setPageNumber(int number){
-    pageIndex = number;                                                     //this is the important one
-    //print("pagenumber"+pageNumber.toString());
-    //print("setstate6");
-    setState(() {
-
-    });
-  }
-   */
-
 
 
 
   Future<void> handleSelectionStart(PointerEvent event, Tool tool) async {
-    //print("hi");
 
     Offset pointer = event.localPosition;
     if (event.kind == PointerDeviceKind.touch){
-      //print("touch");
       return;
     }
 
-
-    //ref.read(documentsProvider.notifier).setNewImage(docID, pageID, false);
-
-    //print(oldPosition);
 
     final stroke = selectionStrokes.first;
 
@@ -600,7 +530,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
     const double hitRadius = 3;
 
-    //startPointer = pointer;
     Offset rotatePointer = p0-(p0-p1)/4+(p3-p0)/2;              //when changing this also change the detection area in selection_drawer (search for line with same formula)
 
 
@@ -618,45 +547,31 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
     }
     if ((pointer - rotatePointer).distance < hitRadius && (tool is SelectionTool)) {
-      //currentAction = SelectionAction.rotate;
-      //selectionCenter = center;
-      //print("rotate");
       selectionOperation = 1;         //rotating selection
       lastDistance = null;
       scaleCenter = null;
       lastVector = null;
-      //return;
     }
     else if(((pointer - p0).distance < hitRadius || (pointer - p1).distance < hitRadius || (pointer - p2).distance < hitRadius || (pointer - p3).distance < hitRadius) && (tool is SelectionTool)){
-      //print("scale");
       lastVector = null;
-      //currentAction = SelectionAction.scaleCorner;
-      //selectionCenter = center;
       selectionOperation = 2;           //scaling selection
-      //return;
 
     }
     else if (rect.contains(pointer)  && (tool is SelectionTool)) {
-      //print("move");
-      //currentAction = SelectionAction.move;
       selectionOperation = 0;       //moving selection
       lastDistance = null;
       scaleCenter = null;
       lastVector = null;
-      //return;
     }
     else if (sideMenu.contains(pointer)  && (tool is SelectionTool)) {
       selectionOperation = -1;
       lastDistance = null;
       scaleCenter = null;
       lastVector = null;
-      //print("sidemenu");
     }
     else {
-      //print("null");
 
       List<int>erasedStrokeIDs = erasedStrokes.map((s) => s.strokeID).toList();
-      List<int>erasedImageIDs = erasedImages.map((s) => s.imageID).toList();
 
       List<ImageModel> copiedAddedImages = [];
       for (final i in activeImages) {
@@ -664,17 +579,12 @@ class PageWidgetState extends ConsumerState<PageWidget> {
       }
 
       await ref.read(documentsProvider.notifier).modifyElements(docID, pageID, activeStrokes, copiedAddedImages, erasedStrokeIDs, erasedImages);
-      //await ref.read(documentsProvider.notifier).removeElements(docID, pageID, erasedStrokeIDs, []);
-      //ref.read(documentsProvider.notifier).addElements(docID, pageID, activeStrokes, []);
 
 
       oldPosition = Offset(0,0);
       selectionOperation = -1;
       selectionActive = false;
-      //tiles.updateErased();
-      //tiles.update(activeStrokes);
       selectionStrokes = [];
-     // tiles.erasedStrokes = [];
       erasedStrokes = [];
       activeStrokes = [];
       lastDistance = null;
@@ -682,24 +592,13 @@ class PageWidgetState extends ConsumerState<PageWidget> {
       activeImages = [];
       erasedImages = [];
 
-      //print("selection finished");
-
-
-
-
-
 
     }
-
-
-    //print(selectionOperation);
 
 
     if(selectionOperation==0 || selectionOperation==1 || selectionOperation==2) {
 
 
-      //
-      // print("case?");
       for(final image in activeImages){
         rememberActiveImages.add(image.copyWithID());
       }
@@ -744,7 +643,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     }
 
     for (final image in activeImages) {
-      //print("hi");
       image.position += delta;
 
     }
@@ -880,7 +778,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     }
 
     for (final image in activeImages) {
-      //print("hi");
       Offset bottomRight = image.position + Offset(image.width, image.height);
       image.position = scalePointXY(image.position, center, scaleX, scaleY);
       bottomRight = scalePointXY(bottomRight, center, scaleX, scaleY);
@@ -988,9 +885,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
 
   Future<void> deleteSelection() async {
-    //print("hi");
     final idsToRemove = activeStrokes.map((s) => s.strokeID).toList();
-    final imageIDsToRemove = activeImages.map((s) => s.imageID).toList();
 
     await ref.read(documentsProvider.notifier).modifyElements(docID, pageID, [], [], idsToRemove.toList(), activeImages);
 
@@ -999,15 +894,8 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
     activeImages = [];
     selectionActive = false;
-    //tiles.updateErased();
-    //tiles.update(activeStrokes);
     selectionStrokes = [];
-    //tiles.erasedStrokes = [];
     erasedStrokes = [];
-    //activeStrokes = [];
-    //print("setstate l");
-    //setState(() {});
-    //rememberActiveStrokes = activeStrokes;
     activeStrokes = [];
 
     WidgetsBinding.instance.addPostFrameCallback((_) {            //TODO this is really funky there has to be a better way
@@ -1019,15 +907,9 @@ class PageWidgetState extends ConsumerState<PageWidget> {
   }
 
   Future<void> copySelection() async {
-    //print("copy");
 
     selectionOperation = -1;
-    //selectionActive = false;
 
-    //tiles.erasedStrokes = [];
-    //erasedStrokes = [];
-    //tiles.updateErased();
-    //tiles.update(activeStrokes);
     activeStrokes = activeStrokes.map((s) => s.copy()).toList();
     erasedStrokes = [];
 
@@ -1039,29 +921,14 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     oldPosition = Offset(1,1);
     moveSelection(Offset(3,3));
     oldPosition = Offset(0,0);
-    /*
-    setState(() {
-
-    });
-
-     */
 
     await ref.read(documentsProvider.notifier).modifyElements(docID, pageID, [], activeImages, [], []);
-    //tiles.erasedStrokes.addAll(activeStrokes);
-    //erasedStrokes.addAll(activeStrokes);
 
-    //tiles.update(activeStrokes);
-    //selectionStrokes = [];
 
-    //activeStrokes = [];
     lastDistance = null;
     scaleCenter = null;
 
-    //print(activeStrokes.length);
 
-
-
-    //copiedStrokes = activeStrokes.map((s) => s.copy()).toList();
   }
 
   void colorSelection(WidgetRef ref) async {       //TODO IMPLEMENT ME
@@ -1071,20 +938,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
       s.color = color;
     }
     setState(() {});
-    /*
-    final newColor = await showDialog<Color>(
-      context: context,
-      builder: (_) => ColorPickerDialog(currentColor: activeStrokes.first.color),
-    );
-
-    if (newColor != null) {
-      for (final stroke in activeStrokes) {
-        stroke.color = newColor;
-      }
-      setState(() {});
-    }
-
-     */
   }
 
 
@@ -1097,7 +950,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     else if ((point.pos-activeStrokes.last.points.last.pos).distance > activeStrokes.last.points.last.width*0.1){               //only add new point when the gap exceeds a minimum distance
       activeStrokes.last.points.add(point);
     }
-    //else print("tooclose");
 
   }
 
@@ -1129,7 +981,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
       }
 
     }
-    //else print("tooclose");
 
 
   }
@@ -1157,27 +1008,14 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
     }
     else if ((point.pos-activeStrokes.last.points.last.pos).distance > activeStrokes.last.points.last.width*0.1 && tool.shapeOrigin == ShapeOrigin.corner){               //only add new point when the gap exceeds a minimum distance
-      if(tool.shape == ShapeShape.line) activeStrokes.last.points.last = point;
-      else if(tool.shape == ShapeShape.arrow) {
-        //print(activeStrokes.last.points.first.pos);
+      if(tool.shape == ShapeShape.line) {
+        activeStrokes.last.points.last = point;
+      } else if(tool.shape == ShapeShape.arrow) {
         activeStrokes.last.points[2] = point;
         activeStrokes.last.points[4] = point;
 
 
-        //print(activeStrokes.last.points[0].pos);
-
-        /*
-        if (tool.snapToGrid) {
-          activeStrokes.last.points[0].pos = Offset((initialPosition.dx/5).roundToDouble()*5, (initialPosition.dy/5).roundToDouble()*5);
-          activeStrokes.last.points[2].pos = Offset((initialPosition.dx/5).roundToDouble()*5, (initialPosition.dy/5).roundToDouble()*5);
-          point.pos = Offset((point.pos.dx/5).roundToDouble()*5, (point.pos.dy/5).roundToDouble()*5);
-          //b/activeStrokes.last.points[i].pos = Offset((activeStrokes.last.points[i].pos.dx/grid).roundToDouble()*grid, (activeStrokes.last.points[i].pos.dy/grid).roundToDouble()*grid);
-        }
-
-         */
-
         final dir = activeStrokes.last.points[2].pos - activeStrokes.last.points[0].pos;
-        //print(dir);
         final length = dir.distance;
         final unit = Offset(dir.dx / length, dir.dy / length);
         final normal = Offset(-unit.dy, unit.dx);
@@ -1188,7 +1026,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
         activeStrokes.last.points[3].pos = base - normal * arrowWidth;
       }
       else if(tool.shape == ShapeShape.rect) {
-        //print(activeStrokes.last.points.first.pos);
         activeStrokes.last.points[1].pos = Offset(activeStrokes.last.points[1].pos.dx, point.pos.dy);
         activeStrokes.last.points[2].pos = point.pos;
         activeStrokes.last.points[3].pos = Offset(point.pos.dx, activeStrokes.last.points[3].pos.dy) ;
@@ -1206,7 +1043,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
           b= (b/5).roundToDouble()*5;
           initialPosition = Offset((initialPosition.dx/5).roundToDouble()*5, (initialPosition.dy/5).roundToDouble()*5);
           point.pos = Offset((point.pos.dx/5).roundToDouble()*5, (point.pos.dy/5).roundToDouble()*5);
-          //b/activeStrokes.last.points[i].pos = Offset((activeStrokes.last.points[i].pos.dx/grid).roundToDouble()*grid, (activeStrokes.last.points[i].pos.dy/grid).roundToDouble()*grid);
         }
 
         if(2*pi/step<30) step=2*pi/30;
@@ -1220,7 +1056,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
       }
       else if(tool.shape == ShapeShape.triangle) {
-        //print(activeStrokes.last.points.first.pos);
         activeStrokes.last.points[1].pos = Offset(point.pos.dx, activeStrokes.last.points[0].pos.dy);
         activeStrokes.last.points[2].pos = Offset((point.pos-(point.pos-activeStrokes.last.points[0].pos)/2).dx, (activeStrokes.last.points[0].pos-activeStrokes.last.points[0].pos+point.pos).dy);
       }
@@ -1303,12 +1138,10 @@ class PageWidgetState extends ConsumerState<PageWidget> {
           radius = (radius/5).roundToDouble()*5;
           initialPosition = Offset((initialPosition.dx/5).roundToDouble()*5, (initialPosition.dy/5).roundToDouble()*5);
           point.pos = Offset((point.pos.dx/5).roundToDouble()*5, (point.pos.dy/5).roundToDouble()*5);
-          //b/activeStrokes.last.points[i].pos = Offset((activeStrokes.last.points[i].pos.dx/grid).roundToDouble()*grid, (activeStrokes.last.points[i].pos.dy/grid).roundToDouble()*grid);
         }
 
         for(double i = 0; i<2*pi; i=i+step) {newStroke.points.add(PointModel(pos: initialPosition+Offset(radius*sin(i), radius*cos(i)), width: point.width));}
         newStroke.points.add(PointModel(pos: newStroke.points.first.pos, width: point.width));
-        //print(newStroke.points.length);
         activeStrokes.last = newStroke;
 
       }
@@ -1370,8 +1203,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
 
 
-    //else print("tooclose");
-
   }
 
   void addLinePointsToActiveStroke(LineTool tool, Color color, PointModel point) {
@@ -1391,28 +1222,19 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
     }
     else if ((point.pos-activeStrokes.last.points.last.pos).distance > activeStrokes.last.points.last.width*0.1 && tool.lineOrigin == LineOrigin.corner){               //only add new point when the gap exceeds a minimum distance
-      if(tool.line == LineType.line) activeStrokes.last.points.last = point;
-      else if(tool.line == LineType.arrow) {
-        //print(activeStrokes.last.points.first.pos);
+      if(tool.line == LineType.line) {
+        activeStrokes.last.points.last = point;
+      } else if(tool.line == LineType.arrow) {
         if (tool.snapToGrid) {
           activeStrokes.last.points[0].pos = Offset((initialPosition.dx/5).roundToDouble()*5, (initialPosition.dy/5).roundToDouble()*5);
           activeStrokes.last.points[1].pos = Offset((initialPosition.dx/5).roundToDouble()*5, (initialPosition.dy/5).roundToDouble()*5);
           point.pos = Offset((point.pos.dx/5).roundToDouble()*5, (point.pos.dy/5).roundToDouble()*5);
-          //b/activeStrokes.last.points[i].pos = Offset((activeStrokes.last.points[i].pos.dx/grid).roundToDouble()*grid, (activeStrokes.last.points[i].pos.dy/grid).roundToDouble()*grid);
         }
         activeStrokes.last.points[2] = point;
         activeStrokes.last.points[4] = point;
 
 
-        //print(activeStrokes.last.points[0].pos);
-
-
-
-
-
-
         final dir = activeStrokes.last.points[2].pos - activeStrokes.last.points[0].pos;
-        //print(dir);
         double length = dir.distance;
         if (length == 0.0) length = 0.1;
         final unit = Offset(dir.dx / length, dir.dy / length);
@@ -1469,8 +1291,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     }
 
 
-
-    //else print("tooclose");
 
   }
 
@@ -1536,19 +1356,20 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
       laserStrokes.add(Stroke(color: color, width: -1, points: [point]));
     }
-    else if(laserStrokes.last.points.isEmpty) laserStrokes.last.points.add(point);
+    else if(laserStrokes.last.points.isEmpty) {
+      laserStrokes.last.points.add(point);
+    }
     else if ((point.pos-laserStrokes.last.points.last.pos).distance > laserStrokes.last.points.last.width*0.1 && tool.leaveTrail){               //only add new point when the gap exceeds a minimum distance
       laserStrokes.last.points.add(point);
     } else if(!tool.leaveTrail){
       laserStrokes.last.points.last.pos = point.pos;
     }
-    //print("action");
 
   }
   void finishAddingPointsToLaserStrokes(Color color, LaserTool tool) {
     final stroke = laserStrokes.last;
 
-    // Timer 1: startet nach 1 Sekunde
+    // Timer 1: starts after 1 second
     if(tool.fadeOut) {
 
       final durationBegin = (tool.fadeOutDuration*100).toInt();

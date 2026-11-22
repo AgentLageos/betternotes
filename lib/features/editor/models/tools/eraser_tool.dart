@@ -24,13 +24,12 @@ class EraserTool extends Tool{
   EraserTool({
     double? width,
     Shape? shape,
-    bool? finger,
+    super.finger,
 
-    int? toolID,
+    super.toolID,
   })
       : width = width ?? 4.0,
-        shape = shape ?? Shape.circle,
-        super(finger: finger, toolID: toolID)
+        shape = shape ?? Shape.circle
   ;
 
   EraserTool copyWith({
@@ -52,6 +51,7 @@ class EraserTool extends Tool{
 
 
 
+  @override
   Map<String, dynamic> toJson() => {
     'type': type,
     'width': width,

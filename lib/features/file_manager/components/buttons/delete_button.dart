@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:betternotes/l10n/app_localizations.dart';
+import 'package:path/path.dart' as p;
 
 class DeleteButton extends StatelessWidget {
   final VoidCallback onDeleteSelected;
@@ -23,10 +24,10 @@ class DeleteButton extends StatelessWidget {
 
   final String string;
   if (selectedFiles.length>1) {
-    string=selectedFiles.length.toString()+' '+text.elements;
+    string='${selectedFiles.length} ${text.elements}';
   }else {
-    string = "\""+ selectedFiles.first.path.split('/').last+"\"";
-  };
+    string = "\"${p.basename(selectedFiles.first.path)}\"";
+  }
     return IconButton(
       color: Theme.of(context).colorScheme.onPrimary,
       onPressed: () async {
@@ -46,7 +47,7 @@ class DeleteButton extends StatelessWidget {
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setState) => AlertDialog(
-            title: Text(text.delete+' $string?'),
+            title: Text('${text.delete} $string?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),

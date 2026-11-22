@@ -5,12 +5,12 @@ class DropDownMenuButton extends StatefulWidget {
   final void Function(String) onItemSelected;
 
   const DropDownMenuButton({
-    Key? key,
+    super.key,
     required this.onItemSelected,
-  }) : super(key: key);
+  });
 
   @override
-  _DropDownMenuButtonState createState() => _DropDownMenuButtonState();
+  State<DropDownMenuButton> createState() => _DropDownMenuButtonState();
 }
 
 class _DropDownMenuButtonState extends State<DropDownMenuButton> {
@@ -71,9 +71,7 @@ class _DropDownMenuButtonState extends State<DropDownMenuButton> {
 
                           //TODO REIMPLEMENT ME
                           //ListTile(leading: Icon(Icons.sticky_note_2_outlined), title: Text(text.page_setup), onTap: () {widget.onItemSelected('pageSetup');_removeDropdown();},),
-                          //Divider(height: 1, color: Colors.grey[300]),
                           ListTile(leading: Icon(Icons.image_outlined), title: Text(text.import_image), onTap: () {widget.onItemSelected('importImage');_removeDropdown();},),
-                          //Divider(height: 1, color: Colors.grey[300]),
                           //ListTile(leading: Icon(Icons.access_alarm),  title: Text('PLACEHOLDER 3'),onTap: () {widget.onItemSelected('PLACEHOLDER 3');_removeDropdown();},),
                         ],
                       )
@@ -86,7 +84,7 @@ class _DropDownMenuButtonState extends State<DropDownMenuButton> {
       ),
     );
 
-    Overlay.of(context)?.insert(_overlayEntry!);
+    Overlay.of(context).insert(_overlayEntry!);
   }
 
   void _removeDropdown() {

@@ -1,14 +1,15 @@
 import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:betternotes/core/utils/pref_keys.dart';
 
 Future<void> saveLastRoute(String route) async {
   final prefs = await SharedPreferences.getInstance();
-  await prefs.setString('lastRoute', route);
+  await prefs.setString(PrefKeys.lastRoute, route);
 }
 
 Future<String?> loadLastRoute() async {
   final prefs = await SharedPreferences.getInstance();
-  return prefs.getString('lastRoute');
+  return prefs.getString(PrefKeys.lastRoute);
 }
 
 

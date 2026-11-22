@@ -1,6 +1,5 @@
 import 'package:betternotes/core/components/color_picker.dart';
 import 'package:betternotes/main.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +7,7 @@ import '../models/settings.dart';
 import '../providers/settings_notifier.dart';
 
 import '../../../l10n/app_localizations.dart';
+import 'package:betternotes/core/utils/color_channels.dart';
 
 
 final settingsProvider = NotifierProvider<SettingsNotifier, Settings>(() => SettingsNotifier());
@@ -142,7 +142,8 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
               label: language.on_secondary_color,
               color: settings.onSecondary,
               onColorPicked: (color) async {
-                ref.read(settingsProvider.notifier).setOnSecondaryColor(color);
+                await ref.read(settingsProvider.notifier).setOnSecondaryColor(color);
+                if (!context.mounted) return;
                 RestartWidget.restartApp(context);
               },
             ),
@@ -171,7 +172,8 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
               label: language.error_color,
               color: settings.error,
               onColorPicked: (color) async {
-                ref.read(settingsProvider.notifier).setErrorColor(color);
+                await ref.read(settingsProvider.notifier).setErrorColor(color);
+                if (!context.mounted) return;
                 RestartWidget.restartApp(context);
               },
             ),
@@ -217,16 +219,16 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
   }
 
   Future<Color?> pickRGBColor(BuildContext context, Color current) async {
-    int r = current.red;
-    int g = current.green;
-    int b = current.blue;
-    int a = current.alpha;
+    int r = current.red8;
+    int g = current.green8;
+    int b = current.blue8;
+    int a = current.alpha8;
 
     return showDialog<Color>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text("Farbe auswählen"),
+          title: Text(AppLocalizations.of(context)!.select_color),
           content: StatefulBuilder(
             builder: (context, setStateDialog) {
               Color preview = Color.fromARGB(a, r, g, b);
@@ -258,8 +260,8 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
             },
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text("Abbrechen")),
-            TextButton(onPressed: () => Navigator.of(context).pop(Color.fromARGB(a, r, g, b)), child: const Text("OK")),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(AppLocalizations.of(context)!.cancel)),
+            TextButton(onPressed: () => Navigator.of(context).pop(Color.fromARGB(a, r, g, b)), child: Text(AppLocalizations.of(context)!.ok)),
           ],
         );
       },
@@ -286,16 +288,16 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
 }
 
 Future<Color?> pickRGBColor(BuildContext context, Color current, String message) async {
-  int r = current.red;
-  int g = current.green;
-  int b = current.blue;
-  int a = current.alpha;
+  int r = current.red8;
+  int g = current.green8;
+  int b = current.blue8;
+  int a = current.alpha8;
 
   return showDialog<Color>(
     context: context,
     builder: (context) {
       return AlertDialog(
-        title: const Text("Farbe auswählen"),
+        title: Text(AppLocalizations.of(context)!.select_color),
         content: StatefulBuilder(
           builder: (context, setDialogState) {
             Color preview = Color.fromARGB(a, r, g, b);
@@ -392,12 +394,12 @@ Future<Color?> pickRGBColor(BuildContext context, Color current, String message)
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(null),
-            child: const Text("Abbrechen"),
+            child: Text(AppLocalizations.of(context)!.cancel),
           ),
           TextButton(
             onPressed: () =>
                 Navigator.of(context).pop(Color.fromARGB(a, r, g, b)),
-            child: const Text("OK"),
+            child: Text(AppLocalizations.of(context)!.ok),
           ),
         ],
       );

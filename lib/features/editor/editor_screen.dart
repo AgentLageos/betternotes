@@ -15,15 +15,12 @@ import 'components/document_widget.dart';
 
 import 'package:betternotes/core/providers/global_providers.dart';
 
-import 'package:vector_math/vector_math_64.dart' as vect;
 
 
 
 final editorIndex = 0;
 
 class Editor extends ConsumerStatefulWidget {
-  //final String pathToFile;
-
 
 
   const Editor({
@@ -43,7 +40,6 @@ class Editor extends ConsumerStatefulWidget {
 
 class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
 
-  //String currentFileName = 'noFileName';
   String pathToFile = 'noFileName';
   Orientation? _lastOrientation;
 
@@ -53,7 +49,6 @@ class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
   double zoomedInSideSpace = 5.0;
 
 
-  final GlobalKey<DocumentWidgetState> _documentWidgetKey = GlobalKey<DocumentWidgetState>();
 
   final ValueNotifier<int> currentPage = ValueNotifier<int>(0);
   int newCurrentPage = 0;
@@ -81,8 +76,6 @@ class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
 
 
 
-    //currentFileName = Provider.of<GlobalState>(context, listen: false).currentFileName;
-    //pathToFile = widget.pathToFile;
     pathToFile = ref.read(documentsProvider)[0].pathToFile;
     print("editor: pathToFile: $pathToFile");
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -109,7 +102,6 @@ class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {                        //actucally visible elements
 
-    //late final doc= ref.read(documentsProvider)[docIndex];
 
     final setup =ref.read(editorSetupProvider.select((setup) => setup[editorIndex]));
     Tool selectedTool = ref.watch(editorSetupProvider)[editorIndex].tools[setup.toolIndex];
@@ -148,27 +140,13 @@ class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
                     maxScale: maxScale,
                     child: SizedBox(
                         width: constraints.maxWidth,
-                        //height: constraints.maxHeight,
                         child: DocumentWidget()
                     ),
                   ),
                 ),
               ),
-              Positioned(right: 16, bottom: 16, child: Text("currentPageIndex: ${currentPage}", style: TextStyle(fontSize: 24, color: Colors.blueGrey),),),
+              Positioned(right: 16, bottom: 16, child: Text("currentPageIndex: $currentPage", style: TextStyle(fontSize: 24, color: Colors.blueGrey),),),
 
-
-              /*
-              Positioned(
-                top: constraints.maxHeight / 2,
-                left: 0,
-                right: 0,
-                child: Container(
-                  height: 1,
-                  color: Colors.red,
-                ),
-              ),
-
-               */
 
             ],
 
@@ -316,9 +294,7 @@ class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
       currentPage = doc.pageHeights.length-1;
     }
 
-    //print("editor: ref currentPage: $currentPage");
 
-    //print(currentPage);
     late final double pageWidth = doc.pages[0].pageWidth;
 
 
@@ -388,7 +364,7 @@ class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
           currentPage = newCurrentPage;
           print("editor: scrollY = $scrollY, zoom=$zoom translateY = $translateY");
           print("editor: setcurrentpage $newCurrentPage");
-          ref.read(documentsProvider.notifier).setCurrentPageIndex3(ref.read(documentsProvider.notifier).currentDocID, newCurrentPage);
+          unawaited(ref.read(documentsProvider.notifier).setCurrentPageIndex(ref.read(documentsProvider.notifier).currentDocID, newCurrentPage));
         }
       }
 
@@ -396,7 +372,6 @@ class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
 
       counter++;
       if (counter > 10) {
-        //ref.read(documentsProvider.notifier).checkPagesMapped(0);
         counter = 0;
       }
 
@@ -404,7 +379,6 @@ class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
         ..translate(translateX, translateY)
         ..scale(zoom);
 
-      //_customTransformationController.value = matrix;
 
       if (!_matrixEquals(_customTransformationController.value, matrix)) {
         _customTransformationController.value = matrix;

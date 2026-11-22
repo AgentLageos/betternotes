@@ -2,28 +2,25 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
-import 'dart:ui';
 import 'dart:typed_data';
 
 import 'package:betternotes/features/editor/models/commands/modify_elements_command.dart';
 import 'package:betternotes/features/editor/models/commands/modify_pages_command.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:betternotes/features/editor/models/page/page_model.dart';
 import 'package:betternotes/features/editor/models/page/stroke.dart';
 import 'package:betternotes/features/editor/models/page/document_model.dart';
 
-import '../../../core/utils/isolates/initializeTiles.dart' as iso;
+import '../../../core/utils/isolates/initialize_tiles.dart' as iso;
 import '../../../core/utils/id_generator.dart';
 import '../models/commands/command.dart';
 import '../models/commands/empty_command.dart';
 
 import '../models/page/image_model.dart';
 
-import '../models/page/tile2.dart';
+import '../models/page/tile.dart';
 
 
 class DocumentsNotifier extends Notifier<List<DocumentModel>> {
@@ -36,12 +33,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
   /// Position of the document with [docID] in [state], or -1 if it is not open.
   int _docIndexOf(int docID) => state.indexWhere((d) => d.docID == docID);
-
-  Isolate? runningIsolate;
-
-
-
-  List<int> requestID = [0,0,0,0,0];
 
   final Map<int, int> _requestIds = {};
 
@@ -71,7 +62,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
     state = newDocuments;
 
-    //setBackgroundStrokesExecute(docID, pageID, horizontalSpace, verticalSpace, strokeColor, strokeWidth)
   }
 
   Future<void> setAllHeights(int docID, double value) async {
@@ -149,7 +139,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
       pageWidth: pageWidth,
       pageHeight: pageHeight,
       pageColor: pageColor,
-      //backgroundUpdate: backgroundUpdate ?? false,
       tiles: [[]],
     );
 
@@ -187,8 +176,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     }
 
 
-    //final List<PageModel>
-
     newDocuments[docIndex] = oldDoc.copyWith(pages: pages);
 
     state = newDocuments;
@@ -201,12 +188,9 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     final docIndex = docs.indexWhere((d) => d.docID == docID);
     final pageIndex = doc.pages.indexWhere((p) => p.pageID == pageID);
 
-    List<PageModel> pages = doc.pages;
 
     final newPage = page.copyWith(pageColor: newDefaultPage.pageColor, pageHeight: newDefaultPage.pageHeight, pageWidth: newDefaultPage.pageWidth, backgroundStrokes: newDefaultPage.backgroundStrokes, tiles: newDefaultPage.tiles);
 
-
-    //pages[pageIndex] = newPage;
 
     final newPages = [
       for (int i = 0; i < doc.pages.length; i++)
@@ -221,8 +205,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     docs[docIndex] = doc;
 
     state = docs;
-
-    //await initializeAllPageTiles(docID);
 
 
   }
@@ -244,7 +226,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
   void setDefaultPage(int docID, PageModel newDefaultPage) {
     List<DocumentModel> docs = [...state];
-    //DocumentModel doc = docs.firstWhere((d) => d.docID == docID);
     final docIndex = docs.indexWhere((d) => d.docID == docID);
     if (docIndex == -1) return;
     docs[docIndex] = docs[docIndex].copyWith(defaultPage: newDefaultPage);
@@ -262,7 +243,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
 
     final removeStrokes = page.strokes.where((s) => removeStrokeIDs.contains(s.strokeID)).toList();
-    //final removeImages = page.images.where((s) => removeImageIDs.contains(s.imageID)).toList();
     final List<int>removeImageIDs = removeImages.map((s) => s.imageID).toList();
 
     addCommands(docID, [ModifyElementsCommand(addedStrokes: addStrokes, addedImages: addImages, removedStrokes: removeStrokes, removedImages: removeImages, pageID: pageID)]);
@@ -272,7 +252,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
   Future<void> modifyElementsExecute(int docID, int pageID, List<Stroke> addStrokes, List<ImageModel> addImages, List<int> removeStrokeIDs, List<int> removeImageIDs) async {
 
-    //print(state[0].pages.first.strokes.last.points.first.pos);
     state = [
       for (int i = 0; i < state.length; i++)
         if (state[i].docID == docID)
@@ -280,10 +259,9 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
             pages: [
               for (int j = 0; j < state[i].pages.length; j++)
                 if (state[i].pages[j].pageID == pageID)
-                //List<ImageModel> images = state[i].pages[j].images;
                   state[i].pages[j].copyWith(
-                    images: [...state[i].pages[j].images.where((img) => !removeImageIDs.contains(img.imageID)).toList(), ...addImages],
-                    strokes: [...state[i].pages[j].strokes.where((stroke) => !removeStrokeIDs.contains(stroke.strokeID)).toList(), ...addStrokes]
+                    images: [...state[i].pages[j].images.where((img) => !removeImageIDs.contains(img.imageID)), ...addImages],
+                    strokes: [...state[i].pages[j].strokes.where((stroke) => !removeStrokeIDs.contains(stroke.strokeID)), ...addStrokes]
                   )
                 else
                   state[i].pages[j]
@@ -293,10 +271,8 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
           state[i]
     ];
 
-    //if (removeStrokeIDs.isNotEmpty || addStrokes.isNotEmpty)
     await updatePage(docID, pageID, addStrokes, removeStrokeIDs);
 
-      //print(state[0].pages.first.strokes.last.points.first.pos);
   }
 
   Future<void> modifyPages(int docID, List<PageModel> addPages, List<int> addPageIndexes, List<int> removePageIDs) async{
@@ -341,7 +317,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     print("documents_notifier: modifyPagesExecute: ${doc.pageList}");
 
     // addPageIndexes are positions in pageList (the whole document). doc.pages is only the loaded
-    // window, so the page is just appended there; setCurrentPageIndex3 below rebuilds the window in
+    // window, so the page is just appended there; setCurrentPageIndex below rebuilds the window in
     // pageList order (and saves pages that end up outside of it).
     for (int i = 0; i<addPageIndexes.length; i++) {
       final position = addPageIndexes[i].clamp(0, pageList.length);
@@ -353,7 +329,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     print("documents_notifier: modifyPagesExecute: $pageList");
 
 
-    // P1-07: remove heights in descending index order so earlier removals don't shift later ones;
     // skip IDs that are not in the document.
     final indices = removePageIDs
         .map((id) => pageList.indexOf(id))
@@ -361,7 +336,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
         .toSet()
         .toList()
       ..sort((a, b) => b.compareTo(a));
-    //print(indices);
 
     for (final index in indices) {
       pageHeights.removeAt(index);
@@ -382,9 +356,8 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
         else state[i]
     ];
 
-    //print("documents_notifier: modifyPagesExecute: pageList: ${[...state].firstWhere((d) => d.docID == docID).pageList}");
     final currentPage = doc.currentPageIndex.clamp(0, pageList.isEmpty ? 0 : pageList.length - 1);
-    setCurrentPageIndex3(docID, currentPage);
+    await setCurrentPageIndex(docID, currentPage);
 
   }
 
@@ -424,9 +397,8 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
   final lazyLoadRange = 1;
   final distanceBetweenPages = 12;
 
-  Future<void> setCurrentPageIndex3(int docID, int currentPage) async {
+  Future<void> setCurrentPageIndex(int docID, int currentPage) async {
 
-    //print("documents_notifier: currentPage: ${currentPage}");
     List<DocumentModel> documents = [...state];
     final docIndex = documents.indexWhere((d) => d.docID == docID);
     if (docIndex == -1) return;         //document was closed
@@ -439,36 +411,30 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     if (upperIndex > doc.pageHeights.length-1) upperIndex = doc.pageHeights.length-1;
 
 
-    int j = 0;
 
     List<int> oldPageIDs = doc.pages.map((page) => page.pageID).toList();
     List<int> newPageIDs = [];
 
     List<PageModel> newPages = [];
 
-    //print("documents_notifier: setcurrentPage: pages: ${doc.pageList}");
     for (int i = currentPage-lazyLoadRange; i<currentPage+lazyLoadRange+1; i++){      //adding new pages
       if(i>=0 && i<doc.pageList.length) {
-        //print(i);
         newPageIDs.add(doc.pageList[i]);
         if(!oldPageIDs.contains(doc.pageList[i])) {
           newPages.add(PageModel(isTemp: true, pageID: doc.pageList[i]));
-        } else newPages.add(doc.pages.firstWhere((p) => p.pageID == doc.pageList[i]));
+        } else {
+          newPages.add(doc.pages.firstWhere((p) => p.pageID == doc.pageList[i]));
+        }
       }
-      j++;
     }
 
     List<PageModel> removePages = doc.pages
         .where((page) => !newPages.contains(page))
         .toList();
 
-    //print("documents_notifier: setcurrentPage: pages: ${doc.pageList}");
-    //print("documents_notifier: removepages: $removePages");
 
-    saveDoc2(docID, removePages);
+    unawaited(saveDoc(docID, removePages));         //pages leaving the loaded window
 
-    //print("documents_notifier: setCurrentPage3: pageList: ${doc.pageList}");
-    //print("documents_notifier: setCurrentPage3: ${newPages.length}");
 
     double newPlaceholderHeight = 0;
     for (int i = 0; i < currentPage - lazyLoadRange; i++) {
@@ -485,17 +451,12 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
     state = documents;
 
-    //print("documents_notifier: setCurrentPage: newPageIDs: $newPageIDs");
-    //print("documents_notifier: setcurrentPage: pages: ${doc.pages.map((p) => p.pageID).toList()}");
-    //print("documents_notifier: setCurrentPage: currentPage: ${doc.currentPageIndex}");
-    updateIsolatedPages(docID);
-    //print("documents_notifier: setcurrentPage: pages: ${doc.pages.length}");
+    unawaited(updateIsolatedPages(docID));          //load pages in the background
   }
 
   Future<void> updateIsolatedPages(int docID) async {
 
 
-    //print("documents_notifier: loadAndMapPages");
     List<DocumentModel> documents = [...state];
     final docIndex = documents.indexWhere((d) => d.docID == docID);
     if (docIndex == -1) return;         //document was closed
@@ -505,20 +466,19 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     List<int> pagesToLoad = [];    //for collecting pageIDs of pages that have to be loaded from memory
 
 
-    //print(pageIDs.first);
     List<PageModel> newPages = [];
 
 
     for(final page in doc.pages) {
-      if(page.isTemp) pagesToLoad.add(page.pageID);
-      else if (page.tiles.isEmpty) loadedPages.add(page);
-      else if (page.tiles.isNotEmpty) if(page.tiles.first.isEmpty) loadedPages.add(page);
+      if(page.isTemp) {
+        pagesToLoad.add(page.pageID);
+      } else if (page.tiles.isEmpty || page.tiles.first.isEmpty) {
+        loadedPages.add(page);        //loaded, but not rendered yet
+      }
     }
 
-    //loadedPages = await loadPages(doc.pathToFile, pagesToLoad, false);
 
-    //print("documents_notifier: updateIsolatedPages: doc.pages: ${doc.pages.map((p) => p.pageID).toList()}");
-    loadedPages.addAll(await loadPages2(doc.pathToFile, pagesToLoad, false));
+    loadedPages.addAll(await loadPages(doc.pathToFile, pagesToLoad, false));
 
     // The state may have changed while the pages were loading (undo/redo, pages added or removed,
     // window moved, document closed). Writing back the snapshot taken above would revert those
@@ -543,30 +503,26 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     final newDocuments = [...state];
     newDocuments[currentIndex] = current.copyWith(pages: newPages);
     state = newDocuments;
-    //print("documents_notifier: updateIsolatedPages: doc.pages: ${doc.pages.map((p) => p.pageID).toList()}");
 
     for(final page in isolatePages) {
-      isolatePageTiles5(docID, page.pageID);
+      unawaited(isolatePageTiles(docID, page.pageID));
     }
 
-    //print("documents_notifier: runningIsolates: $runningIsolates   pageIDsBeingRendered: $pageIDsBeingRendered    isolateQueue: $isolateQueue");
 
   }
 
   final Rect isolateRect = const Rect.fromLTWH(0, 0, 20, 20);
   final isolateScale = 20.0;
-  //final Map<int, bool> runningIsolates = {0: false, 1: false, 2: false, 3: false, 4: false};
   final List<bool> runningIsolates = [false, false, false, false, false];
   List<int> pageIDsBeingRendered = [];
   List<int> isolateQueue = [];
 
 
-  Future<void> isolatePageTiles5(int docID, int pageID) async {
+  Future<void> isolatePageTiles(int docID, int pageID) async {
 
 
 
     if(pageIDsBeingRendered.contains(pageID)) {         //if the page is already being calculated by an isolate
-      //print("documents_notifier: isolatePageTiles5: page is already being rendered");
       return;
     }
 
@@ -579,8 +535,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
     if (!doc.pages.map((p) => p.pageID).toList().contains(pageID)) { //if the page is no longer there abort
       if(isolateQueue.isNotEmpty) {
-        //print("documents_notifier: handleMessage: still items in queue...");
-        isolatePageTiles5(docID, isolateQueue.first);
+        unawaited(isolatePageTiles(docID, isolateQueue.first));
       }
       return;
     }
@@ -588,26 +543,21 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     final pageIndex = doc.pages.indexWhere((p) => p.pageID == pageID);
     final page = doc.pages[pageIndex];
 
-    //print("documents_notifier: isolatePageTiles5: page.backgroundStrokes: ${page.backgroundStrokes.length}");
-
 
     int threadNumber = -1;
 
-    //print("runningIsolates: $runningIsolates");
     for(int i = 0; i<runningIsolates.length; i++){    //find a free isolate, if none is found the page will be added to a queue
 
-      if(runningIsolates[i]) continue;
-      else {
+      if(runningIsolates[i]) {
+        continue;
+      } else {
         threadNumber = i;
         break;
       }
-      print(runningIsolates[i]);
     }
 
-    //print("threadnumber: $threadNumber");
     if(threadNumber == -1) {
       isolateQueue.add(pageID); //no free isolates -> will be send to queue
-      //print("documents_notifier: isolatePageTiles5: added to isolateQueue");
       return;
     }
 
@@ -618,39 +568,30 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     runningIsolates[threadNumber] = true;
     pageIDsBeingRendered.add(pageID);
 
-    //print("documents_notifier: isolatePageTiles: currentPageIDs: $currentPageIDs");
 
     _receivePorts[requestId] = ReceivePort();
 
-    //print("spawn isolate");
     _isolates[requestId] = await Isolate.spawn(
-      _isolateEntry1,
+      _isolateEntry,
       _receivePorts[requestId]!.sendPort,
     );
-
-    beginCounter++;
-    //print("documents_notifier: listening...");
     _receivePorts[requestId]!.listen((message) {
 
-      //print("documents_notifier: connection established");
       if (message is SendPort) {
-        //print("documents_notifier: sending...");
 
         _sendPorts[requestId] = message;
 
-        //print("documents_notifier: ${page.backgroundStrokes}");
         _sendPorts[requestId]?.send({
           "type": "start",
           "data": [page.pageHeight, page.pageWidth, page.strokes, page.backgroundStrokes, isolateRect, isolateScale, pageIndex, docID, requestId,],
         });
       } else {
-        //print("documents_notifier: isolatePageTiles3: handle_message");
-        _handleMessage2(docID, pageID, threadNumber, requestId, message);
+        _handleIsolateMessage(docID, pageID, threadNumber, requestId, message);
       }
     });
   }
 
-  Future<void> _handleMessage2(int docID, int pageID, int threadNumber, int requestID, dynamic message) async {
+  Future<void> _handleIsolateMessage(int docID, int pageID, int threadNumber, int requestID, dynamic message) async {
     // The document is looked up by ID after every await; it may have been closed meanwhile.
     // In that case the page counts as "no longer there".
     int pageIndexInDoc() {
@@ -659,30 +600,20 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
       return state[docIndex].pages.indexWhere((p) => p.pageID == pageID);
     }
 
-    //print("documents_notifier: handleMessage2: finished render, pageID: $pageID, pages: ${doc.pages.map((p) => p.pageID).toList()}");
-
 
     _receivePorts[requestID]?.close();
     _isolates[requestID]?.kill(priority: Isolate.immediate);
 
     runningIsolates[threadNumber] = false;
     pageIDsBeingRendered.removeWhere((id) => id == pageID);
-    //print("documents_notifier: _handleMessage: threads busy (by number): $runningIsolates");
-    //print("documents_notifier: runningIsolates: $runningIsolates   pageIDsBeingRendered: $pageIDsBeingRendered    isolateQueue: $isolateQueue");
-
-
-    currentPageIDs.removeWhere((n) => n == pageID);
 
 
     if(isolateQueue.isNotEmpty) {
-      //print("documents_notifier: handleMessage: still items in queue...");
-      isolatePageTiles5(docID, isolateQueue.first);
-      //return; //if there is already another page in queue we can skip all this
+      unawaited(isolatePageTiles(docID, isolateQueue.first));
     }
 
     if (message is SendPort) {
       _sendPorts[requestID] = message;
-      //print("Worker ready $requestID");
       return;
     }
     else {
@@ -690,14 +621,9 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
       try {
         if (message.aborted == true) {
-          //print("documents_notifier: handleMessage: cancel received");
           return;
         }
 
-        finishCounter++;
-
-        //print(busy);
-        //print("documents_notifier: beginCounter: $beginCounter, finishCounter : $finishCounter");
 
         final result = message;
 
@@ -705,15 +631,11 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
         int pageIndex = pageIndexInDoc();
 
         if (pageIndex == -1) {    //if page no longer exists abort
-          //print("documents_notifier: handleMessage: page no longer exists, aborting...");
           return;
         }
 
 
 
-        int counter = 0;
-       // print("documents_notifier: backgroundsamewidths: ${result.backgroundSameWidths[0][0]}");
-        //print("documents_notifier: handleMessage2: begin render");
         for (int row = 0; row < result.tiles.length; row++) {
           for (int col = 0; col < result.tiles[0].length; col++) {
             await result.tiles[row][col].renderAfterIsolate(
@@ -728,11 +650,8 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
               result.backgroundRights[row][col],
             );
           }
-          //print("documents_notifier: handleMessage: $pageID: $counter / ${result.tiles.length}");
-          counter++;
           pageIndex = pageIndexInDoc();
           if (pageIndex == -1) {    //check again if page no longer exists abort
-            //print("documents_notifier: handleMessage: page no longer exists, aborting...");
             return;
           }
         }
@@ -742,17 +661,14 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
         pageIndex = pageIndexInDoc();
 
         if (pageIndex == -1) {    //check again if page no longer exists abort
-          //print("documents_notifier: handleMessage: page no longer exists, aborting...");
           return;
         }
 
         final doc = state[_docIndexOf(docID)];
 
-        //print("documents_notifier: handleMessage2: finished render, pageID: $pageID, pageIndex: $pageIndex, pages: ${doc.pages.map((p) => p.pageID).toList()}");
 
         doc.pages[pageIndex].tiles = result.tiles;
 
-        //print("documents_notifier: handleMessage: result, $runningIsolates   pageIDsBeingRendered: $pageIDsBeingRendered    isolateQueue: $isolateQueue");
 
         state = [
           for (int i = 0; i < state.length; i++)
@@ -761,9 +677,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
             else
               state[i]
         ];
-        //print(doc.pages.first.tiles.length);
       } finally {
-        //_cancelPorts.remove(requestId);
       }
     }
   }
@@ -778,16 +692,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
 
 
-  int beginCounter = 0;
-  int finishCounter = 0;
-
-
-  final Map<int, bool?> busy = {0: false, 1: false, 2: false, 3: false, 4: false};
-  final Map<int, bool?> requested = {};
-
-  List<int> requestedDocIDs = [0,0,0,0,0];
-  List<int> requestedPageIDs = [0,0,0,0,0];
-  List<int> currentPageIDs = [];
 
   void setPageColor(int docID, int pageIndex, Color color) {
     final docIndex = _docIndexOf(docID);
@@ -834,8 +738,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     List<DocumentModel> docs = [...state];
     DocumentModel doc = docs.firstWhere((d) => d.docID == docID);
     final docIndex = docs.indexWhere((d) => d.docID == docID);
-    final pageIndex = doc.pages.indexWhere((p) => p.pageID == pageID);
-    //doc.pages[pageIndex].newImage = value;
     docs[docIndex] = doc.copyWith(pages: doc.pages);
     state = docs;
 
@@ -865,10 +767,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     final pageIndex = doc.pages.indexWhere((p) => p.pageID == pageID);
     if (pageIndex == -1) return;
     final newPages = [...doc.pages];
-    final page = newPages[pageIndex];
-
-    //print("meh");
-
 
 
     newPages[pageIndex].setBackgroundStrokesBySpacing(horizontalSpaces, verticalSpaces, strokeColor, strokeWidth);
@@ -914,7 +812,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     final pageIndex = doc.pages.indexWhere((p) => p.pageID == pageID);
     if (pageIndex == -1) return;
 
-    // ⚠️ WICHTIG: nur diese eine Page ersetzen
+    // ⚠️ IMPORTANT: replace only this one page
     final newPages = [...doc.pages];
 
 
@@ -927,7 +825,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
     state = docs;
 
-    //print("documents_notifier: done updating");
 
   }
 
@@ -937,18 +834,14 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     final docIndex = newDocs.indexWhere((d) => d.docID == docID);
     final doc = newDocs[docIndex];
     List<Command> newCommands = doc.commands;
-    //print("docuemnts_notifier: added command$commands");
 
     for (int i = 0; i<commands.length; i++) {
       if (doc.commandIndex<doc.commands.length) {                                              //when not at top of the stack remove all commands after the current index:     [][][][][i][+]  |  [x][x][x][x]
-        //print("notontop");
         doc.commands.removeRange(doc.commandIndex, doc.commands.length);
-        //print(doc.commands.length);
       }
 
       if (doc.commands.length >= doc.maxAmountCommands) {                                           //remove oldest entry when max amount of undo steps is reached:     <--[] | [0][1][2][3][4]..[+]<--
         doc.commands.removeAt(0);  // remove oldest command
-        //print("remove");
       }
       newCommands.add(commands[i]);
       doc.commandIndex=doc.commands.length;
@@ -995,7 +888,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     }
 
     DocumentModel doc = docs[docIndex];
-    //print("undo");
 
     List<Command> commands = doc.commands;
 
@@ -1011,10 +903,8 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     }
 
     if (doc.commandIndex>0) {
-      //print(doc.commandIndex);
       commandIndex = doc.commandIndex-1;
       command = commands[commandIndex];
-      //print("undo at $commandIndex");
     }
     else {
       command=EmptyCommand();
@@ -1058,9 +948,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
 
   Future<void> _redo(int docID) async {
-    //print("redo");
     final docs = [...state];
-    //final doc = newDocs.firstWhere((d) => d.docID == docID,);
     final docIndex = docs.indexWhere((d) => d.docID == docID);
     DocumentModel doc = docs[docIndex];
     List<Command> commands = doc.commands;
@@ -1071,7 +959,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
 
     if (doc.commandIndex<doc.commands.length) {
-      //print(doc.commandIndex);
       command = commands[commandIndex];
       commandIndex = doc.commandIndex+1;
 
@@ -1106,7 +993,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
       await modifyPagesExecute(docID, modifyPagesCommand.addPages, modifyPagesCommand.addPageIndexes, removePageIDs);
     }
 
-    //commands.removeLast();
     final newDocs = [...state];
 
 
@@ -1125,11 +1011,10 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     final docIndex = _docIndexOf(docID);
     if (docIndex == -1) return;
     DocumentModel doc = state[docIndex];
-    //print("documents_notifier: saveAsBnf: ${doc.pathToFile.split('.').last}");
-    await saveDoc2(doc.docID, doc.pages);
+    await saveDoc(doc.docID, doc.pages);
   }
 
-  Future<List<PageModel>> loadPages2(String pathToFile, List<int> pageIDs, bool generateFirstPage,) async {
+  Future<List<PageModel>> loadPages(String pathToFile, List<int> pageIDs, bool generateFirstPage,) async {
     if (pageIDs.isEmpty) return [];
 
     final file = File(pathToFile);
@@ -1275,7 +1160,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
       }
 
       // ============================================================
-      // GEWÜNSCHTE PAGES LADEN
+      // LOAD THE REQUESTED PAGES
       // ============================================================
 
       for (final pageID in pageIDs) {
@@ -1286,12 +1171,12 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
           continue;
         }
 
-        // pageOffset zeigt auf:
+        // pageOffset points to:
         //
         // [8 Bytes Page Length]
-        // [Page Daten]
+        // [page data]
         //
-        // Deshalb +8.
+        // Hence +8.
 
         if (pageOffset + 8 + pageLength >
             bytes.length) {
@@ -1349,23 +1234,23 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
   /// Loads the document at [pathToFile] into the editor slot and returns its new docID,
   /// or null if the file does not exist.
-  Future<int?> loadDoc2(String pathToFile) async {
+  Future<int?> loadDoc(String pathToFile) async {
     final file = File(pathToFile);
 
     if (!await file.exists()) return null;
 
     print(
-      'documents_notifier: loadDoc2: $pathToFile',
+      'documents_notifier: loadDoc: $pathToFile',
     );
 
     // ============================================================
-    // Datei lesen
+    // Read the file
     //
-    // Wir lesen die Datei hier zwar komplett ein, laden aber
-    // NICHT alle Pages als PageModel.
+    // The whole file is read here, but NOT all pages
+    // are turned into PageModels.
     //
-    // Die Pages selbst werden später gezielt mit loadPages2()
-    // geladen.
+    // The pages themselves are loaded later, as needed,
+    // with loadPages().
     // ============================================================
 
     final bytes = await file.readAsBytes();
@@ -1402,7 +1287,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     );
 
     print(
-      'documents_notifier: loadDoc2: '
+      'documents_notifier: loadDoc: '
           'rootOffset=$rootOffset',
     );
 
@@ -1451,7 +1336,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     // ============================================================
     // METADATA
     //
-    // Bei saveDoc3 wird gespeichert:
+    // Stored by the save:
     //
     // [8 Bytes Metadata Length]
     // [JSON Metadata]
@@ -1527,19 +1412,19 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
         .toList();
 
     print(
-      'documents_notifier: loadDoc2: '
+      'documents_notifier: loadDoc: '
           'pageList=$pageList',
     );
 
     print(
-      'documents_notifier: loadDoc2: '
+      'documents_notifier: loadDoc: '
           'pageHeights=${pageHeights.length}',
     );
 
     // ============================================================
-    // NUR DIE ERSTEN PAGES LADEN
+    // LOAD ONLY THE FIRST PAGES
     //
-    // Genau wie bei loadDoc1().
+    // Same as the old first version of loadDoc().
     // ============================================================
 
     final loadIDs = <int>[];
@@ -1557,25 +1442,25 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     }
 
     print(
-      'documents_notifier: loadDoc2: '
+      'documents_notifier: loadDoc: '
           'loading IDs=$loadIDs',
     );
 
-    final pages = await loadPages2(
+    final pages = await loadPages(
       pathToFile,
       loadIDs,
       true,
     );
 
     print(
-      'documents_notifier: loadDoc2: '
+      'documents_notifier: loadDoc: '
           'loaded pages=${pages.length}',
     );
 
     // ============================================================
-    // IDs entfernen, für die keine Page mehr existiert
+    // Remove IDs that no longer have a page
     //
-    // Das gleiche Verhalten wie bei loadDoc1().
+    // Same behavior as the old first version of loadDoc().
     // ============================================================
 
     final actualIDs = pages
@@ -1591,7 +1476,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
         .toList();
 
     print(
-      'documents_notifier: loadDoc2: '
+      'documents_notifier: loadDoc: '
           'missing IDs=$missing',
     );
 
@@ -1610,6 +1495,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     final docIndex = currentDocIndex;
 
     newDocuments[docIndex] = DocumentModel(
+      pathToFile: pathToFile,
       pages: List.unmodifiable(
         pages,
       ),
@@ -1622,8 +1508,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
       pageList: cleanedPageList,
     );
 
-    newDocuments[docIndex].pathToFile =
-        pathToFile;
 
     newDocuments[docIndex].currentPageIndex = 0;
 
@@ -1640,7 +1524,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
   /// Pages queued while a save is running, per docID.
   final Map<int, List<PageModel>> _saveQueue = {};
 
-  Future<void> saveDoc2(
+  Future<void> saveDoc(
       int docID,
       List<PageModel> pagesToSave,
       ) async {
@@ -1654,7 +1538,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     _isSaving = true;
 
     try {
-      await _saveDoc2Internal(docID, pagesToSave);
+      await _saveDocInternal(docID, pagesToSave);
     } finally {
       _isSaving = false;
     }
@@ -1662,12 +1546,12 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     if (_saveQueue.isNotEmpty) {
       final queuedDocID = _saveQueue.keys.first;
       final queuedPages = _saveQueue.remove(queuedDocID)!;
-      await saveDoc2(queuedDocID, queuedPages);
+      await saveDoc(queuedDocID, queuedPages);
     }
   }
 
 
-  Future<void> _saveDoc2Internal(int docID, List<PageModel> pagesToSave) async {
+  Future<void> _saveDocInternal(int docID, List<PageModel> pagesToSave) async {
     if (pagesToSave.isEmpty) return;
 
     final documents = [...state];
@@ -1677,7 +1561,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     );
 
     if (docIndex == -1) {
-      print("documents_notifier: _saveDoc2Internal: document $docID is no longer open, ${pagesToSave.length} page(s) not saved");
+      print("documents_notifier: _saveDocInternal: document $docID is no longer open, ${pagesToSave.length} page(s) not saved");
       return;
     }
 
@@ -1695,7 +1579,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
     try {
       // ============================================================
-      // 1. Dateilänge
+      // 1. File length
       // ============================================================
 
       final fileLength = await raf.length();
@@ -1705,7 +1589,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
       }
 
       // ============================================================
-      // 2. Header lesen
+      // 2. Read the header
       //
       // 0..7   = Version
       // 8..15  = Root Offset
@@ -1744,7 +1628,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
       }
 
       // ============================================================
-      // 3. Root lesen
+      // 3. Read the root
       // ============================================================
 
       await raf.setPosition(oldRootOffset);
@@ -1768,9 +1652,9 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
       );
 
       // ============================================================
-      // 4. Index lesen
+      // 4. Read the index
       //
-      // Nur der Index wird komplett gelesen.
+      // Only the index is read completely.
       // ============================================================
 
       if (oldIndexOffset + oldIndexLength > fileLength) {
@@ -1848,7 +1732,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
       bool anythingChanged = false;
 
       // ============================================================
-      // 6. Pages prüfen und ggf. ans Ende schreiben
+      // 6. Check pages and append them if changed
       // ============================================================
 
       for (final page in pagesToSave) {
@@ -1870,7 +1754,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
               oldPageInfo.length;
 
           if (oldDataOffset + oldDataLength <= fileLength) {
-            // Nur die betreffende Page lesen.
+            // Read only this page.
             await raf.setPosition(oldDataOffset);
 
             final oldPageBytes = await raf.read(
@@ -1886,7 +1770,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
           }
         }
 
-        // Page unverändert
+        // page unchanged
         if (!pageChanged) {
           continue;
         }
@@ -1894,7 +1778,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
         anythingChanged = true;
 
         // ----------------------------------------------------------
-        // Neue Page ans Ende schreiben
+        // Append the new page
         // ----------------------------------------------------------
 
         final pageOffset = currentOffset;
@@ -1918,7 +1802,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
         currentOffset += pageBytes.length;
 
-        // Neuer Index-Eintrag
+        // new index entry
         index[page.pageID] = (
         offset: pageOffset,
         length: pageBytes.length,
@@ -1969,7 +1853,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
       currentOffset += metadataBytes.length;
 
       // ============================================================
-      // 8. Neuer Index
+      // 8. New index
       // ============================================================
 
       final indexOffset = currentOffset;
@@ -2016,7 +1900,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
           currentOffset - indexOffset;
 
       // ============================================================
-      // 9. Neuer Root
+      // 9. New root
       // ============================================================
 
       final newRootOffset = currentOffset;
@@ -2050,9 +1934,9 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
       currentOffset += 32;
 
       // ============================================================
-      // 10. Root-Pointer im Header aktualisieren
+      // 10. Update the root pointer in the header
       //
-      // Nur 8 Bytes werden am Anfang geändert.
+      // Only 8 bytes at the start are changed.
       // ============================================================
 
       await raf.setPosition(8);
@@ -2121,7 +2005,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     }
 
     // ============================================================
-    // 1. Komplette Datei lesen
+    // 1. Read the whole file
     // ============================================================
 
     final oldBytes = await file.readAsBytes();
@@ -2159,7 +2043,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     }
 
     // ============================================================
-    // 2. Aktuellen Root lesen
+    // 2. Read the current root
     // ============================================================
 
     final root = ByteData.sublistView(
@@ -2189,7 +2073,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     );
 
     // ============================================================
-    // 3. Aktuellen Index lesen
+    // 3. Read the current index
     // ============================================================
 
     if (indexOffset + indexLength > oldBytes.length) {
@@ -2245,7 +2129,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     }
 
     // ============================================================
-    // 4. Neue Datei
+    // 4. New file
     // ============================================================
 
     final builder = BytesBuilder();
@@ -2273,12 +2157,12 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
     var currentOffset = 16;
 
-    // Neuer Index
+    // new index
     final newIndex =
     <int, ({int offset, int length})>{};
 
     // ============================================================
-    // 5. NUR aktuell verwendete Pages übernehmen
+    // 5. Copy ONLY the pages currently in use
     // ============================================================
 
     for (final entry in oldIndex.entries) {
@@ -2286,7 +2170,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
       final oldPageOffset = entry.value.offset;
       final pageLength = entry.value.length;
 
-      // Offset zeigt auf das Length-Feld.
+      // The offset points to the length field.
       final pageDataOffset = oldPageOffset + 8;
 
       final pageEnd =
@@ -2299,8 +2183,8 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
         );
       }
 
-      // Zusätzlich prüfen, ob das gespeicherte
-      // Length-Feld stimmt.
+      // Also check that the stored
+      // length field matches.
       final storedLengthData =
       ByteData.sublistView(
         oldBytes,
@@ -2320,7 +2204,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
         );
       }
 
-      // Neue Position dieser Page
+      // new position of this page
       final newPageOffset = currentOffset;
 
       // Length
@@ -2346,7 +2230,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
       currentOffset += 8 + pageLength;
 
-      // Neuer Offset für den neuen Index
+      // new offset for the new index
       newIndex[pageID] = (
       offset: newPageOffset,
       length: pageLength,
@@ -2354,7 +2238,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     }
 
     // ============================================================
-    // 6. Aktuelle Metadata übernehmen
+    // 6. Copy the current metadata
     // ============================================================
 
     final metadataEnd =
@@ -2393,7 +2277,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     currentOffset += 8 + metadataLength;
 
     // ============================================================
-    // 7. Neuen Index schreiben
+    // 7. Write the new index
     // ============================================================
 
     final newIndexOffset = currentOffset;
@@ -2440,7 +2324,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
         currentOffset - newIndexOffset;
 
     // ============================================================
-    // 8. Neuen Root schreiben
+    // 8. Write the new root
     // ============================================================
 
     final newRootOffset = currentOffset;
@@ -2472,7 +2356,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     );
 
     // ============================================================
-    // 9. Root-Pointer im neuen Header setzen
+    // 9. Set the root pointer in the new header
     // ============================================================
 
     final newBytes = builder.takeBytes();
@@ -2487,7 +2371,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     );
 
     // ============================================================
-    // 10. Neue Datei schreiben
+    // 10. Write the new file
     // ============================================================
 
     final tempFile = File(
@@ -2504,7 +2388,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     );
 
     // ============================================================
-    // 11. Alte Datei ersetzen
+    // 11. Replace the old file
     // ============================================================
 
     await file.delete();
@@ -2516,7 +2400,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     print(
       'compactDoc: '
           '${oldBytes.length} -> ${newBytes.length} Bytes '
-          '(gespart: ${oldBytes.length - newBytes.length})',
+          '(saved: ${oldBytes.length - newBytes.length})',
     );
 
 
@@ -2560,12 +2444,8 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 }
 
 
-void _isolateEntry1(SendPort sendPort) async {
+void _isolateEntry(SendPort sendPort) async {
   bool cancelled = false;
-
-  //int? currentRequestId;
-  //Set<int> cancels = {};
-
 
 
   final receivePort = ReceivePort();
@@ -2576,14 +2456,10 @@ void _isolateEntry1(SendPort sendPort) async {
 
 
     if (msg['type'] == 'cancel') {
-      //cancels.add(msg['id']);
       cancelled = true;
-      //print("Cancel received in isolate ");
     }
     else if (msg['type'] == 'start') {
 
-
-      //print("documents_notifier: begin calcualting...");
 
       cancelled = false;
 
@@ -2598,9 +2474,7 @@ void _isolateEntry1(SendPort sendPort) async {
       final double scale = args[5];
       final int pageIndex = args[6];
       final docID = args[7];
-      final int requestId = args[8];
 
-      //currentRequestId = requestId;
 
       final tiles = <List<Tile>>[];
       final tileStrokes = [];
@@ -2629,7 +2503,6 @@ void _isolateEntry1(SendPort sendPort) async {
 
         for (int col = 0; col < cols; col++) {
           if (cancelled) {
-            //print("aborting in $requestId, row: $row");
             sendPort.send((aborted: true));
             cancelled = false;
             return;
@@ -2679,7 +2552,6 @@ void _isolateEntry1(SendPort sendPort) async {
       }
 
 
-      //print("documents_notifier: calculation finished");
       sendPort.send((aborted: false, tiles: tiles, tileStrokes: tileStrokes, sameWidths: sameWidths, rights: rights, lefts: lefts, backgroundTileStrokes: backgroundTileStrokes, backgroundSameWidths: backgroundSameWidths, backgroundRights: backgroundRights, backgroundLefts: backgroundLefts, scale: scale, pageIndex: pageIndex, docID : docID));
 
     }

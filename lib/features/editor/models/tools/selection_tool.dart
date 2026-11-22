@@ -27,13 +27,12 @@ class SelectionTool extends Tool{
     SelectionShape? shape,
     bool? selectionRule,
     Color? selectionColor,
-    bool? finger,
-    int? toolID,
+    super.finger,
+    super.toolID,
   })
       :shape = shape ?? SelectionShape.lasso,
       selectionRule = selectionRule ?? false,
-      selectionColor = selectionColor ?? Colors.blue,
-        super(toolID: toolID, finger: finger)
+      selectionColor = selectionColor ?? Colors.blue
   ;
 
   SelectionTool copyWith({
@@ -54,12 +53,13 @@ class SelectionTool extends Tool{
 
 
 
+  @override
   Map<String, dynamic> toJson() => {
     'type': type,
     'shape': shape.toJson(),
     'selectionRule': selectionRule,
     'finger' : finger,
-    'selectionColor': selectionColor.value,
+    'selectionColor': selectionColor.toARGB32(),
   };
 
   factory SelectionTool.fromJson(Map<String, dynamic> json) => SelectionTool(

@@ -4,12 +4,10 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:betternotes/features/editor/models/page/point.dart';
 import 'package:flutter/material.dart';
-import 'dart:ui';
 import 'image_model.dart';
 import 'stroke.dart';
-import 'stroke.dart';
 import 'package:betternotes/core/utils/id_generator.dart';
-import 'tile2.dart';
+import 'tile.dart';
 
 
 
@@ -30,11 +28,6 @@ class PageModel {
 
 
 
-  //bool newImage;
-  //final bool didUndo;
-  //final bool didRedo;
-  //final bool backgroundUpdate;
-
   List<List<Tile>> tiles = [[]];
 
   List<int> erasedIDs = [];
@@ -46,9 +39,6 @@ class PageModel {
 
   PageModel({
 
-    //this.newImage = false,
-    //this.didUndo = false,
-    //this.didRedo = false,
 
     //required this.backgroundUpdate,
 
@@ -85,7 +75,7 @@ class PageModel {
 
   ;
 
-  // copyWith für immutables Update
+  // copyWith for immutable updates
   PageModel copyWith({
     List<Stroke>? strokes,
     List<Stroke>? backgroundStrokes,
@@ -115,9 +105,6 @@ class PageModel {
       pageWidth: pageWidth ?? this.pageWidth,
       pageColor: pageColor?? this.pageColor,
       pageID : pageID ?? this.pageID,
-      //newImage: newImage ?? this.newImage,
-      //didUndo: didUndo ?? this.didUndo,
-      //didRedo: didRedo ?? this.didRedo,
       tiles: tiles ?? this.tiles,
       //backgroundUpdate : backgroundUpdate ?? this.backgroundUpdate,
       verticalSpaces: verticalSpaces ?? this.verticalSpaces,
@@ -160,16 +147,13 @@ class PageModel {
         rowTiles.add(
           Tile(Rect.fromLTWH(col * rect.width, row * rect.height, newWidth, newHeight,), //false,
           ),
-            //Offset(col * rect.width, row * rect.height),
         );
       }
       newTiles.add(rowTiles);
     }
 
     tiles = newTiles;
-    //print("Rebuilds : $rebuilCounter");
 
-    //print(backgroundStrokes.length);
     await updateTiles(strokes, [], backgroundStrokes);
 
   }
@@ -179,33 +163,24 @@ class PageModel {
 
   Future<void> updateTiles(List<Stroke> newStrokes, List<int> erasedStrokeIDs, List<Stroke> newBackgroundStrokes) async {
 
-    //print(strokes.length);
-
-    //erasedIDs = erasedStrokeIDs;
-
-    //print("hi");
-
-
 
     final Set<Point<int>> changedTiles = {};
 
     for (int i = 0; i < tiles.length; i++) {
-      // i repräsentiert die Zeile
+      // i is the row
       for (int j = 0; j < tiles[i].length; j++) {
-        // j repräsentiert die Spalte innerhalb der Zeile
+        // j is the column within the row
 
         if(newBackgroundStrokes.isNotEmpty) {
           tiles[i][j].addBackgroundStrokesAsAbstractStrokes(newBackgroundStrokes);
           backgroundStrokes = newBackgroundStrokes;
 
-          //print("backgroundstrokes length: ${backgroundStrokes.length}");
         }
 
         for (int k = 0; k<erasedStrokeIDs.length; k++) {
 
 
           if (tiles[i][j].aStrokes.any((s) => erasedStrokeIDs.contains(s.strokeID))) {
-            //print("[i, j] : [$i, $j]");
             tiles[i][j].aStrokes.removeWhere((s) => erasedStrokeIDs.contains(s.strokeID));
             changedTiles.add(Point(i, j));
           }
@@ -216,22 +191,17 @@ class PageModel {
 
         if (changed || newBackgroundStrokes.isNotEmpty) changedTiles.add(Point(i, j));
 
-        //print(changed);
       }
     }
-    //print(changedTiles);
 
-    //print(tiles[0][0].aStrokes.first.strokeID);
-    //if (erasedStrokeIDs.length > 0) print(erasedStrokeIDs.first);
 
     for (int i = 0; i < tiles.length; i++) {
-      // i repräsentiert die Zeile
+      // i is the row
       for (int j = 0; j < tiles[i].length; j++) {
-        // j repräsentiert die Spalte innerhalb der Zeile
+        // j is the column within the row
 
       }
     }
-    //print("page_model: ${changedTiles}");
 
 
     final List<Future<void>> futures = [];
@@ -242,16 +212,12 @@ class PageModel {
           await tiles[point.x][point.y].renderBackground(newBackgroundStrokes);
         }
 
-        //print("[i, j] : [${point.x}, ${point.x}]");
 
         await tiles[point.x][point.y].renderAbstractStrokes(strokes);
       }());
     }
 
     await Future.wait(futures);
-
-    //print(tiles[0][0].backgroundImage);
-
 
 
     erasedIDs = [];
@@ -306,7 +272,7 @@ class PageModel {
       //'pageID': pageID,
       'pageWidth': pageWidth,
       'pageHeight': pageHeight,
-      'pageColor': pageColor.value,
+      'pageColor': pageColor.toARGB32(),
       'verticalSpaces': verticalSpaces,
       'horizontalSpaces': horizontalSpaces,
 
@@ -324,7 +290,7 @@ class PageModel {
 
     if(archivedImages != null) {
 
-      if (archivedImages.length>0){
+      if (archivedImages.isNotEmpty){
         images = (await Future.wait(
           (json['images'] as List).map(
                 (img) async {
@@ -377,7 +343,7 @@ class PageModel {
     builder.add(pageWidthData.buffer.asUint8List());
     final pageHeightData = ByteData(8)..setFloat64(0, pageHeight, Endian.little);
     builder.add(pageHeightData.buffer.asUint8List());
-    final pageColorData = ByteData(4)..setUint32(0, pageColor.value, Endian.little);
+    final pageColorData = ByteData(4)..setUint32(0, pageColor.toARGB32(), Endian.little);
     builder.add(pageColorData.buffer.asUint8List());
     final verticalCount = ByteData(4)..setUint32(0, verticalSpaces.length, Endian.little);
     builder.add(verticalCount.buffer.asUint8List());
@@ -396,7 +362,7 @@ class PageModel {
     for (final stroke in strokes) {
       final strokeBytes = stroke.toBytes();
 
-      // Länge des Stroke-Blocks
+      // length of the stroke block
       final length = ByteData(8)
         ..setUint64(0, strokeBytes.length, Endian.little);
 
@@ -421,7 +387,7 @@ class PageModel {
 
     for (final image in images) {
       final imageBytes = await image.toBytes();
-      // Länge des ImageModel-Blocks
+      // length of the ImageModel block
       final length = ByteData(8)..setUint64(0, imageBytes.length, Endian.little);
       builder.add(length.buffer.asUint8List());
       // ImageModel-Daten
@@ -485,7 +451,7 @@ class PageModel {
     final strokes = <Stroke>[];
 
     for (int i = 0; i < strokeCount; i++) {
-      // Länge des Stroke-Blocks
+      // length of the stroke block
       final strokeLength = data.getUint64(offset, Endian.little,);
       offset += 8;
       // Stroke Bytes

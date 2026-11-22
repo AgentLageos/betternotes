@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'dart:ui' as ui;
-import 'dart:ui';
 
 
 import 'package:betternotes/core/utils/draw_strokes.dart';
@@ -14,8 +13,6 @@ import 'package:betternotes/features/editor/models/page/stroke.dart';
 import 'package:betternotes/features/editor/models/page/abstract_stroke.dart';
 import 'package:betternotes/features/editor/models/page/point.dart';
 
-import 'package:betternotes/core/providers/global_providers.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 
 
@@ -40,19 +37,13 @@ class Tile extends ChangeNotifier{
 
   Future<void> renderAbstractStrokes(List<Stroke> strokes) async {
 
-    //print(aStrokes.length);
 
     double scale = 20.0;     //scale = 200 is way too high, at most!! 50
     final recorder = ui.PictureRecorder();
-    //print(rect.left);
     final canvas = Canvas(recorder, Rect.fromLTWH(0,0, rect.width * scale, rect.height * scale));
     canvas.translate(-rect.left * scale, -rect.top * scale);
 
     List<Stroke> tileStrokes = [];
-
-
-    //Stopwatch stopwatch = Stopwatch();
-    //stopwatch.start();
 
 
     final strokeMap = {for (var s in strokes) s.strokeID: s,};
@@ -69,48 +60,30 @@ class Tile extends ChangeNotifier{
 
       tileStrokes.add(Stroke(color : color, width: width, points: []));
 
-      //if (0<=aStrokes[i].pointIndexes.first-2) tileStrokes[i].points.add(stroke.points[aStrokes[i].pointIndexes.first-2]);
       if (0<=aStrokes[i].pointIndexes.first-1) tileStrokes[i].points.add(stroke.points[aStrokes[i].pointIndexes.first-1]);
-      aStrokes[i].pointIndexes.forEach((j) {
-        //tileStrokes[i].points.add(strokes[aStrokes[i].strokeIndex].points[j]);
-        //tileStrokes[i].points.add(strokes.firstWhere((s) => s.strokeID == aStrokes[i].strokeID).points[j]);
+      for (var j in aStrokes[i].pointIndexes) {
         tileStrokes[i].points.add(stroke.points[j]);
-      });
+      }
 
       if (stroke.points.length>aStrokes[i].pointIndexes.last+1) tileStrokes[i].points.add(stroke.points[aStrokes[i].pointIndexes.last+1]);
-      //if (stroke.points.length>aStrokes[i].pointIndexes.last+2) tileStrokes[i].points.add(stroke.points[aStrokes[i].pointIndexes.last+2]);
 
     }
 
 
-    //print('Dauer1: ${stopwatch.elapsedMilliseconds} Millisekunden');
+    drawStrokes(canvas, tileStrokes, scale, 0.5);
 
-    drawStrokes2(canvas, tileStrokes, scale, 0.5);
 
-    //stopwatch.stop();
-    //print('Dauer: ${stopwatch.elapsedMilliseconds} Millisekunden');
-
-    //image?.dispose();
     final picture = recorder.endRecording();
 
     final newImage = await picture.toImage((rect.width*scale).toInt(), (rect.height*scale).toInt());
     image =newImage;
 
-    //this.isDirty=false;
-
-    //print(image);
-
-
-    //notifyListeners();
-    //print("rendered");
 
   }
 
 
   Future<void> renderBackground(List<Stroke> backgroundStrokes) async {
-    //print(aBackgroundStrokes.length);
 
-    //print(aStrokes.length);
 
     double scale = 4.0;     //scale = 200 is way too high, at most 50
     final recorder = ui.PictureRecorder();
@@ -132,14 +105,13 @@ class Tile extends ChangeNotifier{
 
       tileStrokes.add(Stroke(color : color, width: width, points: []));
 
-      aBackgroundStrokes[i].pointIndexes.forEach((j) {
-        //tileStrokes[i].points.add(strokes[aStrokes[i].strokeIndex].points[j]);
+      for (var j in aBackgroundStrokes[i].pointIndexes) {
         tileStrokes[i].points.add(backgroundStroke.points[j]);
-      });
+      }
 
     }
 
-    drawStrokes2(canvas, tileStrokes, scale, 2);
+    drawStrokes(canvas, tileStrokes, scale, 2);
 
     final picture = recorder.endRecording();
 
@@ -314,8 +286,6 @@ class Tile extends ChangeNotifier{
       }
     }
     aBackgroundStrokes.addAll(newAbstractStrokes);
-    //print("indexes:");
-    //print(aBackgroundStrokes.first.pointIndexes.length);
 
   }
 
@@ -381,7 +351,6 @@ class Tile extends ChangeNotifier{
 
       bool skip = false;
       connected = false;
-      //if(j==1)
 
       final p0 = stroke.points[i];
       final p1 = stroke.points[i + 1];
@@ -392,29 +361,24 @@ class Tile extends ChangeNotifier{
 
 
       if (p0Inside) {
-        //print("j: $j  i: $i");
         if (j!=i) {
-          //print("1");
 
           aStrokes.add(AbstractStroke(pointIndexes: {i}, strokeID: stroke.strokeID));
-          //if(i-1>0) aStrokes.last.pointIndexes.add(i-1);            //creating overlaps
-          //if(i-2>0) aStrokes.last.pointIndexes.add(i-2);
-          //if(i+1<stroke.points.length) aStrokes.last.pointIndexes.add(i+1);
-          //if(i+2<stroke.points.length) aStrokes.last.pointIndexes.add(i+2);
         }
-        else aStrokes.last.pointIndexes.add(i);
+        else {
+          aStrokes.last.pointIndexes.add(i);
+        }
         connected = true;
       }
       if (p1Inside) {
 
         if(j!=i && !connected) {
-          //print(2);
 
           aStrokes.add(AbstractStroke(pointIndexes: {i+1}, strokeID: stroke.strokeID));
-          //aStrokes.last.pointIndexes.add(i);                        //creating overlaps
-          //if(i-1>0) aStrokes.last.pointIndexes.add(i-1);
         }
-        else aStrokes.last.pointIndexes.add(i+1);
+        else {
+          aStrokes.last.pointIndexes.add(i+1);
+        }
         connected = true;
       }
 
@@ -431,16 +395,12 @@ class Tile extends ChangeNotifier{
       if (!skip) {
         if(trapezoidIntersectsRect(stroke.points[i].pos, stroke.points[i].width, stroke.points[i+1].pos, stroke.points[i+1].width, rect)) {
           connected = true;
-          //aStrokes.last.pointIndexes.addAll({i, i+1});
           if(j!=i) {
-            //print(3);
             aStrokes.add(AbstractStroke(pointIndexes: {i, i+1}, strokeID: stroke.strokeID));
-            //if (i-1>0) aStrokes.last.pointIndexes.add(i-1);
-            //if (i+2<stroke.points.length) aStrokes.last.pointIndexes.add(i+2);
-            //if (i-2>0) aStrokes.last.pointIndexes.add(i-2);
-            //if (i+3<stroke.points.length) aStrokes.last.pointIndexes.add(i+3);
           }
-          else aStrokes.last.pointIndexes.addAll({i,i+1});
+          else {
+            aStrokes.last.pointIndexes.addAll({i,i+1});
+          }
           j=i+1;
         }
       }
@@ -451,10 +411,7 @@ class Tile extends ChangeNotifier{
 
     }
 
-    //print(aStrokes.length);
-    //print(aStrokes.first.pointIndexes.length);
     return aStrokes;
-    return null;
   }
 
 
@@ -606,7 +563,6 @@ class Tile extends ChangeNotifier{
     final canvas = Canvas(recorder, Rect.fromLTWH(0,0, rect.width * scale, rect.height * scale));
     canvas.translate(-rect.left * scale, -rect.top * scale);
 
-    //print(tileStrokes.length);
 
     drawStrokes2AfterIsolate(canvas, tileStrokes, scale, blur, sameWidths, lefts, rights);
 

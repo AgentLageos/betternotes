@@ -14,7 +14,6 @@ class FileManagerTopBar extends ConsumerWidget implements PreferredSizeWidget {
   final void Function(Directory) onLoadDir;
   final VoidCallback? onCreateNewFolder;
   final VoidCallback onImportFiles;
-  //final VoidCallback onSave;
 
   final height1 = 40.0;      //height of the upper container
   final height2 = 0.0;     //height of the middle container
@@ -39,16 +38,14 @@ class FileManagerTopBar extends ConsumerWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
 
-    //final settings = ref.watch(settingsProvider);
 
     return Container(
       color : Theme.of(context).colorScheme.primary,
       //color : settings.primary,
-      //color: Colors.blue,
       child: SafeArea(
         bottom: false,
         child: Column(
-          mainAxisSize: MainAxisSize.min, // nur so hoch wie nötig
+          mainAxisSize: MainAxisSize.min, // only as tall as needed
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
@@ -60,7 +57,7 @@ class FileManagerTopBar extends ConsumerWidget implements PreferredSizeWidget {
 
                 child: Row(
                   children: [
-                    if (currentDir.path != '/')
+                    if (currentDir.parent.path != currentDir.path)         //not the filesystem root
                       IconButton(
                         icon: const Icon(Icons.drive_folder_upload),
                         color: Theme.of(context).colorScheme.onPrimary,

@@ -119,42 +119,71 @@ Small, urgent fixes for bugs that can lose or corrupt data.
 
 Mechanical work that makes the rest easier. **Prints stay** (see Ground rules).
 
-- [ ] **P2-01** Enable stricter lints in `analysis_options.yaml` (currently an empty `rules:`), e.g.
+- [x] **P2-01** Enable stricter lints in `analysis_options.yaml` (currently an empty `rules:`), e.g.
   `use_build_context_synchronously`, `depend_on_referenced_packages`, `unawaited_futures`,
   `prefer_final_fields`. Do **not** enable `avoid_print` yet. Fix what the analyzer reports.
-- [ ] **P2-02** Dependencies:
+- [x] **P2-02** Dependencies:
   - move `flutter_colorpicker` from `dev_dependencies` to `dependencies` (used in `lib/`)
   - remove `provider` (redundant with Riverpod; used in `file_manager_list.dart`, `color_selector_bar.dart`)
   - remove unused `file_manager` and `image`
   - pin `intl` instead of `any`
   - check `flutter pub outdated` and upgrade (`go_router` etc.)
   - replace deprecated `Color.value`
-- [ ] **P2-03** Delete commented-out code (~3000 lines) and dead fields/classes:
+- [x] **P2-03** Delete commented-out code (~3000 lines) and dead fields/classes:
   `busy`, `requested`, `requestID`, `requestedDocIDs`, `requestedPageIDs`, `isolateRunning`,
   `didRedo`, `NavigatonStateNotifier` (never used), commented-out providers in `global_providers.dart`.
   Commented-out `print` lines may be deleted; active `print` calls stay.
-- [ ] **P2-04** Translate all German comments to English. Files with German text (comments
+- [x] **P2-04** Translate all German comments to English. Files with German text (comments
   and/or strings): `documents_notifier.dart`, `document_model.dart`, `page_model.dart`,
   `file_manager_list.dart`, `file_manager_screen.dart`, `file_manager_top_bar.dart`,
   `developer_settings.dart`, `design_settings.dart`, `color_picker.dart`, `selection_drawer.dart`,
   `editor_top_bar.dart`, `editor_top_bar_panel.dart`, `tool_selector_bar.dart`.
-- [ ] **P2-05** Rename versioned names once the old variants are gone: `isolatePageTiles5`,
+- [x] **P2-05** Rename versioned names once the old variants are gone: `isolatePageTiles5`,
   `setCurrentPageIndex3`, `_handleMessage2`, `loadPages2`, `loadDoc2`, `saveDoc2`,
   `drawStrokes2`, `tile2.dart`, `_isolateEntry1`.
-- [ ] **P2-06** Merge the duplicated startup logic in `main.dart`: `main()` and `RestartWidget`
+- [x] **P2-06** Merge the duplicated startup logic in `main.dart`: `main()` and `RestartWidget`
   both resolve directories with different fallbacks (`currentDirectory` falls back to
   `homeDir/betternotes` in one place and `homeDir` in the other). `RestartWidget` ignores its
   `child`, so the `ProviderScope` in `main()` (`main.dart:49`) is dead. One init function, one scope.
-- [ ] **P2-07** Fix inconsistent SharedPreferences keys (`homeDirectory` vs `home_directory`,
+- [x] **P2-07** Fix inconsistent SharedPreferences keys (`homeDirectory` vs `home_directory`,
   `platform_notifier.dart:53`).
-- [ ] **P2-08** Move hard-coded UI strings into l10n (~18, e.g. PDF import dialogs in
+- [x] **P2-08** Move hard-coded UI strings into l10n (~18, e.g. PDF import dialogs in
   `file_manager_list.dart`). Includes the TODO item "localization for pdf import".
-- [ ] **P2-09** Use `package:path` for all path handling instead of `'/'` and `split('/')`
+- [x] **P2-09** Use `package:path` for all path handling instead of `'/'` and `split('/')`
   (Windows support). **(low)**
-- [ ] **P2-10** Remove the hard-coded Android default `pathToFile`
+- [x] **P2-10** Remove the hard-coded Android default `pathToFile`
   (`/storage/emulated/0/...`, `document_model.dart:53`).
-- [ ] **P2-11** Make `IdGenerator` web-safe: it produces values around 1.7e18, beyond the 2^53
+- [x] **P2-11** Make `IdGenerator` web-safe: it produces values around 1.7e18, beyond the 2^53
   exact-integer limit in JS. **(low)**
+
+**Phase 2 notes (done):**
+- P2-01: `avoid_print: false` is set explicitly (flutter_lints enables it by default). Added
+  `unawaited_futures` and `prefer_final_fields`. Every unawaited future was either awaited or marked
+  `unawaited(...)` on purpose (pen-up save, page loading/saving while scrolling, isolate scheduling).
+  Found on the way: two theme color handlers restarted the app before the new color was saved;
+  a debug overlay compared a `PageModel` with an `int`; `LineTool.copyWith` ignored the line type.
+  Analyzer issues: 511 -> 65. Left on purpose: `Radio` -> `RadioGroup` and `Matrix4.translate/scale`
+  deprecations (UI refactors), `FilePicker.getDirectoryPath` (its replacement `pickDirectory` returns
+  a `content://` URI on Android that `dart:io` can't write to; revisit with P6-03), and everything in
+  `lib/custom_widgets/` (P6-02).
+- P2-02: upgraded go_router 18, file_picker 13, permission_handler 13, package_info_plus 10,
+  cupertino_icons 2. file_picker 13 returns `content://` URIs on Android, so file import now streams
+  `readAsByteStream()` instead of copying a path. Removed `image` (dimensions come from the decoded
+  `ui.Image`). Added `vector_math` (imported directly). `pdfx` still applies the Kotlin Gradle Plugin;
+  Flutter warns about built-in Kotlin until it is removed (R3-06).
+- P2-03: removed ~930 lines of commented-out code (not ~3000; most comments were real documentation)
+  and dead members: `NavigatonStateNotifier` + `NavigationState`, unused developer-settings path UI
+  code, `_requestPermission`, `_pickColor`. The byte layout comments of the `.bnf` code were kept.
+- P2-06: `loadStartupConfig()` in `main.dart` is used at startup and on restart; one ProviderScope.
+- P2-07: shared keys are in `lib/core/utils/pref_keys.dart`; the unused `setPrefs` with the wrong key
+  was removed.
+- P2-08: ~25 strings moved to l10n (en/de). `ListTile(title: Text('Info 2'))` in
+  `page_setup_menu.dart` is still a visible placeholder.
+- P2-09: also fixed copying a file without extension (crashed) and the root check (`'/'`).
+- P2-11: IDs are now `ms * 1000 + counter` (~1.8e15 < 2^53), strictly increasing.
+  Note for web: `.bnf` uses `getUint64`, which dart2js doesn't support; web needs more work anyway.
+- `tile2.dart` is now `tile.dart`, `initializeTiles.dart` is now `initialize_tiles.dart`
+  (R5-03 updated).
 
 ---
 
@@ -311,7 +340,7 @@ seams, and without the async workarounds.
 
 - [ ] **R5-01** Build and test on Windows, macOS, iOS. **(low)**
 - [ ] **R5-02** Web via WASM (threads need cross-origin isolation headers). **(low)**
-- [ ] **R5-03** Delete the old Dart renderer (`tile2.dart`, `initializeTiles.dart`,
+- [ ] **R5-03** Delete the old Dart renderer (`tile.dart`, `initialize_tiles.dart`,
   isolate code in `documents_notifier.dart`, `draw_strokes.dart`) once the Rust renderer matches it.
 
 ### Stopgap before Phase 5
@@ -340,6 +369,14 @@ seams, and without the async workarounds.
   `GestureRecognizerFactory` with the same names as Flutter's.
 - [ ] **P6-03** Android: `MANAGE_EXTERNAL_STORAGE` will likely be rejected by the Play Store;
   switch to scoped storage / SAF where possible. **(high)**
+  - Export (`exportFilesWithPicker` in `file_manager_screen.dart`) copies with `dart:io` to the
+    path from `FilePicker.getDirectoryPath` and fails with `PathAccessException: Operation not
+    permitted` unless "All files access" is granted (found on Android 16). Write through the picked
+    folder's `content://` tree URI (`FilePicker.pickDirectory`) instead; needs a SAF plugin to
+    create files/folders in a tree URI. Removes the deprecated `getDirectoryPath` (see P2-01 notes).
+  - Check file import and the notes folder (`homeDirectory`) for the same problem.
+  - Until then: when export fails for lack of permission, explain it and offer to open the
+    "All files access" settings page instead of showing the raw error.
 - [ ] **P6-04** Android release signing (release builds currently use debug keys).
 - [ ] **P6-05** CI (GitHub Actions): `flutter analyze`, `flutter test`, `cargo test`,
   Android + Linux builds.

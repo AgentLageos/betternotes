@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -36,7 +35,7 @@ class EditorSettings extends ConsumerWidget {
         Container(
           decoration: BoxDecoration(
             border: Border.all(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.5), width: 2,), borderRadius: BorderRadius.circular(8)),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5), width: 2,), borderRadius: BorderRadius.circular(8)),
           child: Padding(
             padding: const EdgeInsets.all(8.0),
             child: EditorTopBarPanel(),
@@ -89,7 +88,6 @@ class _NumberSettingRow extends StatelessWidget {
           child: TextField(
             controller: controller,
             keyboardType: TextInputType.number,
-            //textAlign: TextAlign.right,
             onSubmitted: (text) {
               final number = int.tryParse(text);
               if (number != null) {
@@ -119,10 +117,10 @@ class AdvancedSettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("advanced settings"),
+        title: Text(AppLocalizations.of(context)!.advanced_settings),
       ),
-      body: const Center(
-        child: Text("Hier kommen weitere Einstellungen hin"),
+      body: Center(
+        child: Text(AppLocalizations.of(context)!.more_settings_here),
       ),
     );
   }
@@ -160,10 +158,8 @@ class _ResizableToolbarState extends ConsumerState<ResizableToolbar> {
 
     List<String> titles = [language.tools, language.widths, language.colors, language.undo_redo];
     const textStyle = TextStyle(fontWeight: FontWeight.bold);
-    //final minWidths = titles.map((t) => measureTextWidth(t, textStyle) + 32).toList();
     final minWidths = [50, 50, 50, 50];
 
-    //print(minWidths);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -182,7 +178,7 @@ class _ResizableToolbarState extends ConsumerState<ResizableToolbar> {
                     width: widths[i] * w,
                     child: Container(
                       alignment: Alignment.center,
-                      color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                      color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
                       child: Text(
                         titles[i],
                         maxLines: 1,
@@ -239,7 +235,7 @@ class _ResizableToolbarState extends ConsumerState<ResizableToolbar> {
                           cursor: SystemMouseCursors.resizeColumn,
                           child: Container(
                             width: 20,
-                            color: Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.6),
+                            color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.6),
                           ),
                         ),
                       ),

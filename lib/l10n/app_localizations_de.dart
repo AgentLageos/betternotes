@@ -415,4 +415,70 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get coming_soon => 'BALD';
+
+  @override
+  String get import_pdf_title => 'PDF importieren?';
+
+  @override
+  String get import_pdf_question => 'Möchtest du diese PDF-Datei importieren?';
+
+  @override
+  String get import_action => 'Importieren';
+
+  @override
+  String get import_failed => 'Import fehlgeschlagen';
+
+  @override
+  String import_pdf_failed(String error) {
+    return 'Die PDF konnte nicht importiert werden.\n\n$error';
+  }
+
+  @override
+  String get invalid_input => 'Ungültige Eingabe';
+
+  @override
+  String get advanced_settings => 'Erweiterte Einstellungen';
+
+  @override
+  String get more_settings_here => 'Hier kommen weitere Einstellungen hin';
+
+  @override
+  String get saved => 'Gespeichert';
+
+  @override
+  String access_denied(String path) {
+    return 'Zugriff verweigert: $path';
+  }
+
+  @override
+  String get choose_destination => 'Ziel auswählen';
+
+  @override
+  String files_exported_to(String path) {
+    return 'Alle Dateien exportiert nach: $path';
+  }
+
+  @override
+  String export_error(String error) {
+    return 'Fehler beim Exportieren: $error';
+  }
+
+  @override
+  String get import_starting => 'Import wird gestartet...';
+
+  @override
+  String importing_progress(int done, int total) {
+    return 'Importiere $done von $total';
+  }
+
+  @override
+  String get import_finished => 'Import abgeschlossen.';
+
+  @override
+  String get files_imported => 'Dateien erfolgreich importiert.';
+
+  @override
+  String import_error(String error) {
+    return 'Fehler beim Importieren: $error';
+  }
 }

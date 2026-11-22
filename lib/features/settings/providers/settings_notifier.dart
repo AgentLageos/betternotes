@@ -1,12 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui';
 import 'package:betternotes/features/settings/models/settings.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/global_providers.dart';
+import 'package:path/path.dart' as p;
 
 
 
@@ -16,12 +15,9 @@ class SettingsNotifier extends Notifier<Settings> {
 
   int currentEditorID = 0;
 
-  //String pathToFile = '/storage/emulated/0/betternotes/config.json';
-
-  //File file = File('/storage/emulated/0/betternotes/config.json');
 
   late final dir = ref.read(platformProvider).homeDirectory;
-  late File file = File('$dir/config/config.json');
+  late File file = File(p.join(dir, 'config', 'config.json'));
 
   bool _loaded = false;
 
@@ -51,7 +47,6 @@ class SettingsNotifier extends Notifier<Settings> {
       flush: true,
     );
 
-    //print(state.language);
   }
 
 
@@ -67,19 +62,18 @@ class SettingsNotifier extends Notifier<Settings> {
 
     final config = await loadConfig();
     config['darkMode'] = value;
-    config['primary'] = colorScheme.primary.value;
-    config['onPrimary'] = colorScheme.onPrimary.value;
-    config['surface'] = colorScheme.surface.value;
-    config['onSurface'] = colorScheme.onSurface.value;
-    config['secondary'] = colorScheme.secondary.value;
-    config['onSecondary'] = colorScheme.onSecondary.value;
+    config['primary'] = colorScheme.primary.toARGB32();
+    config['onPrimary'] = colorScheme.onPrimary.toARGB32();
+    config['surface'] = colorScheme.surface.toARGB32();
+    config['onSurface'] = colorScheme.onSurface.toARGB32();
+    config['secondary'] = colorScheme.secondary.toARGB32();
+    config['onSecondary'] = colorScheme.onSecondary.toARGB32();
 
     await file.writeAsString(jsonEncode(config), flush: true,);
 
   }
 
   Future<void> setAccentColor(Color color) async {
-    //print("accentcolor");
 
     Brightness brightness = Brightness.light;
     if(state.darkMode){
@@ -94,43 +88,36 @@ class SettingsNotifier extends Notifier<Settings> {
 
   Future<void> setPrimaryColor(Color color) async {
     final colorScheme = ColorScheme(primary: color, onPrimary: state.onPrimary, secondary: state.secondary, onSecondary: state.onSecondary, surface: state.surface, onSurface: state.onSurface, error: state.error, onError: state.onError, brightness:  state.theme.brightness);
-    //print(colorScheme.surface);
     await writeColorsToConfig(state.darkMode, colorScheme);
   }
 
   Future<void> setOnPrimaryColor(Color color) async {
     final colorScheme = ColorScheme(primary: state.primary, onPrimary: color, secondary: state.secondary, onSecondary: state.onSecondary, surface: state.surface, onSurface: state.onSurface, error: state.error, onError: state.onError, brightness:  state.theme.brightness);
-    //print(colorScheme.surface);
     await writeColorsToConfig(state.darkMode, colorScheme);
   }
 
   Future<void> setSecondaryColor(Color color) async {
     final colorScheme = ColorScheme(primary: state.primary, onPrimary: state.onPrimary, secondary: color, onSecondary: state.onSecondary, surface: state.surface, onSurface: state.onSurface, error: state.error, onError: state.onError, brightness:  state.theme.brightness);
-    //print(colorScheme.surface);
     await writeColorsToConfig(state.darkMode, colorScheme);
   }
 
   Future<void> setOnSecondaryColor(Color color) async {
     final colorScheme = ColorScheme(primary: state.primary, onPrimary: state.onPrimary, secondary: state.secondary, onSecondary: color, surface: state.surface, onSurface: state.onSurface, error: state.error, onError: state.onError, brightness:  state.theme.brightness);
-    //print(colorScheme.surface);
     await writeColorsToConfig(state.darkMode, colorScheme);
   }
 
   Future<void> setSurfaceColor(Color color) async {
     final colorScheme = ColorScheme(primary: state.primary, onPrimary: state.onPrimary, secondary: state.secondary, onSecondary: state.onSecondary, surface: color, onSurface: state.onSurface, error: state.error, onError: state.onError, brightness:  state.theme.brightness);
-    //print(colorScheme.surface);
     await writeColorsToConfig(state.darkMode, colorScheme);
   }
 
   Future<void> setOnSurfaceColor(Color color) async {
     final colorScheme = ColorScheme(primary: state.primary, onPrimary: state.onPrimary, secondary: state.secondary, onSecondary: state.onSecondary, surface: state.surface, onSurface: color, error: state.error, onError: state.onError, brightness:  state.theme.brightness);
-    //print(colorScheme.surface);
     await writeColorsToConfig(state.darkMode, colorScheme);
   }
 
   Future<void> setErrorColor(Color color) async {
     final colorScheme = ColorScheme(primary: state.primary, onPrimary: state.onPrimary, secondary: state.secondary, onSecondary: state.onSecondary, surface: state.surface, onSurface: state.onSurface, error: color, onError: state.onError, brightness:  state.theme.brightness);
-    //print(colorScheme.surface);
     await writeColorsToConfig(state.darkMode, colorScheme);
   }
 
@@ -152,16 +139,15 @@ class SettingsNotifier extends Notifier<Settings> {
 
   Future<void> setColors({Color? primary, Color? onPrimary, Color? secondary, Color? onSecondary, Color? surface, Color? onSurface, Color? error, Color? onError, }) async {
 
-    //await setDarkMode(false);
 
-    if(primary == null) primary = state.primary;
-    if(onPrimary == null) onPrimary = state.onPrimary;
-    if(secondary == null) secondary = state.secondary;
-    if(onSecondary == null) onSecondary = state.onSecondary;
-    if(surface == null) surface = state.surface;
-    if(onSurface == null) onSurface= state.onSurface;
-    if(error == null) error = state.error;
-    if(onError == null) onError = state.onError;
+    primary ??= state.primary;
+    onPrimary ??= state.onPrimary;
+    secondary ??= state.secondary;
+    onSecondary ??= state.onSecondary;
+    surface ??= state.surface;
+    onSurface ??= state.onSurface;
+    error ??= state.error;
+    onError ??= state.onError;
 
     final colorScheme = ColorScheme(primary: primary, onPrimary: onPrimary, secondary: secondary, onSecondary: onSecondary, surface: surface, onSurface: onSurface, error: error, onError: onError, brightness:  state.theme.brightness);
     await writeColorsToConfig(false, colorScheme);
@@ -185,24 +171,21 @@ class SettingsNotifier extends Notifier<Settings> {
 
     print("generate");
 
-      //final file = File('/storage/emulated/0/betternotes/config.json');
-
-      //print([...state].first.colorIndex);
 
       final jsonData = {
         'language': 'en',
         'showPageNumbers': true,
         'darkMode': false,
         'primary': Colors.blue.value,
-        'primaryContainer': Colors.lightBlueAccent.shade100.value,
-        'onPrimaryContainer': Colors.black87.value,
+        'primaryContainer': Colors.lightBlueAccent.shade100.toARGB32(),
+        'onPrimaryContainer': Colors.black87.toARGB32(),
         "secondary":  Colors.blueAccent.value,
-        'onSurface': Color(0xff333333).value,
-        'surface': Colors.white.value,
-        'onPrimary': Colors.black87.value,
-        'onSecondary': Colors.white.value,
+        'onSurface': Color(0xff333333).toARGB32(),
+        'surface': Colors.white.toARGB32(),
+        'onPrimary': Colors.black87.toARGB32(),
+        'onSecondary': Colors.white.toARGB32(),
         'error': Colors.red.value,
-        'onError': Colors.white.value,
+        'onError': Colors.white.toARGB32(),
         'debugMode': false,
       };
 
@@ -248,8 +231,6 @@ class SettingsNotifier extends Notifier<Settings> {
 
     }
 
-    //print("settings loaded");
-    //print(state.language);
   }
 
 
@@ -259,10 +240,6 @@ class SettingsNotifier extends Notifier<Settings> {
       brightness = Brightness.dark;
     }
 
-    //print("setstate");
-    //print(config['primary']);
-    //print(brightness);
-    //print(config['surface']);
     state = state.copyWith(
       language: Locale(config['language']),
       darkMode: config['darkMode'],
@@ -294,20 +271,19 @@ class SettingsNotifier extends Notifier<Settings> {
       ),
     );
 
-    //print(state.theme.colorScheme.primary);
   }
 
   Future<void> writeColorsToConfig(bool darkMode, ColorScheme colorScheme)async {
     final config = await loadConfig();
     config['darkMode'] = darkMode;
-    config['primary'] = colorScheme.primary.value;
-    config['onPrimary'] = colorScheme.onPrimary.value;
-    config['surface'] = colorScheme.surface.value;
-    config['onSurface'] = colorScheme.onSurface.value;
-    config['secondary'] = colorScheme.secondary.value;
-    config['onSecondary'] = colorScheme.onSecondary.value;
-    config['error'] = colorScheme.error.value;
-    config['onError'] = colorScheme.onError.value;
+    config['primary'] = colorScheme.primary.toARGB32();
+    config['onPrimary'] = colorScheme.onPrimary.toARGB32();
+    config['surface'] = colorScheme.surface.toARGB32();
+    config['onSurface'] = colorScheme.onSurface.toARGB32();
+    config['secondary'] = colorScheme.secondary.toARGB32();
+    config['onSecondary'] = colorScheme.onSecondary.toARGB32();
+    config['error'] = colorScheme.error.toARGB32();
+    config['onError'] = colorScheme.onError.toARGB32();
 
     await file.writeAsString(jsonEncode(config), flush: true,);
 

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:betternotes/features/editor/models/page/page_model.dart';
 import 'package:betternotes/features/editor/models/tools/eraser_tool.dart';
@@ -9,7 +8,6 @@ import 'package:betternotes/features/editor/models/tools/pen_tool.dart';
 import 'package:betternotes/features/editor/models/tools/selection_tool.dart';
 import 'package:betternotes/features/editor/models/tools/tool.dart';
 import 'package:betternotes/features/editor/models/page/editor_setup.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -18,16 +16,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/providers/global_providers.dart';
 import '../models/tools/line_tool.dart';
 import '../models/tools/shape_tool.dart';
+import 'package:path/path.dart' as p;
 
 
 class EditorSetupNotifier extends Notifier<List<EditorSetup>> {
 
   int currentEditorID = 0;
 
-  //File file = File('/storage/emulated/0/betternotes/editor_setup.json');
 
   late final dir = ref.read(platformProvider).homeDirectory;
-  late File file = File('$dir/config/editor_setup.json');
+  late File file = File(p.join(dir, 'config', 'editor_setup.json'));
 
   bool loaded = false;
 
@@ -35,7 +33,6 @@ class EditorSetupNotifier extends Notifier<List<EditorSetup>> {
   @override
   List<EditorSetup> build() {
     _init();
-    //print('editorseutp');
     return [EditorSetup()];
   }
 
@@ -143,10 +140,8 @@ class EditorSetupNotifier extends Notifier<List<EditorSetup>> {
     if (amount<1) {amount = 1;}
     List<Color> colors = state[editorIndex].colors;
     int colorIndex = state[editorIndex].colorIndex;
-    //print(colors);
     if (amount>colors.length) {
       colors.addAll(List.filled(amount-colors.length, Colors.black));
-      //print(colors);
     }
     else {
       colors.removeRange(amount, colors.length);
@@ -157,9 +152,8 @@ class EditorSetupNotifier extends Notifier<List<EditorSetup>> {
     }
     state[editorIndex] = state[editorIndex].copyWith(colors: colors, colorIndex: colorIndex);
 
-    //print(state[0].colorSelector);
 
-    saveToJson();
+    await saveToJson();
 
   }
 
@@ -167,29 +161,22 @@ class EditorSetupNotifier extends Notifier<List<EditorSetup>> {
     if (editorIndex < 0 || editorIndex >= state.length) return;
     if (amount<1) {amount = 1;}
     List<double> widths = state[editorIndex].widths;
-    //print(colors);
     int widthIndex = state[editorIndex].widthIndex;
     if (amount>widths.length) {
       widths.addAll(List.filled(amount-widths.length, 1.0));
-      //print(colors);
     }
     else {
       widths.removeRange(amount, widths.length);
       if (state[editorIndex].widthIndex>amount-1){
         widthIndex = amount-1;
-        //print(amount);
-        //print("moving index...");
 
       }
 
     }
     state[editorIndex] = state[editorIndex].copyWith(widths: widths, widthIndex: widthIndex);
 
-    //print(state[0].colorSelector);
 
-    //print(state[editorIndex].widthIndex);
-    saveToJson();
-    //print('saved');
+    await saveToJson();
 
   }
 
@@ -199,7 +186,6 @@ class EditorSetupNotifier extends Notifier<List<EditorSetup>> {
     newList[editorIndex] = state[editorIndex].copyWith(spaces: spaces);
     state = newList;
     saveToJson();
-    //print(state[editorIndex].spaces);
   }
 
   void setTools(int editorIndex, List<Tool> tools) {
@@ -210,7 +196,7 @@ class EditorSetupNotifier extends Notifier<List<EditorSetup>> {
     }
 
 
-    final newList = [...state]; // flache Kopie der Liste
+    final newList = [...state]; // shallow copy of the list
     newList[editorIndex] = state[editorIndex].copyWith(tools: tools, toolIndex: toolIndex);
     state = newList; //new  reference
     saveToJson();
@@ -222,8 +208,6 @@ class EditorSetupNotifier extends Notifier<List<EditorSetup>> {
 
     List<Tool> newTools = state[editorIndex].tools;
     newTools[toolIndex] = tool;
-
-    //int toolIndex = state[editorIndex].toolIndex;
 
 
     final newList = [...state]; // flat copy
@@ -297,7 +281,7 @@ class EditorSetupNotifier extends Notifier<List<EditorSetup>> {
           'toolIndex': 0,
           'widths': [0.4, 1.2, 4.0],
           'widthIndex': 0,
-          'colors': [Colors.black.value, Colors.blue.value, Colors.red.value, Colors.green.value, Colors.yellow.value],
+          'colors': [Colors.black.toARGB32(), Colors.blue.value, Colors.red.value, Colors.green.value, Colors.yellow.value],
           'colorIndex' : 0,
           'eraserWidth' :4.0,
           'selectionShape' : 0,
@@ -341,12 +325,12 @@ class EditorSetupNotifier extends Notifier<List<EditorSetup>> {
           'toolIndex': setup.toolIndex,
           'widths': setup.widths,
           'widthIndex': setup.widthIndex,
-          'colors': setup.colors.map((c) => c.value).toList(),
+          'colors': setup.colors.map((c) => c.toARGB32()).toList(),
           'colorIndex' : setup.colorIndex,
           'eraserWidth' : setup.eraserWidth,
           'selectionShape' : setup.selectionShape,
           'selectionMode' : setup.selectionMode,
-          'selectionColor' :  setup.selectionColor.value,
+          'selectionColor' :  setup.selectionColor.toARGB32(),
           'spaces' : setup.spaces,
           'defaultPage' : setup.defaultPage.toJson(),
         };
@@ -387,7 +371,6 @@ class EditorSetupNotifier extends Notifier<List<EditorSetup>> {
 
     final loadedSetups = await Future.wait(
       setupsJson.map((setupJson) async {
-        //print(setupJson['defaultPage']);
         return EditorSetup(
           selectorPools: List<int>.from(setupJson['selectorPools']),
           tools: toolsFromJson(setupJson['tools']),

@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'page_widget.dart';
@@ -9,9 +8,9 @@ import 'package:betternotes/core/providers/global_providers.dart';
 
 class DocumentWidget extends ConsumerStatefulWidget {
 
-  DocumentWidget({
-    Key? key,
-  }) : super(key: key);
+  const DocumentWidget({
+    super.key,
+  });
 
   @override
   ConsumerState<DocumentWidget> createState() => DocumentWidgetState();
@@ -36,7 +35,6 @@ class DocumentWidgetState extends ConsumerState<DocumentWidget> {
     final doc = ref.watch(documentsProvider.select((docs) => docs[docIndex]));
     final pages = ref.watch(documentsProvider.select((docs) => docs[docIndex].pages),);
 
-    //print("documentwidget:  ${doc.placeholderHeight}");
 
     return Column(
         children: [

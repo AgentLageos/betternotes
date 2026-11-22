@@ -1,4 +1,3 @@
-import 'dart:ui';
 
 import 'package:betternotes/features/editor/models/tools/tool.dart';
 import 'package:flutter/material.dart';
@@ -42,26 +41,25 @@ class LineTool extends Tool{
   LineTool({
     Color? iconColor,
     double? width,
-    bool? finger,
+    super.finger,
     LineType? line,
     LineOrigin? lineOrigin,
     bool? snapToGrid,
-    int? toolID,
+    super.toolID,
   })
       : iconColor = iconColor ?? Colors.greenAccent,
         width = width ?? 0.4,
         line = line ?? LineType.line,
         lineOrigin = lineOrigin ?? LineOrigin.corner,
-        snapToGrid = snapToGrid ?? false,
-        super(finger: finger, toolID: toolID)
+        snapToGrid = snapToGrid ?? false
   ;
 
   LineTool copyWith({
     Color? iconColor,
     double? width,
     bool? finger,
-    LineType? shape,
-    LineOrigin? shapeOrigin,
+    LineType? line,
+    LineOrigin? lineOrigin,
     bool? snapToGrid,
     int? toolID
   }) {
@@ -70,16 +68,17 @@ class LineTool extends Tool{
         width: width ?? this.width,
         finger: finger ?? this.finger,
         line: line ?? this.line,
-        lineOrigin: shapeOrigin ?? this.lineOrigin,
+        lineOrigin: lineOrigin ?? this.lineOrigin,
         snapToGrid: snapToGrid ?? this.snapToGrid,
         toolID: toolID ?? this.toolID
 
     );
   }
 
+  @override
   Map<String, dynamic> toJson() => {
     'type': type,
-    'iconColor': iconColor.value,
+    'iconColor': iconColor.toARGB32(),
     'width': width,
     'finger': finger,
     'line': line.toJson(),

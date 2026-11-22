@@ -910,6 +910,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'COMING SOON'**
   String get coming_soon;
+
+  /// No description provided for @import_pdf_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Import PDF?'**
+  String get import_pdf_title;
+
+  /// No description provided for @import_pdf_question.
+  ///
+  /// In en, this message translates to:
+  /// **'Do you want to import this PDF file?'**
+  String get import_pdf_question;
+
+  /// No description provided for @import_action.
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get import_action;
+
+  /// No description provided for @import_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Import failed'**
+  String get import_failed;
+
+  /// No description provided for @import_pdf_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'The PDF could not be imported.\n\n{error}'**
+  String import_pdf_failed(String error);
+
+  /// No description provided for @invalid_input.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid input'**
+  String get invalid_input;
+
+  /// No description provided for @advanced_settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced Settings'**
+  String get advanced_settings;
+
+  /// No description provided for @more_settings_here.
+  ///
+  /// In en, this message translates to:
+  /// **'More settings will appear here'**
+  String get more_settings_here;
+
+  /// No description provided for @saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get saved;
+
+  /// No description provided for @access_denied.
+  ///
+  /// In en, this message translates to:
+  /// **'Access denied: {path}'**
+  String access_denied(String path);
+
+  /// No description provided for @choose_destination.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Destination'**
+  String get choose_destination;
+
+  /// No description provided for @files_exported_to.
+  ///
+  /// In en, this message translates to:
+  /// **'All files exported to: {path}'**
+  String files_exported_to(String path);
+
+  /// No description provided for @export_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Error while exporting: {error}'**
+  String export_error(String error);
+
+  /// No description provided for @import_starting.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting import...'**
+  String get import_starting;
+
+  /// No description provided for @importing_progress.
+  ///
+  /// In en, this message translates to:
+  /// **'Importing {done} of {total}'**
+  String importing_progress(int done, int total);
+
+  /// No description provided for @import_finished.
+  ///
+  /// In en, this message translates to:
+  /// **'Import finished.'**
+  String get import_finished;
+
+  /// No description provided for @files_imported.
+  ///
+  /// In en, this message translates to:
+  /// **'Files imported successfully.'**
+  String get files_imported;
+
+  /// No description provided for @import_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Error while importing: {error}'**
+  String import_error(String error);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

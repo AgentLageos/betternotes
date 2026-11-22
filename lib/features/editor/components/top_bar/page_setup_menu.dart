@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:betternotes/core/utils/build_color_tile.dart';
 import 'package:betternotes/features/editor/models/page/document_model.dart';
 import 'package:flutter/material.dart';
-import 'package:betternotes/features/editor/models/page/page_model.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:betternotes/core/providers/global_providers.dart';
@@ -15,7 +14,7 @@ import 'package:betternotes/l10n/app_localizations.dart';
 class PageSetupMenu extends ConsumerStatefulWidget {
   final void Function(String) onSelected;
 
-  PageSetupMenu({Key? key, required this.onSelected}) : super(key: key);
+  const PageSetupMenu({super.key, required this.onSelected});
 
   @override
   ConsumerState<PageSetupMenu> createState() => _PageSetupMenuState();
@@ -93,7 +92,7 @@ class _PageSetupMenuState extends ConsumerState<PageSetupMenu> {
 
                       Row(
                         children: [
-                          Expanded(child: Text('    ' + text.height, style: TextStyle(fontSize: 16))),
+                          Expanded(child: Text('    ${text.height}', style: TextStyle(fontSize: 16))),
                           SizedBox(width: 4),
                           Expanded(
                             child: TextField(
@@ -111,7 +110,7 @@ class _PageSetupMenuState extends ConsumerState<PageSetupMenu> {
 
                       Row(
                         children: [
-                          Expanded(child: Text('    ' + text.width, style: TextStyle(fontSize: 16))),
+                          Expanded(child: Text('    ${text.width}', style: TextStyle(fontSize: 16))),
                           SizedBox(width: 4),
                           Expanded(
                             child: TextField(
@@ -132,7 +131,7 @@ class _PageSetupMenuState extends ConsumerState<PageSetupMenu> {
 
                       Row(
                         children: [
-                          Expanded(child: Text('Vert. Lines Space', style: TextStyle(fontSize: 16))),
+                          Expanded(child: Text(text.vertical_space, style: TextStyle(fontSize: 16))),
                           SizedBox(width: 4),
                           Expanded(
                             child: TextField(
@@ -150,7 +149,7 @@ class _PageSetupMenuState extends ConsumerState<PageSetupMenu> {
 
                       Row(
                         children: [
-                          Expanded(child: Text('Hori. Lines Space', style: TextStyle(fontSize: 16))),
+                          Expanded(child: Text(text.horizontal_space, style: TextStyle(fontSize: 16))),
                           SizedBox(width: 4),
                           Expanded(
                             child: TextField(
@@ -167,17 +166,8 @@ class _PageSetupMenuState extends ConsumerState<PageSetupMenu> {
                       ),
 
                       // Color picker
-                      /*
-                      InlineColorPicker(
-                        initialColor: newColor,
-                        onChanged: (color) {
-                          newColor = color;
-                        },
-                      ),
 
-                       */
-
-                      buildColorTile(context: context, label: "background color", color: newColor, onColorPicked: (color) { setState(() {
+                      buildColorTile(context: context, label: text.background_color, color: newColor, onColorPicked: (color) { setState(() {
                        newColor = color;
                       });}),
 
@@ -244,34 +234,26 @@ class _PageSetupMenuState extends ConsumerState<PageSetupMenu> {
     double vert = double.tryParse(vertSpacingController.text) ?? 0;
     double hori = double.tryParse(horiSpacingController.text) ?? 0;
 
-    //PageModel newPage = doc.pages[pageIndex];
 
     if (height != null && width != null) {
-      //newPage = newPage.copyWith(pageWidth: width, pageHeight: height);
       await ref.read(documentsProvider.notifier).setAllHeights(docID, height);
       await ref.read(documentsProvider.notifier).setAllWidths(docID, width);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invalid Input')),);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.invalid_input)),);
       return;
     }
 
     print("hi");
 
     if (vert > 0 || hori > 0) {
-      //print(newPage)
-      //newPage.setBackgroundStrokesBySpacing([hori], [vert], Colors.grey, 0.4);
       await ref.read(documentsProvider.notifier).setAllBackgroundStrokesExecute(docID, [hori], [vert], Colors.grey, 0.4);
     }
 
     if (newColor != doc.pages[pageIndex].pageColor) {
-      //newPage = newPage.copyWith(pageColor: newColor);
       ref.read(documentsProvider.notifier).setAllPageColors(docID, newColor);
     }
 
 
-    //newPage.initializeTiles();
-
-    //ref.read(documentsProvider.notifier).setAllPages(docID, newPage);
     if (!mounted) return;
     Navigator.of(context).pop();
   }
@@ -289,34 +271,25 @@ class _PageSetupMenuState extends ConsumerState<PageSetupMenu> {
     double vert = double.tryParse(vertSpacingController.text) ?? 0;
     double hori = double.tryParse(horiSpacingController.text) ?? 0;
 
-    PageModel newPage = doc.pages[pageIndex];
 
 
     if (height != null && width != null) {
-      //newPage = newPage.copyWith(pageWidth: width, pageHeight: height);
       ref.read(documentsProvider.notifier).setPageWidth(docID, pageIndex, width);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invalid Input')),);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.invalid_input)),);
       return;
     }
 
     if (vert > 0 || hori > 0) {
-      //newPage.setBackgroundStrokesBySpacing([hori], [vert], Colors.grey, 0.4);
-      ref.read(documentsProvider.notifier).setBackgroundStrokesExecute(docID, doc.pages[pageIndex].pageID, [hori], [vert], Colors.grey, 0.4);
-      //ref.read(documentsProvider.notifier).setBackgroundStrokesExecute(0, doc.pages[pageIndex].pageID, hori, vert, Colors.grey, 0.4);
+      await ref.read(documentsProvider.notifier).setBackgroundStrokesExecute(docID, doc.pages[pageIndex].pageID, [hori], [vert], Colors.grey, 0.4);
     }
 
     if (newColor != doc.pages[pageIndex].pageColor) {
-      //newPage = newPage.copyWith(pageColor: newColor);
       ref.read(documentsProvider.notifier).setPageColor(docID, pageIndex, newColor);
     }
 
 
-    //await newPage.initializeTiles();
-
-
-
-    //ref.read(documentsProvider.notifier).setPage(docID, doc.pages[pageIndex].pageID, newPage);
+    if (!mounted) return;
     Navigator.of(context).pop();
 
   }
@@ -411,7 +384,7 @@ class _InlineColorPickerState extends State<InlineColorPicker> {
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
-            '#${color.value.toRadixString(16).substring(2).toUpperCase()}',
+            '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
             style: const TextStyle(fontFamily: 'monospace'),
           ),
         ),
