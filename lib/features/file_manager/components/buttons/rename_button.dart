@@ -27,6 +27,7 @@ class RenameButton extends StatelessWidget {
       onPressed: () async {
 
         final existingNames = await _getExistingDocumentNames();
+        if (!context.mounted) return;
         _showRenameDialog(context, existingNames);
 
       },

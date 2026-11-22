@@ -322,6 +322,7 @@ class _FileManagerState extends ConsumerState<FileManager> {
         });
       }
 
+      if (!mounted) return;
       setState(() {
         importStatus = 'Import finished.';
       });
@@ -336,6 +337,7 @@ class _FileManagerState extends ConsumerState<FileManager> {
 
       debugPrint('Finished Import: ${internalDir.path}');
     } catch (e, stack) {
+      if (!mounted) return;
       setState(() {
         importStatus = 'Fehler beim Import';
       });

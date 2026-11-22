@@ -102,7 +102,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
   List<ImageModel> erasedImages = [];
 
-  final int docID = 0;
+  int get docID => ref.read(documentsProvider.notifier).currentDocID;
 
   final int docIndex=0;
   final int editorIndex = 0;
@@ -436,14 +436,14 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
       if (activeStrokes.length>0 && (selectedTool is PenTool || selectedTool is ShapeTool || selectedTool is LineTool)) {
         //print(activeStrokes.last.points.length);
-        ref.read(documentsProvider.notifier).modifyElements(docIndex, pageID, activeStrokes, [], [], []);
+        ref.read(documentsProvider.notifier).modifyElements(docID, pageID, activeStrokes, [], [], []);
         activeStrokes = [];
       }
       else if ((erasedImages.length>0 || erasedStrokes.length>0) && selectedTool is EraserTool) {
         Set<int>idsToRemove = erasedStrokes.map((s) => s.strokeID).toSet();
         List<int>erasedImageIDs = erasedImages.map((s) => s.imageID).toList();
         _eraserPosition = null;
-        await ref.read(documentsProvider.notifier).modifyElements(docIndex, pageID, [], [], idsToRemove.toList(), erasedImages);
+        await ref.read(documentsProvider.notifier).modifyElements(docID, pageID, [], [], idsToRemove.toList(), erasedImages);
         erasedImages = [];
         erasedStrokes =[];
       }
@@ -992,7 +992,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     final idsToRemove = activeStrokes.map((s) => s.strokeID).toList();
     final imageIDsToRemove = activeImages.map((s) => s.imageID).toList();
 
-    await ref.read(documentsProvider.notifier).modifyElements(docIndex, pageID, [], [], idsToRemove.toList(), activeImages);
+    await ref.read(documentsProvider.notifier).modifyElements(docID, pageID, [], [], idsToRemove.toList(), activeImages);
 
     eraserUsed = false;
 
@@ -1046,7 +1046,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
      */
 
-    await ref.read(documentsProvider.notifier).modifyElements(docIndex, pageID, [], activeImages, [], []);
+    await ref.read(documentsProvider.notifier).modifyElements(docID, pageID, [], activeImages, [], []);
     //tiles.erasedStrokes.addAll(activeStrokes);
     //erasedStrokes.addAll(activeStrokes);
 

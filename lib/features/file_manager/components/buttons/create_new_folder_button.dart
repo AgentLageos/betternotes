@@ -29,6 +29,7 @@ class NewFolderButton extends StatelessWidget {
 
         final existingNames = await _getExistingFolderNames();
         print(existingNames);
+        if (!context.mounted) return;
         _showNewFolderDialog(context, existingNames);
       },
 

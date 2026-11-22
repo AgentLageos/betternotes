@@ -388,7 +388,7 @@ class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
           currentPage = newCurrentPage;
           print("editor: scrollY = $scrollY, zoom=$zoom translateY = $translateY");
           print("editor: setcurrentpage $newCurrentPage");
-          ref.read(documentsProvider.notifier).setCurrentPageIndex3(0, newCurrentPage);
+          ref.read(documentsProvider.notifier).setCurrentPageIndex3(ref.read(documentsProvider.notifier).currentDocID, newCurrentPage);
         }
       }
 

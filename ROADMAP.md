@@ -71,32 +71,47 @@ status when work is done, and record new decisions in the "Decisions" section.
 
 Small, urgent fixes for bugs that can lose or corrupt data.
 
-- [ ] **P1-01** PDF import can overwrite the source PDF or an existing note
+- [x] **P1-01** PDF import can overwrite the source PDF or an existing note
   (`file_manager_list.dart:213`). The `.pdf` check is case-insensitive but
   `path.replaceFirst('.pdf', '.bnf')` is not, so `Scan.PDF` gets overwritten with `.bnf` data.
   An existing `name.bnf` is overwritten without asking. Fix: build the target path with
   `package:path` (`setExtension`), and pick a free name (`name (1).bnf`) or ask if it exists.
-- [ ] **P1-02** Give documents real unique IDs. `docID` defaults to `0`
+- [x] **P1-02** Give documents real unique IDs. `docID` defaults to `0`
   (`document_model.dart:72`), and `DocumentModel.copyWith` (`:80`) doesn't copy `docID` or
   `maxAmountCommands`, resetting them on every update. Use `IdGenerator.next()` and copy all fields.
-- [ ] **P1-03** Stop passing `docIndex` where a `docID` is expected
+- [x] **P1-03** Stop passing `docIndex` where a `docID` is expected
   (`file_manager_list.dart:271,272,283`, `_importPdf`; also `loadDoc2(path, 0)` and
   `updateIsolatedPages(0)` at `:88-89`). Only works today because every `docID` is 0.
   Audit all callers of `DocumentsNotifier`; long-term all APIs take `docID` (see P4-03).
-- [ ] **P1-04** The save queue loses the document ID (`documents_notifier.dart:1551`):
+- [x] **P1-04** The save queue loses the document ID (`documents_notifier.dart:1551`):
   pages queued during a running save are later saved under whatever `docID` the next call uses.
   Queue entries must carry their `docID`.
-- [ ] **P1-05** `setDefaultPage` never assigns `state` and does nothing (`documents_notifier.dart:222`).
-- [ ] **P1-06** `modifyPagesExecute` discards the result of `p.copyWith(pageID: IdGenerator.next())`
+- [x] **P1-05** `setDefaultPage` never assigns `state` and does nothing (`documents_notifier.dart:222`).
+- [x] **P1-06** `modifyPagesExecute` discards the result of `p.copyWith(pageID: IdGenerator.next())`
   (`documents_notifier.dart:310`), so duplicate page IDs (and the duplicate-key red screen)
   can still occur.
-- [ ] **P1-07** `modifyPagesExecute` removes several entries from `pageHeights` by index in a loop
+- [x] **P1-07** `modifyPagesExecute` removes several entries from `pageHeights` by index in a loop
   without accounting for the shift after each removal; an index of `-1` crashes it
   (`documents_notifier.dart:339`). Remove by ID or remove indices in descending order.
-- [ ] **P1-08** Add `mounted` / `context.mounted` checks wherever `BuildContext` is used after an
+- [x] **P1-08** Add `mounted` / `context.mounted` checks wherever `BuildContext` is used after an
   `await` (e.g. `Navigator.pushReplacement` after `loadDoc2`, `file_manager_list.dart:91`).
-- [ ] **P1-09** PDF page size conversion is wrong: `page.height / 3` (`file_manager_list.dart:246`)
+- [x] **P1-09** PDF page size conversion is wrong: `page.height / 3` (`file_manager_list.dart:246`)
   gives roughly mm but A4 becomes 198×280. Use `points × 25.4 / 72`.
+
+**Phase 1 notes (done):**
+- P1-01: existing target names get a ` (n)` suffix (no dialog).
+- P1-02/03: every `DocumentModel` gets `IdGenerator.next()`; `loadDoc2(path)` returns the new
+  `docID` (a document gets a new ID on every load). All `DocumentsNotifier` methods that took a
+  `docIndex` now take a `docID`; UI code uses `DocumentsNotifier.currentDocID` (single-document
+  stand-in until P4-03). Removed the global `docID = 0` in `page_setup_menu.dart`.
+- P1-04: pages queued for a document that is no longer open are dropped with a print instead of
+  being written into another document's file. Still open: `saveAsBnf` returns before queued saves
+  run, so the back button can compact/clear while a save is pending (look at this in P3-04/P3-07).
+- PDF import now runs behind a loading page that can't be closed with back, and only one import
+  can run at a time. Before, a second import started meanwhile replaced the first import's document
+  (found on a tablet: first file left incomplete). Errors show the import error dialog.
+- Isolate result handlers now tolerate a closed document (previously `state[-1]`, which would
+  also have left the isolate slot marked busy).
 
 ---
 
@@ -193,6 +208,14 @@ Mechanical work that makes the rest easier. **Prints stay** (see Ground rules).
   - `addCommands` (`documents_notifier.dart:877`) never assigns `state`, works only via mutation
   - undo of a stroke on an unloaded page silently does nothing
   Commands must store page IDs and absolute positions in `pageList`, and work on unloaded pages.
+  - [x] partly fixed during Phase 1 testing: the delete button deleted the wrong page (used
+    `currentPageIndex` as an index into the loaded window `doc.pages`); `modifyPages` now records
+    `pageList` positions; `modifyPagesExecute` inserts into `pageList`/`pageHeights` at the absolute
+    position (before, any position beyond the loaded window appended at the end of the document,
+    which also affected "add page"). `updateIsolatedPages` wrote a state snapshot back after
+    awaiting page loads, reverting undo/redo done meanwhile (page didn't reappear on the second
+    undo); it now applies loaded pages to the current state. Undo/redo can't overlap any more.
+    Still open: `addCommands` mutation, undo on unloaded pages.
 - [ ] **P4-03** Per-document state (D2): one notifier per open document keyed by `docID`
   (e.g. a Riverpod family), plus a small "open documents" provider. All APIs take `docID`.
   Goal: tabs become a UI-only change.
@@ -200,7 +223,8 @@ Mechanical work that makes the rest easier. **Prints stay** (see Ground rules).
   repository (P3-04). Rendering moves out entirely (Phase 5).
 - [ ] **P4-05** Unify navigation: GoRouter everywhere or drop it (currently GoRouter for two
   routes, `Navigator.push` elsewhere; `RouteSaver` relies on route names GoRouter may not set).
-- [ ] **P4-06** Reload the file manager after importing files / PDFs (from TODO.txt).
+- [x] **P4-06** Reload the file manager after importing files / PDFs (from TODO.txt).
+  (Files import already reloaded; PDF import now does too and shows a progress bar.)
 
 ---
 

@@ -30,6 +30,13 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
   int currentDocIndex = 0;
 
+  /// ID of the document currently shown in the editor.
+  /// Only one document is open at a time for now; tabs will replace this (P4-03).
+  int get currentDocID => state[currentDocIndex].docID;
+
+  /// Position of the document with [docID] in [state], or -1 if it is not open.
+  int _docIndexOf(int docID) => state.indexWhere((d) => d.docID == docID);
+
   Isolate? runningIsolate;
 
 
@@ -43,7 +50,10 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
   @override
   List<DocumentModel> build() => [DocumentModel(pages: [], created: DateTime.now(), author: '', title: '', )];
 
-  void setPageHeight(int docIndex, int pageIndex, double value) {
+  void setPageHeight(int docID, int pageIndex, double value) {
+    final docIndex = _docIndexOf(docID);
+    if (docIndex == -1) return;
+
 
     final newDocuments = [...state];    //copy old list
 
@@ -64,7 +74,10 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     //setBackgroundStrokesExecute(docID, pageID, horizontalSpace, verticalSpace, strokeColor, strokeWidth)
   }
 
-  Future<void> setAllHeights(int docIndex, double value) async {
+  Future<void> setAllHeights(int docID, double value) async {
+    final docIndex = _docIndexOf(docID);
+    if (docIndex == -1) return;
+
 
     final newDocuments = [...state];
     final oldDoc = newDocuments[docIndex];
@@ -80,7 +93,10 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     await initializeAllPageTiles(oldDoc.docID);
   }
 
-  void setPageWidth(int docIndex, int pageIndex, double value) {
+  void setPageWidth(int docID, int pageIndex, double value) {
+    final docIndex = _docIndexOf(docID);
+    if (docIndex == -1) return;
+
 
     final newDocuments = [...state];    //copy old list
 
@@ -99,7 +115,10 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     state = newDocuments;
   }
 
-  Future<void> setAllWidths(int docIndex, double value) async {
+  Future<void> setAllWidths(int docID, double value) async {
+    final docIndex = _docIndexOf(docID);
+    if (docIndex == -1) return;
+
 
     final newDocuments = [...state];
     final oldDoc = newDocuments[docIndex];
@@ -116,7 +135,9 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
   }
 
 
-  Future<void> addPageExecute(int docIndex, double pageHeight, double pageWidth, List<Stroke>? strokes, List<Stroke>? backgroundStrokes, List<ImageModel>? images, Color pageColor, bool? backgroundUpdate) async {
+  Future<void> addPageExecute(int docID, double pageHeight, double pageWidth, List<Stroke>? strokes, List<Stroke>? backgroundStrokes, List<ImageModel>? images, Color pageColor, bool? backgroundUpdate) async {
+    final docIndex = _docIndexOf(docID);
+    if (docIndex == -1) return;
     final newDocuments = [...state];
 
     final oldDoc = newDocuments[docIndex];
@@ -141,7 +162,9 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     state = newDocuments;
   }
 
-  void addPagesWithID(int docIndex, List<PageModel> newPages, List<int> positions) {
+  void addPagesWithID(int docID, List<PageModel> newPages, List<int> positions) {
+    final docIndex = _docIndexOf(docID);
+    if (docIndex == -1) return;
     final newDocuments = [...state];
 
     final oldDoc = newDocuments[docIndex];
@@ -223,8 +246,9 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     List<DocumentModel> docs = [...state];
     //DocumentModel doc = docs.firstWhere((d) => d.docID == docID);
     final docIndex = docs.indexWhere((d) => d.docID == docID);
+    if (docIndex == -1) return;
     docs[docIndex] = docs[docIndex].copyWith(defaultPage: newDefaultPage);
-
+    state = docs;
 
   }
 
@@ -279,18 +303,21 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
     final doc = [...state].firstWhere((d) => d.docID == docID);
 
-    List<PageModel> pages = doc.pages;
-    List<int> removePageIndexes = [];
+    // Give added pages fresh IDs if their ID is already in use, so the command stored for
+    // undo/redo and the state contain the same IDs.
+    addPages = _withUniquePageIDs(doc, addPages);
 
-    for (int i = 0; i<removePageIDs.length; i++){               //remembering the position where the page was in the list
-      for (int j = 0; j<pages.length;j++){
-        if (pages[j].pageID==removePageIDs[i]){
-          removePageIndexes.add(j);
-        }
-      }
+    // Remember where each removed page was in pageList (the whole document, not the loaded
+    // window in doc.pages), so undo re-inserts it at the same position.
+    final removePages = <PageModel>[];
+    final removePageIndexes = <int>[];
+    for (final id in removePageIDs) {
+      final page = doc.pages.where((p) => p.pageID == id).firstOrNull;
+      final position = doc.pageList.indexOf(id);
+      if (page == null || position == -1) continue;
+      removePages.add(page);
+      removePageIndexes.add(position);
     }
-
-    final removePages = doc.pages.where((page) => removePageIDs.contains(page.pageID)).toList();
 
     addCommands(docID, [ModifyPagesCommand(addPages: addPages, addPageIndexes: addPageIndexes,removePages: removePages, removePageIndexes: removePageIndexes)]);
     await modifyPagesExecute(docID, addPages, addPageIndexes, removePageIDs);
@@ -304,42 +331,43 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
     List<PageModel> pages = [];
     pages.addAll(doc.pages);
-    final List<Future<void>> futures = [];
-    for (var p in addPages) {
-      futures.add(() async {
-        if (pages.any((e) => e.pageID == p.pageID)) p.copyWith(pageID: IdGenerator.next());         //this needs to be here otherwise red screen of death will appear because of duplicate keys (for some reason?)
-        //await p.initializeTiles();
-      }());
-    }
-    await Future.wait(futures);
+    addPages = _withUniquePageIDs(doc, addPages);         //duplicate page IDs cause duplicate widget keys (red screen)
+    print("documents_notifier: modifyPagesExecute: add ${addPages.map((p) => p.pageID).toList()} at $addPageIndexes, remove $removePageIDs, pages: ${doc.pageList.length}");
+
+    // Work on copies; the lists in doc are shared with older states and the undo history.
+    final List<double> pageHeights = [...doc.pageHeights];
+    List<int> pageList = [...doc.pageList];
 
     print("documents_notifier: modifyPagesExecute: ${doc.pageList}");
 
+    // addPageIndexes are positions in pageList (the whole document). doc.pages is only the loaded
+    // window, so the page is just appended there; setCurrentPageIndex3 below rebuilds the window in
+    // pageList order (and saves pages that end up outside of it).
     for (int i = 0; i<addPageIndexes.length; i++) {
-      if(addPageIndexes[i] > doc.pages.length) {
-        pages.add(addPages[i]);
-        doc.pageHeights.add(addPages[i].pageHeight);
-        doc.pageList.add(addPages[i].pageID);
-      }
-      else {
-        pages.insert(addPageIndexes[i], addPages[i]);
-        doc.pageHeights.insert(addPageIndexes[i], addPages[i].pageHeight);
-        doc.pageList.insert(addPageIndexes[i], addPages[i].pageID);
-      }
+      final position = addPageIndexes[i].clamp(0, pageList.length);
+      pages.add(addPages[i]);
+      pageHeights.insert(position, addPages[i].pageHeight);
+      pageList.insert(position, addPages[i].pageID);
     }
 
-    print("documents_notifier: modifyPagesExecute: ${doc.pageList}");
+    print("documents_notifier: modifyPagesExecute: $pageList");
 
 
-
-    final indices = removePageIDs.map((id) => doc.pageList.indexWhere((pageID) => pageID == id)).toList();
+    // P1-07: remove heights in descending index order so earlier removals don't shift later ones;
+    // skip IDs that are not in the document.
+    final indices = removePageIDs
+        .map((id) => pageList.indexOf(id))
+        .where((index) => index != -1)
+        .toSet()
+        .toList()
+      ..sort((a, b) => b.compareTo(a));
     //print(indices);
 
     for (final index in indices) {
-      doc.pageHeights.removeAt(index);
+      pageHeights.removeAt(index);
     }
     pages = pages.where((page) => !removePageIDs.contains(page.pageID)).toList();
-    doc.pageList = doc.pageList.where((id) => !removePageIDs.contains(id)).toList();
+    pageList = pageList.where((id) => !removePageIDs.contains(id)).toList();
 
 
 
@@ -348,20 +376,40 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
         if (state[i].docID == docID)
           state[i].copyWith(
             pages: pages,
-            pageList: doc.pageList,
-            pageHeights: doc.pageHeights
+            pageList: pageList,
+            pageHeights: pageHeights
           )
         else state[i]
     ];
 
     //print("documents_notifier: modifyPagesExecute: pageList: ${[...state].firstWhere((d) => d.docID == docID).pageList}");
-    setCurrentPageIndex3(docID, doc.currentPageIndex);
+    final currentPage = doc.currentPageIndex.clamp(0, pageList.isEmpty ? 0 : pageList.length - 1);
+    setCurrentPageIndex3(docID, currentPage);
 
   }
 
 
-  void clearDoc(int docIndex) {
-    if (docIndex < 0 || docIndex >= state.length) return;
+  /// Returns [addPages] with a new ID for every page whose ID already exists in [doc]
+  /// (loaded or not) or appears earlier in [addPages].
+  List<PageModel> _withUniquePageIDs(DocumentModel doc, List<PageModel> addPages) {
+    final usedIDs = {...doc.pageList, ...doc.pages.map((p) => p.pageID)};
+    return [
+      for (final p in addPages)
+        if (usedIDs.add(p.pageID))
+          p
+        else
+          () {
+            final newPage = p.copyWith(pageID: IdGenerator.next());
+            usedIDs.add(newPage.pageID);
+            print("documents_notifier: _withUniquePageIDs: duplicate page ID ${p.pageID}, new ID ${newPage.pageID}");
+            return newPage;
+          }(),
+    ];
+  }
+
+  void clearDoc(int docID) {
+    final docIndex = _docIndexOf(docID);
+    if (docIndex == -1) return;
 
     final newDocuments = [...state];
     final oldDoc = newDocuments[docIndex];
@@ -381,6 +429,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     //print("documents_notifier: currentPage: ${currentPage}");
     List<DocumentModel> documents = [...state];
     final docIndex = documents.indexWhere((d) => d.docID == docID);
+    if (docIndex == -1) return;         //document was closed
     DocumentModel doc = documents[docIndex];
 
 
@@ -427,13 +476,12 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
         newPlaceholderHeight += doc.pageHeights[i] + 2 * distanceBetweenPages;
       }
     }
-    doc.placeholderHeight = newPlaceholderHeight;
-
-    //print("documents_notifier: setCurrentPageIndex: ${doc.placeholderHeight}");
-
-    doc.currentPageIndex = currentPage;
-    //print("documents_notifier: currentPage befor write: $currentPage");
-    doc.pages = newPages;
+    // New object instead of mutating doc: doc may be referenced by older states / snapshots.
+    documents[docIndex] = doc.copyWith(
+      placeholderHeight: newPlaceholderHeight,
+      currentPageIndex: currentPage,
+      pages: newPages,
+    );
 
     state = documents;
 
@@ -450,6 +498,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     //print("documents_notifier: loadAndMapPages");
     List<DocumentModel> documents = [...state];
     final docIndex = documents.indexWhere((d) => d.docID == docID);
+    if (docIndex == -1) return;         //document was closed
     DocumentModel doc = documents[docIndex];
 
     List<PageModel> loadedPages = [];
@@ -470,30 +519,30 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
     //print("documents_notifier: updateIsolatedPages: doc.pages: ${doc.pages.map((p) => p.pageID).toList()}");
     loadedPages.addAll(await loadPages2(doc.pathToFile, pagesToLoad, false));
-    //print("documents_notififer: updateIsolatedPages: backgroundStrokes: ${loadedPages.first.backgroundStrokes.length}");
 
-    //print("documents_notifier: updateIsolatedPages: loadedPages: $loadedPages");
-    //print(pagesToLoad);
-    //print(doc.pages.map((p) => p.pageID).toList());
-
-
-
-
+    // The state may have changed while the pages were loading (undo/redo, pages added or removed,
+    // window moved, document closed). Writing back the snapshot taken above would revert those
+    // changes, so apply the loaded pages to the current state instead.
+    final currentIndex = _docIndexOf(docID);
+    if (currentIndex == -1) return;
+    final current = state[currentIndex];
+    final loadedByID = {for (final p in loadedPages) p.pageID: p};
 
     List<PageModel> isolatePages = [];
-    //print("documents_notifier: updateIsoltedPages: pagesToLoad.length: ${pagesToLoad.length}");
-    for(int i = 0; i < doc.pages.length; i++) {
-      if(loadedPages.map((p) => p.pageID).toList().contains(doc.pages[i].pageID)) {
-        newPages.add(loadedPages.firstWhere((p) => p.pageID == doc.pages[i].pageID)); //check if the id of the page that has just been loaded is (still) in the loaded pages, then overwrite temp page
-        //print("documents_notififer: updateIsolatedPages: backgroundStrokes: ${.backgroundStrokes.length}");
-
-        isolatePages.add(loadedPages.firstWhere((p) => p.pageID == doc.pages[i].pageID));
+    for (final page in current.pages) {
+      final loaded = loadedByID[page.pageID];
+      // replace temp pages that were loaded; keep pages that changed meanwhile
+      if (loaded != null && (page.isTemp || identical(page, loaded))) {
+        newPages.add(loaded);
+        isolatePages.add(loaded);
+      } else {
+        newPages.add(page);
       }
-      else newPages.add(doc.pages[i]);
     }
 
-    doc.pages =  newPages;
-    state = documents;
+    final newDocuments = [...state];
+    newDocuments[currentIndex] = current.copyWith(pages: newPages);
+    state = newDocuments;
     //print("documents_notifier: updateIsolatedPages: doc.pages: ${doc.pages.map((p) => p.pageID).toList()}");
 
     for(final page in isolatePages) {
@@ -525,6 +574,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
     final documents = [...state];
     final docIndex = documents.indexWhere((d) => d.docID == docID);
+    if (docIndex == -1) return;         //document was closed
     final doc = documents[docIndex];
 
     if (!doc.pages.map((p) => p.pageID).toList().contains(pageID)) { //if the page is no longer there abort
@@ -601,10 +651,13 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
   }
 
   Future<void> _handleMessage2(int docID, int pageID, int threadNumber, int requestID, dynamic message) async {
-    final documents = [...state];
-    final docIndex = documents.indexWhere((d) => d.docID == docID);
-    //final doc = documents[docIndex];
-    DocumentModel doc = [...state][docIndex];
+    // The document is looked up by ID after every await; it may have been closed meanwhile.
+    // In that case the page counts as "no longer there".
+    int pageIndexInDoc() {
+      final docIndex = _docIndexOf(docID);
+      if (docIndex == -1) return -1;
+      return state[docIndex].pages.indexWhere((p) => p.pageID == pageID);
+    }
 
     //print("documents_notifier: handleMessage2: finished render, pageID: $pageID, pages: ${doc.pages.map((p) => p.pageID).toList()}");
 
@@ -649,8 +702,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
         final result = message;
 
 
-        doc = [...state][docIndex];
-        int pageIndex = doc.pages.indexWhere((p) => p.pageID == pageID);
+        int pageIndex = pageIndexInDoc();
 
         if (pageIndex == -1) {    //if page no longer exists abort
           //print("documents_notifier: handleMessage: page no longer exists, aborting...");
@@ -678,8 +730,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
           }
           //print("documents_notifier: handleMessage: $pageID: $counter / ${result.tiles.length}");
           counter++;
-          doc = [...state][docIndex];
-          pageIndex = doc.pages.indexWhere((p) => p.pageID == pageID);
+          pageIndex = pageIndexInDoc();
           if (pageIndex == -1) {    //check again if page no longer exists abort
             //print("documents_notifier: handleMessage: page no longer exists, aborting...");
             return;
@@ -688,13 +739,14 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
 
 
-        doc = [...state][docIndex];
-        pageIndex = doc.pages.indexWhere((p) => p.pageID == pageID);
+        pageIndex = pageIndexInDoc();
 
         if (pageIndex == -1) {    //check again if page no longer exists abort
           //print("documents_notifier: handleMessage: page no longer exists, aborting...");
           return;
         }
+
+        final doc = state[_docIndexOf(docID)];
 
         //print("documents_notifier: handleMessage2: finished render, pageID: $pageID, pageIndex: $pageIndex, pages: ${doc.pages.map((p) => p.pageID).toList()}");
 
@@ -737,7 +789,10 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
   List<int> requestedPageIDs = [0,0,0,0,0];
   List<int> currentPageIDs = [];
 
-  void setPageColor(int docIndex, int pageIndex, Color color) {
+  void setPageColor(int docID, int pageIndex, Color color) {
+    final docIndex = _docIndexOf(docID);
+    if (docIndex == -1) return;
+
 
     final newDocuments = [...state];    //copy old list
 
@@ -758,7 +813,10 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
 
 
-  void setAllPageColors(int docIndex, Color color) {
+  void setAllPageColors(int docID, Color color) {
+    final docIndex = _docIndexOf(docID);
+    if (docIndex == -1) return;
+
 
     final newDocuments = [...state];
     final oldDoc = newDocuments[docIndex];
@@ -902,7 +960,31 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
   }
 
 
+  /// True while an undo or redo runs. Both read the command index, await the page changes and
+  /// then write the index back, so a second call during that time would repeat the same command.
+  bool _undoRedoRunning = false;
+
   Future<void> undo(int docID) async {
+    if (_undoRedoRunning) return;
+    _undoRedoRunning = true;
+    try {
+      await _undo(docID);
+    } finally {
+      _undoRedoRunning = false;
+    }
+  }
+
+  Future<void> redo(int docID) async {
+    if (_undoRedoRunning) return;
+    _undoRedoRunning = true;
+    try {
+      await _redo(docID);
+    } finally {
+      _undoRedoRunning = false;
+    }
+  }
+
+  Future<void> _undo(int docID) async {
 
     final docs = [...state];
 
@@ -938,7 +1020,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
       command=EmptyCommand();
     }
 
-    //print("documents_notifier: undo $command");
+    print("documents_notifier: undo: ${command.runtimeType} at ${doc.commandIndex - 1} (commands: ${commands.length})");
 
 
     if(command is ModifyElementsCommand) {
@@ -975,7 +1057,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
   }
 
 
-  Future<void> redo(docID) async {
+  Future<void> _redo(int docID) async {
     //print("redo");
     final docs = [...state];
     //final doc = newDocs.firstWhere((d) => d.docID == docID,);
@@ -997,6 +1079,8 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     else {
       command=EmptyCommand();
     }
+
+    print("documents_notifier: redo: ${command.runtimeType} at ${doc.commandIndex} (commands: ${commands.length})");
 
 
 
@@ -1037,9 +1121,10 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
   }
 
 
-  Future<void> saveAsBnf(int docIndex) async {
-    final docs = [...state];
-    DocumentModel doc = docs[docIndex];
+  Future<void> saveAsBnf(int docID) async {
+    final docIndex = _docIndexOf(docID);
+    if (docIndex == -1) return;
+    DocumentModel doc = state[docIndex];
     //print("documents_notifier: saveAsBnf: ${doc.pathToFile.split('.').last}");
     await saveDoc2(doc.docID, doc.pages);
   }
@@ -1262,10 +1347,12 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
 
 
-  Future<void> loadDoc2(String pathToFile, int docIndex,) async {
+  /// Loads the document at [pathToFile] into the editor slot and returns its new docID,
+  /// or null if the file does not exist.
+  Future<int?> loadDoc2(String pathToFile) async {
     final file = File(pathToFile);
 
-    if (!await file.exists()) return;
+    if (!await file.exists()) return null;
 
     print(
       'documents_notifier: loadDoc2: $pathToFile',
@@ -1520,6 +1607,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     // ============================================================
 
     final newDocuments = [...state];
+    final docIndex = currentDocIndex;
 
     newDocuments[docIndex] = DocumentModel(
       pages: List.unmodifiable(
@@ -1540,13 +1628,17 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     newDocuments[docIndex].currentPageIndex = 0;
 
     state = newDocuments;
+
+    return newDocuments[docIndex].docID;
   }
 
 
 
 
   bool _isSaving = false;
-  List<PageModel> pagesToSaveQueue = [];
+
+  /// Pages queued while a save is running, per docID.
+  final Map<int, List<PageModel>> _saveQueue = {};
 
   Future<void> saveDoc2(
       int docID,
@@ -1555,7 +1647,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     if (pagesToSave.isEmpty) return;
 
     if (_isSaving) {
-      pagesToSaveQueue.addAll(pagesToSave);
+      _saveQueue.putIfAbsent(docID, () => []).addAll(pagesToSave);
       return;
     }
 
@@ -1567,20 +1659,15 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
       _isSaving = false;
     }
 
-    if (pagesToSaveQueue.isNotEmpty) {
-      final queuedPages = List<PageModel>.from(pagesToSaveQueue);
-      pagesToSaveQueue.clear();
-      await saveDoc2(docID, queuedPages);
+    if (_saveQueue.isNotEmpty) {
+      final queuedDocID = _saveQueue.keys.first;
+      final queuedPages = _saveQueue.remove(queuedDocID)!;
+      await saveDoc2(queuedDocID, queuedPages);
     }
   }
 
 
   Future<void> _saveDoc2Internal(int docID, List<PageModel> pagesToSave) async {
-    if (pagesToSaveQueue.isNotEmpty) {
-      pagesToSaveQueue.addAll(pagesToSave);
-      return;
-    }
-
     if (pagesToSave.isEmpty) return;
 
     final documents = [...state];
@@ -1589,7 +1676,10 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
           (d) => d.docID == docID,
     );
 
-    if (docIndex == -1) return;
+    if (docIndex == -1) {
+      print("documents_notifier: _saveDoc2Internal: document $docID is no longer open, ${pagesToSave.length} page(s) not saved");
+      return;
+    }
 
     final doc = documents[docIndex];
 
@@ -1987,22 +2077,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
       await raf.close();
     }
 
-    // ============================================================
-    // 12. Queue verarbeiten
-    // ============================================================
-
-    if (pagesToSaveQueue.isNotEmpty) {
-      final newPagesToSave = pagesToSaveQueue
-          .map((page) => page.copyWith())
-          .toList();
-
-      pagesToSaveQueue = [];
-
-      await saveDoc2(
-        docID,
-        newPagesToSave,
-      );
-    }
   }
 
 

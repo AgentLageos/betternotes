@@ -12,9 +12,6 @@ import 'package:betternotes/l10n/app_localizations.dart';
 
 
 
-
-final docID = 0;
-
 class PageSetupMenu extends ConsumerStatefulWidget {
   final void Function(String) onSelected;
 
@@ -241,6 +238,7 @@ class _PageSetupMenuState extends ConsumerState<PageSetupMenu> {
   }
 
   Future<void> _applyToAll(DocumentModel doc, int pageIndex) async {
+    final docID = doc.docID;
     final double? height = double.tryParse(heightController.text);
     final double? width = double.tryParse(widthController.text);
     double vert = double.tryParse(vertSpacingController.text) ?? 0;
@@ -250,8 +248,8 @@ class _PageSetupMenuState extends ConsumerState<PageSetupMenu> {
 
     if (height != null && width != null) {
       //newPage = newPage.copyWith(pageWidth: width, pageHeight: height);
-      await ref.read(documentsProvider.notifier).setAllHeights(0, height);
-      await ref.read(documentsProvider.notifier).setAllWidths(0, width);
+      await ref.read(documentsProvider.notifier).setAllHeights(docID, height);
+      await ref.read(documentsProvider.notifier).setAllWidths(docID, width);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invalid Input')),);
       return;
@@ -274,6 +272,7 @@ class _PageSetupMenuState extends ConsumerState<PageSetupMenu> {
     //newPage.initializeTiles();
 
     //ref.read(documentsProvider.notifier).setAllPages(docID, newPage);
+    if (!mounted) return;
     Navigator.of(context).pop();
   }
 
@@ -284,6 +283,7 @@ class _PageSetupMenuState extends ConsumerState<PageSetupMenu> {
 
 
   Future<void> _apply(DocumentModel doc, int pageIndex) async {
+    final docID = doc.docID;
     final double? height = double.tryParse(heightController.text);
     final double? width = double.tryParse(widthController.text);
     double vert = double.tryParse(vertSpacingController.text) ?? 0;
@@ -308,7 +308,7 @@ class _PageSetupMenuState extends ConsumerState<PageSetupMenu> {
 
     if (newColor != doc.pages[pageIndex].pageColor) {
       //newPage = newPage.copyWith(pageColor: newColor);
-      ref.read(documentsProvider.notifier).setPageColor(0, pageIndex, newColor);
+      ref.read(documentsProvider.notifier).setPageColor(docID, pageIndex, newColor);
     }
 
 

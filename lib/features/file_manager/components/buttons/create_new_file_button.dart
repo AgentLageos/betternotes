@@ -32,6 +32,7 @@ class NewFileButton extends ConsumerWidget {
       onPressed: () async {
 
         final existingNames = await _getExistingDocumentNames();
+        if (!context.mounted) return;
         _showNewFileDialog(context, existingNames, ref);
 
       },

@@ -119,12 +119,12 @@ class EditorTopBarPanel extends ConsumerWidget implements PreferredSizeWidget {
           //padding: const EdgeInse`ts.symmetric(horizontal: 10),
           children: [
             UndoButton(
-              onPressed: () {ref.read(documentsProvider.notifier).undo(docIndex);},
+              onPressed: () {ref.read(documentsProvider.notifier).undo(ref.read(documentsProvider.notifier).currentDocID);},
           ),
           const SizedBox(width: 5),
           RedoButton(
             onPressed: () {
-              ref.read(documentsProvider.notifier).redo(docIndex);
+              ref.read(documentsProvider.notifier).redo(ref.read(documentsProvider.notifier).currentDocID);
             },
           ),
           ],

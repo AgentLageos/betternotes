@@ -69,7 +69,7 @@ class DocumentModel {
     List<double>? pageHeights,
     List<int>? pageList
 
-  }) : commands = commands ?? [],  docID = docID ?? 0, //IdGenerator.next()
+  }) : commands = commands ?? [],  docID = docID ?? IdGenerator.next(),
         defaultPage = defaultPage ?? PageModel(strokes: [], backgroundStrokes: [], images: [], pageWidth: 210, pageHeight: 297, pageColor: Colors.white, tiles: []),
         placeholderHeight = placeholderHeight ?? 0.0,
         //totalPages = totalPages ?? 1,
@@ -85,6 +85,8 @@ class DocumentModel {
     Color? docBackgroundColor,
     int? commandIndex,
     List<Command>? commands,
+    int? maxAmountCommands,
+    int? docID,
     bool? isolateRunning,
     bool? didRedo,
     PageModel? defaultPage,
@@ -103,6 +105,8 @@ class DocumentModel {
       docBackgroundColor: docBackgroundColor ?? this.docBackgroundColor,
       commandIndex: commandIndex ?? this.commandIndex,
       commands: commands ?? this.commands,
+      maxAmountCommands: maxAmountCommands ?? this.maxAmountCommands,
+      docID: docID ?? this.docID,
       isolateRunning: isolateRunning ?? this.isolateRunning,
       didRedo: didRedo ?? this.didRedo,
       defaultPage: defaultPage ?? this.defaultPage,
@@ -669,7 +673,6 @@ class DocumentModel {
 
     return DocumentModel(
       pages: pages,
-      docID: 0,
       defaultPage: defaultPage,
       created: created,
       author: author,
@@ -941,7 +944,6 @@ class DocumentModel {
 
     return DocumentModel(
       pages: pages,
-      docID: 0,
       defaultPage: defaultPage,
       created: created,
       author: author,

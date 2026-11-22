@@ -36,6 +36,7 @@ class _DeveloperSettingsState extends ConsumerState<DeveloperSettings> {
     }
 
     if (status.isGranted) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Speicherzugriff erlaubt")),
       );
@@ -163,6 +164,7 @@ class _DeveloperSettingsState extends ConsumerState<DeveloperSettings> {
 
       await openAppSettings();
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Bitte Speicherzugriff in den Einstellungen erlauben"),
@@ -175,6 +177,7 @@ class _DeveloperSettingsState extends ConsumerState<DeveloperSettings> {
     //final prefs = await SharedPreferences.getInstance();
     //await prefs.setString('path', path);
 
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Pfad erfolgreich gesetzt")),
     );
