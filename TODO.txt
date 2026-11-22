@@ -19,6 +19,7 @@ temp pages while loading are always a4
 
 
 when running on linux without disabling impeller will freeze
+also many warnings when starting
 
 
 

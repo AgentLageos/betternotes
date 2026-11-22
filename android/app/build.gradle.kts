@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.lageos.betternotes"
     //compileSdk = flutter.compileSdkVersion
-    compileSdk = 36
+    compileSdk = 37
     //ndkVersion = flutter.ndkVersion
     ndkVersion = "28.2.13676358"
 
