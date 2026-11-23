@@ -12,7 +12,7 @@ import '../models/page/tile.dart';
 ///
 /// Kept out of [PageModel] (P4-01): pages are immutable values shared with older states and the
 /// undo history, while tiles are a mutable cache that the renderer updates in place.
-/// Replaced by the Rust renderer in Phase 5 (R5-03).
+/// Only [DartPageRenderer] writes to it; widgets read it. Replaced by the Rust renderer in Phase 5 (R5-03).
 
 /// Identifies a page of an open document.
 typedef PageKey = ({int docID, int pageID});
@@ -35,9 +35,11 @@ class PageTilesNotifier extends Notifier<Map<PageKey, PageTiles>> {
   @override
   Map<PageKey, PageTiles> build() => const {};
 
-  /// Stores [grid] as the tiles of [key].
+  /// Stores [grid] as the tiles of [key]. The images of a replaced grid are disposed.
   void set(PageKey key, List<List<Tile>> grid) {
-    state = {...state, key: PageTiles(grid, (state[key]?.version ?? 0) + 1)};
+    final old = state[key];
+    state = {...state, key: PageTiles(grid, (old?.version ?? 0) + 1)};
+    if (old != null && !identical(old.grid, grid)) disposeTileGrid(old.grid);
   }
 
   /// Signals that the grid of [key] was updated in place.
@@ -47,14 +49,16 @@ class PageTilesNotifier extends Notifier<Map<PageKey, PageTiles>> {
     state = {...state, key: PageTiles(tiles.grid, tiles.version + 1)};
   }
 
-  /// Drops the tiles of [keys] (pages that left the loaded window).
+  /// Drops the tiles of [keys] (pages that left the loaded window) and disposes their images.
   void remove(Iterable<PageKey> keys) {
     final drop = keys.where(state.containsKey).toSet();
     if (drop.isEmpty) return;
+    final dropped = [for (final key in drop) state[key]!.grid];
     state = {
       for (final entry in state.entries)
         if (!drop.contains(entry.key)) entry.key: entry.value,
     };
+    dropped.forEach(disposeTileGrid);
   }
 
   /// Drops all tiles of document [docID] (closed).
@@ -62,6 +66,16 @@ class PageTilesNotifier extends Notifier<Map<PageKey, PageTiles>> {
 }
 
 final pageTilesProvider = NotifierProvider<PageTilesNotifier, Map<PageKey, PageTiles>>(PageTilesNotifier.new);
+
+/// Disposes the images of all tiles in [grid] (R0-01). Only call this once no widget paints the
+/// grid any more: the state change replacing it rebuilds the painters before the next frame.
+void disposeTileGrid(List<List<Tile>> grid) {
+  for (final row in grid) {
+    for (final tile in row) {
+      tile.disposeImages();
+    }
+  }
+}
 
 /// Empty tile grid covering a page of the given size. The last row and column are cut to the
 /// page size.

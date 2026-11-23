@@ -13,8 +13,7 @@ import '../models/page/document_model.dart';
 import '../models/page/image_model.dart';
 import '../models/page/page_model.dart';
 import '../models/page/stroke.dart';
-import '../rendering/page_tiles.dart';
-import '../rendering/tile_renderer.dart';
+import '../rendering/page_renderer.dart';
 import 'open_documents_notifier.dart';
 
 /// State of one open document (D2). Created by [OpenDocumentsNotifier.open], which also keeps it
@@ -22,7 +21,7 @@ import 'open_documents_notifier.dart';
 ///
 /// Responsibilities: page and element changes with undo/redo, the lazy-loading window (only the
 /// pages around the current page are in memory), saving through the document's [DocumentStore],
-/// and asking the [TileRenderer] for tiles of loaded pages.
+/// and reporting changes of loaded pages to the [PageRenderer].
 ///
 /// Async methods check [Ref.mounted] after every await: the document can be closed meanwhile.
 class DocumentNotifier extends Notifier<DocumentModel> {
@@ -45,6 +44,8 @@ class DocumentNotifier extends Notifier<DocumentModel> {
   }
 
   PageKey _key(int pageID) => (docID: docID, pageID: pageID);
+
+  PageRenderer get _renderer => ref.read(pageRendererProvider);
 
   // ============================================================
   // Elements (strokes, images)
@@ -95,7 +96,7 @@ class DocumentNotifier extends Notifier<DocumentModel> {
     final loaded = state.loadedPage(pageID);
     if (loaded != null) {
       _replacePage(apply(loaded));
-      await _updateTiles(pageID, addStrokes, removeStrokeIDs);
+      await _renderer.updateStrokes(_key(pageID), state.loadedPage(pageID)!, addStrokes, removeStrokeIDs);
     }
   }
 
@@ -222,7 +223,7 @@ class DocumentNotifier extends Notifier<DocumentModel> {
 
     final removePages = doc.pages.where((page) => !newPages.contains(page)).toList();
     unawaited(saveDoc(removePages));         //pages leaving the loaded window
-    ref.read(pageTilesProvider.notifier).remove(removePages.map((p) => _key(p.pageID)));
+    _renderer.hidePages(removePages.map((p) => _key(p.pageID)));
 
     double placeholderHeight = 0;
     for (int i = 0; i < currentPage - lazyLoadRange && i < doc.pageHeights.length; i++) {
@@ -238,17 +239,16 @@ class DocumentNotifier extends Notifier<DocumentModel> {
     unawaited(loadWindowPages());          //load pages in the background
   }
 
-  /// Loads the placeholder pages of the window from the file and renders tiles for loaded pages
-  /// that have none yet.
+  /// Loads the placeholder pages of the window from the file and shows all loaded pages of the
+  /// window in the renderer (it skips pages that are rendered already).
   Future<void> loadWindowPages() async {
-    final tiles = ref.read(pageTilesProvider);
     final pagesToLoad = <int>[];
-    final toRender = <PageModel>[];
+    final toShow = <PageModel>[];
     for (final page in state.pages) {
       if (page.isTemp) {
         pagesToLoad.add(page.pageID);
-      } else if (tiles[_key(page.pageID)]?.isEmpty ?? true) {
-        toRender.add(page);        //loaded, but not rendered yet
+      } else {
+        toShow.add(page);
       }
     }
 
@@ -262,42 +262,22 @@ class DocumentNotifier extends Notifier<DocumentModel> {
         for (final page in state.pages)
           if (page.isTemp && loadedByID[page.pageID] != null) loadedByID[page.pageID]! else page,
       ]);
-      toRender.addAll(loadedByID.values.where((p) => state.loadedPage(p.pageID) == p));
+      toShow.addAll(loadedByID.values.where((p) => state.loadedPage(p.pageID) == p));
     }
 
-    for (final page in toRender) {
-      unawaited(_renderTiles(page));
+    for (final page in toShow) {
+      // A page shown earlier may have changed while the pages were loading.
+      final current = state.loadedPage(page.pageID);
+      if (current != null) _renderer.showPage(_key(page.pageID), current);
     }
   }
 
-  /// Renders the tiles of [page] in the background. If the page changed meanwhile, the newer
-  /// version is rendered afterwards.
-  Future<void> _renderTiles(PageModel page) async {
-    final key = _key(page.pageID);
-    final grid = await ref.read(tileRendererProvider).render(key, page, () => ref.mounted && state.loadedPage(page.pageID) != null);
-    if (grid == null || !ref.mounted) return;
-    final current = state.loadedPage(page.pageID);
-    if (current == null) return;
-    ref.read(pageTilesProvider.notifier).set(key, grid);
-    if (!identical(current, page)) unawaited(_renderTiles(current));
-  }
-
-  /// Updates the tiles of [pageID] after strokes were added or removed.
-  Future<void> _updateTiles(int pageID, List<Stroke> strokes, List<int> erasedStrokeIDs) async {
-    final page = state.loadedPage(pageID);
-    final tiles = ref.read(pageTilesProvider)[_key(pageID)];
-    if (page == null || tiles == null || tiles.isEmpty) return;      //rendered from scratch later
-    await updateTileGrid(tiles.grid, page.strokes, strokes, erasedStrokeIDs, []);
-    if (ref.mounted) ref.read(pageTilesProvider.notifier).touch(_key(pageID));
-  }
-
-  /// Renders the tiles of all loaded pages again (after page size changes).
-  Future<void> _rerenderAllTiles() async {
+  /// Renders all loaded pages from scratch (after page size changes).
+  Future<void> _resizeAllLoadedPages() async {
     for (final page in state.pages) {
       if (page.isTemp) continue;
-      final grid = await renderPageTiles(page);
+      await _renderer.resizePage(_key(page.pageID), page);
       if (!ref.mounted) return;
-      if (state.loadedPage(page.pageID) != null) ref.read(pageTilesProvider.notifier).set(_key(page.pageID), grid);
     }
   }
 
@@ -318,15 +298,14 @@ class DocumentNotifier extends Notifier<DocumentModel> {
 
   Future<void> setAllPageSizes(double width, double height) async {
     _changeLoadedPages((p) => p.copyWith(pageWidth: width, pageHeight: height));
-    await _rerenderAllTiles();
+    await _resizeAllLoadedPages();
   }
 
   Future<void> setPageSize(int pageID, double width, double height) async {
     _changeLoadedPages((p) => p.pageID == pageID ? p.copyWith(pageWidth: width, pageHeight: height) : p);
     final page = state.loadedPage(pageID);
     if (page == null) return;
-    final grid = await renderPageTiles(page);
-    if (ref.mounted && state.loadedPage(pageID) != null) ref.read(pageTilesProvider.notifier).set(_key(pageID), grid);
+    await _renderer.resizePage(_key(pageID), page);
   }
 
   void setPageColor(int pageID, Color color) =>
@@ -348,12 +327,7 @@ class DocumentNotifier extends Notifier<DocumentModel> {
     if (page == null) return;
     final newPage = page.withBackgroundSpacing(horizontalSpaces, verticalSpaces, strokeColor, strokeWidth);
     _replacePage(newPage);
-
-    final tiles = ref.read(pageTilesProvider)[_key(pageID)];
-    if (tiles != null && !tiles.isEmpty) {
-      await updateTileGrid(tiles.grid, newPage.strokes, [], [], newPage.backgroundStrokes);
-      if (ref.mounted) ref.read(pageTilesProvider.notifier).touch(_key(pageID));
-    }
+    await _renderer.updateBackground(_key(pageID), newPage);
   }
 
   void setDefaultPage(PageModel newDefaultPage) => state = state.copyWith(defaultPage: newDefaultPage);

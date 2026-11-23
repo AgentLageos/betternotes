@@ -386,7 +386,7 @@ Goal: fix the current renderer's problems:
 
 ### Milestones
 
-- [ ] **R1-01** Define a `PageRenderer` interface in Dart and move the current renderer behind
+- [x] **R1-01** Define a `PageRenderer` interface in Dart and move the current renderer behind
   it without behavior changes.
 - [ ] **R1-02** Set up the Rust crate and `flutter_rust_bridge`; build for Android and Linux first
   (Rust toolchain, Android NDK targets, cargokit or equivalent).
@@ -434,8 +434,23 @@ seams, and without the async workarounds.
 
 ### Stopgap before Phase 5
 
-- [ ] **R0-01** Dispose old `ui.Image`s and `Picture`s in `Tile` (`tile2.dart:93` is commented
+- [x] **R0-01** Dispose old `ui.Image`s and `Picture`s in `Tile` (`tile2.dart:93` is commented
   out) to reduce the GPU memory leak. Do not rework the isolate pool; it gets replaced.
+
+**Phase 5 notes:**
+- R0-01: `Tile` disposes the image it replaces and every `Picture` after `toImage`.
+  `PageTilesNotifier.set/remove` dispose the images of replaced/dropped grids (`disposeTileGrid`);
+  grids finished for pages that were hidden meanwhile are disposed too. Safe because the state
+  change rebuilds the painters before the next frame, and recorded pictures keep their own reference.
+- R1-01: `rendering/page_renderer.dart` defines `PageRenderer` (`showPage`, `hidePages`,
+  `closeDocument`, `updateStrokes`, `updateBackground`, `resizePage`) and `pageRendererProvider`.
+  Every call passes the page after the change; the renderer keeps the latest version per page and
+  re-renders if it changed during a render (this replaced the `identical(current, page)` check
+  against the notifier state). `rendering/dart_page_renderer.dart` wraps the old code
+  (`TileRenderer` pool, `pageTilesProvider`). `DocumentNotifier` and `OpenDocumentsNotifier` no
+  longer know about tiles. Still reading `pageTilesProvider` directly: `DrawerWidget` (paints the
+  tiles, eraser preview uses `Tile.aStrokes`) and `PageWidget` (placeholder until rendered); both
+  go behind the `TileLayer` widget in R1-04.
 
 ### Later / optional
 

@@ -100,7 +100,10 @@ class TileRenderer {
           result.backgroundRights[row][col],
         );
       }
-      if (!job.stillWanted()) return null;
+      if (!job.stillWanted()) {
+        disposeTileGrid(result.tiles);
+        return null;
+      }
     }
     return result.tiles;
   }

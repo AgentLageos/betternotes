@@ -31,6 +31,35 @@ class Tile extends ChangeNotifier{
       this.rect,
       );
 
+  /// Replaces [image], disposing the previous one (R0-01: images were never released).
+  /// Safe while a frame shows the old image: recorded pictures hold their own reference.
+  void _setImage(ui.Image newImage) {
+    image?.dispose();
+    image = newImage;
+  }
+
+  void _setBackgroundImage(ui.Image newImage) {
+    backgroundImage?.dispose();
+    backgroundImage = newImage;
+  }
+
+  /// Releases both images. The tile can still be rendered again afterwards.
+  void disposeImages() {
+    image?.dispose();
+    image = null;
+    backgroundImage?.dispose();
+    backgroundImage = null;
+  }
+
+  /// Rasterizes [picture] and disposes it.
+  static Future<ui.Image> _toImage(ui.Picture picture, double width, double height) async {
+    try {
+      return await picture.toImage(width.toInt(), height.toInt());
+    } finally {
+      picture.dispose();
+    }
+  }
+
 
 
 
@@ -75,8 +104,7 @@ class Tile extends ChangeNotifier{
 
     final picture = recorder.endRecording();
 
-    final newImage = await picture.toImage((rect.width*scale).toInt(), (rect.height*scale).toInt());
-    image =newImage;
+    _setImage(await _toImage(picture, rect.width*scale, rect.height*scale));
 
 
   }
@@ -115,8 +143,7 @@ class Tile extends ChangeNotifier{
 
     final picture = recorder.endRecording();
 
-    final newImage = await picture.toImage((rect.width*scale).toInt(), (rect.height*scale).toInt());
-    backgroundImage = newImage;
+    _setBackgroundImage(await _toImage(picture, rect.width*scale, rect.height*scale));
 
   }
 
@@ -564,8 +591,7 @@ class Tile extends ChangeNotifier{
 
     final picture = recorder.endRecording();
 
-    final newImage = await picture.toImage((rect.width*scale).toInt(), (rect.height*scale).toInt());
-    image = newImage;
+    _setImage(await _toImage(picture, rect.width*scale, rect.height*scale));
 
     scale = 4.0;     //scale = 200 is way too high, at most 50
     final backgroundRecorder = ui.PictureRecorder();
@@ -573,8 +599,7 @@ class Tile extends ChangeNotifier{
     backgroundCanvas.translate(-rect.left * scale, -rect.top * scale);
     drawStrokes2AfterIsolate(backgroundCanvas, tileBackgroundStrokes, scale, blur, backgroundSameWidths, backgroundLefts, backgroundRights);
     final backgroundPicture = backgroundRecorder.endRecording();
-    final newBackgroundImage = await backgroundPicture.toImage((rect.width*scale).toInt(), (rect.height*scale).toInt());
-    backgroundImage = newBackgroundImage;
+    _setBackgroundImage(await _toImage(backgroundPicture, rect.width*scale, rect.height*scale));
 
 
 
