@@ -393,8 +393,10 @@ Goal: fix the current renderer's problems:
 - [x] **R1-03** Rust: page geometry mirror, tile grid, zoom levels, versioning, scheduler,
   cancellation, LRU cache. Unit tests and benchmarks independent of Flutter
   (render tiles to PNG and compare against reference images).
-- [ ] **R1-04** Integrate: `TileLayer` widget, tile events, image disposal.
+- [x] **R1-04** Integrate: `TileLayer` widget, tile events, image disposal.
   Developer-settings switch between old and new renderer.
+- [ ] **R1-06** **(high, do first)** The Rust renderer is much slower than the Dart renderer on
+  the tablet ("rendering takes forever"). See "R1-06 findings" in the Phase 5 notes.
 - [ ] **R1-05** Exact re-render after zoom gestures end.
 
 **Milestone 1 done when:** a finished page renders fast, sharp at every zoom, without visible
@@ -431,6 +433,71 @@ seams, and without the async workarounds.
 - [ ] **R5-02** Web via WASM (threads need cross-origin isolation headers). **(low)**
 - [ ] **R5-03** Delete the old Dart renderer (`tile.dart`, `initialize_tiles.dart`,
   `rendering/tile_renderer.dart`, `rendering/page_tiles.dart`, `draw_strokes.dart`) once the Rust renderer matches it.
+
+**R1-06 findings (2026-11-23, tablet 23043RP34G / SM8250, debug APK, not fixed yet):**
+- Confirmed with the log line `document_notifier: doc … uses the Rust/Dart renderer` that the Rust
+  renderer was active. (A first try still used the Dart renderer: the setting only applies to
+  documents opened after switching. The Dart renderer is easy to spot by its blurry grid lines.)
+- **Confirmed: Rust runs unoptimized in debug APKs.** cargokit passes `--release` only for release
+  builds (`rust_builder/cargokit/build_tool/lib/src/builder.dart:171`); debug APKs contain
+  `build/bn_renderer/build/<target>/debug/libbn_renderer.so`. The benchmark (`examples/bench.rs`)
+  measured release builds. Unoptimized on the tablet, single thread: 1.3–3.9 ms per tile instead of
+  0.35–0.9 ms (about 3× slower; a whole sample page at 4 px/mm with 7 threads took 42 ms instead of 14 ms).
+  Fix: add `[profile.dev] opt-level = 3` (or at least `[profile.dev.package."*"] opt-level = 3`
+  for tiny-skia) to `rust/Cargo.toml`.
+- That alone doesn't explain "takes forever". **Suspected main cause (not measured yet): the
+  number of tiles and the cost per tile on the Dart side.**
+  - At fit-width zoom on the tablet (zoom ≈ 6, devicePixelRatio ≈ 2–2.25) `levelScale` rounds
+    *up* to 16 px/mm, at max zoom to 32 px/mm. An A4 page at 16 px/mm is 14 × 19 = 266 tiles per
+    layer, **532 tiles (≈ 136 MB) per page** for background + ink; at 32 px/mm four times that.
+    The visible area plus the prefetch ring is still a few hundred tiles. Dart budget 96 MB and
+    Rust cache 64 MB are smaller than one page, so eviction may cause tiles to be re-sent and
+    re-rendered over and over (check this first).
+  - Every tile is 256 KB, also when it is empty (most background tiles only hold a few grid
+    lines, many ink tiles are fully transparent). Per tile the pixels are copied about five
+    times: `Arc` clone into `TileUpdate`, FRB serialization, the Dart port message,
+    `getUint8List`, `decodeImageFromPixels` (buffer + texture upload). Each
+    `decodeImageFromPixels` is an async round trip through the engine; hundreds of them in debug
+    mode (Dart JIT) are probably seconds.
+  - The old renderer had a similar number of pixels but created its images on the GPU
+    (`picture.toImage`) without CPU copies.
+- **Next steps:**
+  1. `opt-level = 3` for the dev profile (above).
+  2. Measure before changing more: log tiles requested / rendered / sent / decoded, Rust render time,
+     Dart decode time per tile, and time from opening a page until all visible tiles are shown. Also
+     test a `--profile` build (debug-mode Dart distorts timings).
+  3. Don't send empty tiles: Rust marks a tile as empty (no pixels), Dart draws nothing.
+     Background layer: probably draw the line pattern without tiles (vector in Flutter, or one small
+     repeated pattern tile) and only use background tiles for PDFs (R3).
+  4. Round the scale level to the *nearest* power of two (or cap at ~1.5 × device pixels) instead
+     of rounding up.
+  5. Make the budgets fit at least the visible tiles, and make sure eviction can't loop.
+  6. Fewer copies: send pixels without the `Arc` clone (FRB zero-copy buffers), several tiles per
+     message; consider bigger tiles (512 px) to cut per-tile overhead.
+  7. If decoding into `ui.Image` stays the bottleneck, revisit D5 (external textures).
+- **Possible solutions (direction, not decided yet).** Tiles have two roles, which should be
+  judged separately:
+  - *Tiles inside Rust* (internal structure): keep. Partial invalidation, parallel rendering,
+    zoom levels, caching and cancellation per tile; a Rust renderer would be built like this
+    regardless of Flutter.
+  - *Tiles as the unit handed to Flutter* (one `ui.Image` per tile): this only made sense in the
+    Dart renderer, where tiles were created on the GPU directly. Now every tile crosses the
+    boundary as 256 KB and becomes its own image, hundreds per page. The tablet test points to
+    this handoff, not to rendering, as the bottleneck.
+
+  Solutions, in order of effort:
+  - **A. Fewer, bigger, non-empty tiles** (cheap, probably enough): next steps 1–6 above, mainly
+    optimized Rust in debug builds, no empty tiles, line pattern without tiles, nearest zoom level,
+    512 px tiles. Turns ~500 images per page into a few dozen. Measure first, then decide.
+  - **B. One texture instead of many images** (if the handoff still dominates after A): Rust
+    composites the visible tiles into one texture per editor view, shown with Flutter's
+    `Texture` widget. Removes per-tile decoding, copies and the Dart image budget; scrolling only
+    copies cached tiles into the texture (memcpy). Costs platform glue: Linux
+    `FlPixelBufferTexture` (CPU pixel buffer), Android a `Surface`/`ANativeWindow` that Rust writes
+    into; other platforms later. Would replace D5. Same path the live stroke overlay needs for low
+    pen latency (R2-04 option a), so it could serve both.
+  - Recommendation: do A with measurements first; switch to B if the handoff is still the
+    bottleneck.
 
 ### Stopgap before Phase 5
 
@@ -500,6 +567,42 @@ seams, and without the async workarounds.
     Single thread on the tablet: 0.35 ms per background tile, 0.6–4 ms per ink tile.
   - Strokes are culled per tile by bounding box only (linear scan); a spatial index comes with R4-01.
   - Not in the renderer yet: images (`ImageModel`, still painted by Flutter), eraser preview, laser.
+- R1-04: Rust renderer usable in the app behind **Settings → Developer → Rust renderer**
+  (`Settings.rustRenderer`, mirrored into `rustRendererEnabledProvider`; read when a document is
+  opened, so switching needs a reopen). Default off.
+  - API `rust/src/api/renderer.rs`: one renderer per process; all change calls are `sync` (keeps
+    them ordered; async calls run on a thread pool). Tiles come through one stream
+    (`rendererTileStream`). `rendererReset()` runs first (hot restart); the stream call is async,
+    so tiles finished before it are kept and resent (`forget_all`).
+  - **Pixels are premultiplied** (`PixelFormat.rgba8888` is documented as premultiplied); the
+    straight-alpha conversion from R1-03 was wrong and is gone (tiny-skia's data is sent as is).
+  - `rendering/rust_tile_store.dart`: decodes tiles (`decodeImageFromPixels`), keeps the newest
+    version, disposes replaced images, LRU budget 96 MB (tiles painted in the last second are
+    kept), evicted tiles reported with `rendererForgetTiles`. `waitFor(pending)` completes when
+    given tile versions are shown (500 ms timeout).
+  - `rendering/viewport_tracker.dart`: after every frame reads each page's real on-screen
+    transform (`getTransformTo(null)`), sends visible rect + scale per page. Scale = next power of
+    two ≥ zoom × devicePixelRatio (tiles drawn slightly scaled down; exact scale is R1-05).
+  - Painting: no separate `TileLayer` widget; `ActivePainter` (`drawer_widget.dart`) paints the Rust
+    background layer, then images, then the ink layer, then live strokes (same order as before).
+    Missing tiles are filled with the nearest other scale, clipped per tile (never two scales on
+    top of each other). The Rust background layer is transparent; `PageWidget` paints the colour.
+  - Hidden strokes: strokes being erased or selected (`erasedStrokes` in `page_widget.dart`) are
+    hidden in the Rust ink layer (`rendererSetHidden`), Flutter draws the preview.
+  - Pen-up handoff (both renderers): `PageRenderer.updateStrokes` completes when the change is
+    visible (Rust: the change calls return the visible ink tiles to wait for). `PageWidget` keeps
+    committed strokes in `pendingStrokes` (drawn like active strokes) until then. Replaces the
+    one-extra-build workaround in `DrawerWidget`.
+  - Fixed on the way: committing a selection didn't rebuild `PageWidget`, so `DrawerWidget` kept
+    the old `erasedStrokes` (invisible with the Dart renderer, strokes stayed hidden with Rust).
+  - Tested on Linux (Xephyr + xdotool, generated sample document): open, zoom in/out, pen
+    stroke (no gap at pen-up in burst screenshots; small anti-aliasing difference between the
+    vector preview and the tile, R2-02), eraser with preview, undo, lasso select + commit (5/5
+    correct; one earlier run left the selected word hidden and could not be reproduced).
+    Moving a selection could not be tested with a mouse (needs stylus). Tablet: see R1-06.
+  - Seen with the Dart renderer: after selection commits, a word was drawn as large blobs cut at
+    tile borders (the Rust renderer draws the same data correctly). Looks like a bug in the old
+    tile code; not investigated (R5-03 removes it).
 
 ### Later / optional
 

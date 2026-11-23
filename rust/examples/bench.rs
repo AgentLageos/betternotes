@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 use bn_renderer::engine::geometry::{Point, Rect, Stroke};
 use bn_renderer::engine::page::{Layer, PageGeometry, PageKey};
-use bn_renderer::engine::raster::{render_tile, to_straight_rgba};
+use bn_renderer::engine::raster::{into_rgba, render_tile};
 use bn_renderer::engine::renderer::{PageViewport, Renderer, RendererConfig};
 use bn_renderer::engine::tiles::{grid_size, Scale};
 
@@ -53,7 +53,7 @@ fn raster_per_tile(page: &PageGeometry, scale: f32, layer: Layer) -> (f64, u32) 
     for y in 0..rows {
         for x in 0..cols {
             let tile = render_tile(page, layer, scale, x, y);
-            std::hint::black_box(to_straight_rgba(&tile));
+            std::hint::black_box(into_rgba(tile));
         }
     }
     (ms(start.elapsed()) / (cols * rows) as f64, cols * rows)
@@ -68,20 +68,21 @@ fn renderer_whole_page(ink: &[Stroke], scale: f32, threads: usize) -> (f64, usiz
         RendererConfig { threads, cache_bytes: 256 << 20, prefetch_margin: 0 },
         Box::new(move |_| {
             sink_count.fetch_add(1, Ordering::Relaxed);
+            true
         }),
     );
     let page = PageKey { doc: 1, page: 1 };
     let start = Instant::now();
     renderer.open_page(page, common::A4.0, common::A4.1, common::PAGE_COLOR);
     renderer.set_background(page, common::PAGE_COLOR, common::ruled_background());
-    renderer.add_strokes(page, ink.to_vec());
+    let _ = renderer.add_strokes(page, ink.to_vec());
     renderer.set_viewport(&[PageViewport { page, scale, visible: Rect::from_ltwh(0.0, 0.0, common::A4.0, common::A4.1) }]);
     renderer.wait_idle();
     let full = ms(start.elapsed());
     let tiles = count.load(Ordering::Relaxed);
 
     let start = Instant::now();
-    renderer.add_strokes(page, vec![common::pen_wave(999_999, 30.0, 150.0, 0xff1a237e)]);
+    let _ = renderer.add_strokes(page, vec![common::pen_wave(999_999, 30.0, 150.0, 0xff1a237e)]);
     renderer.wait_idle();
     (full, tiles, ms(start.elapsed()))
 }

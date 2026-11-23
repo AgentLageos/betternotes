@@ -401,6 +401,18 @@ abstract class AppLocalizations {
   /// **'Debug Mode'**
   String get debug_mode;
 
+  /// No description provided for @rust_renderer.
+  ///
+  /// In en, this message translates to:
+  /// **'Rust renderer (experimental)'**
+  String get rust_renderer;
+
+  /// No description provided for @rust_renderer_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Applies to documents opened afterwards'**
+  String get rust_renderer_hint;
+
   /// No description provided for @manage_app_permissions.
   ///
   /// In en, this message translates to:

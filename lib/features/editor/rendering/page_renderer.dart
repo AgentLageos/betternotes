@@ -28,6 +28,9 @@ abstract class PageRenderer {
   void closeDocument(int docID);
 
   /// Strokes [added] were added to and [removedStrokeIDs] removed from the shown page [page].
+  ///
+  /// Completes when the change is visible (or can't become visible, e.g. the page was hidden), so
+  /// the caller can keep drawing a preview of the strokes until then without a gap.
   Future<void> updateStrokes(PageKey key, PageModel page, List<Stroke> added, List<int> removedStrokeIDs);
 
   /// The background strokes (line pattern) of the shown page [page] changed.
@@ -37,4 +40,16 @@ abstract class PageRenderer {
   Future<void> resizePage(PageKey key, PageModel page);
 }
 
-final pageRendererProvider = Provider<PageRenderer>((ref) => DartPageRenderer(ref));
+/// The current Dart renderer.
+final dartPageRendererProvider = Provider<PageRenderer>((ref) => DartPageRenderer(ref));
+
+/// Whether newly opened documents use the Rust renderer (developer setting, R1-04). Set by the
+/// settings notifier; a separate provider so documents don't depend on the settings file (tests).
+final rustRendererEnabledProvider = NotifierProvider<RustRendererEnabledNotifier, bool>(RustRendererEnabledNotifier.new);
+
+class RustRendererEnabledNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}

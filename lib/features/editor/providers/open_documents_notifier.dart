@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/document_store.dart';
 import '../models/page/document_model.dart';
 import '../models/page/page_model.dart';
-import '../rendering/page_renderer.dart';
 import 'document_notifier.dart';
 
 /// The open documents (their docIDs, in opening order). Opening reads the file and creates the
@@ -87,11 +86,12 @@ class OpenDocumentsNotifier extends Notifier<List<int>> {
   /// Saves and closes document [docID]. Its provider is disposed once no widget watches it.
   Future<void> close(int docID) async {
     if (!state.contains(docID)) return;
+    final notifier = ref.read(documentProvider(docID).notifier);
     try {
-      await ref.read(documentProvider(docID).notifier).closeStore();
+      await notifier.closeStore();
     } finally {
       _keepAlive.remove(docID)?.close();
-      ref.read(pageRendererProvider).closeDocument(docID);
+      notifier.renderer.closeDocument(docID);
       state = state.where((id) => id != docID).toList();
       if (ref.read(activeDocumentProvider) == docID) ref.read(activeDocumentProvider.notifier).set(null);
     }

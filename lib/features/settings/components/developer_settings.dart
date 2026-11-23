@@ -44,6 +44,15 @@ class _DeveloperSettingsState extends ConsumerState<DeveloperSettings> {
           },
         ),
 
+        SwitchListTile(
+          title: Text(language.rust_renderer),
+          subtitle: Text(language.rust_renderer_hint),
+          value: settings.rustRenderer,
+          onChanged: (value) async {
+            await ref.read(settingsProvider.notifier).setRustRenderer(value);
+          },
+        ),
+
 
 
         const SizedBox(height: 20),

@@ -61,6 +61,8 @@
 
   "danger_zone": "Advanced",
   "debug_mode": "Debug Mode",
+  "rust_renderer": "Rust renderer (experimental)",
+  "rust_renderer_hint": "Applies to documents opened afterwards",
   "manage_app_permissions":"Manage App Permissions",
 
 

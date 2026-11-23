@@ -20,14 +20,14 @@
 //! - Call [`Renderer::forget_tiles`] for tiles you dropped, so they are delivered again when needed.
 //! - The sink is called on worker threads and must not call back into the renderer.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::thread::JoinHandle;
 
 use super::cache::LruCache;
 use super::geometry::{Rect, Stroke};
 use super::page::{Layer, PageGeometry, PageKey, PageMirror};
-use super::raster::{render_tile, to_straight_rgba};
+use super::raster::{into_rgba, render_tile};
 use super::tiles::{tiles_in, Scale, TileKey, TILE_PX};
 
 /// Size of one tile's pixel data in bytes.
@@ -48,12 +48,13 @@ pub struct PageViewport {
 pub struct TileEvent {
     pub key: TileKey,
     pub version: u64,
-    /// [`TILE_PX`]² pixels, RGBA with straight alpha (see [`to_straight_rgba`]).
+    /// [`TILE_PX`]² pixels, RGBA with premultiplied alpha (see [`into_rgba`]).
     pub pixels: Arc<Vec<u8>>,
 }
 
-/// Receives finished tiles; called on worker threads.
-pub type TileSink = Box<dyn Fn(TileEvent) + Send + Sync>;
+/// Receives finished tiles; called on worker threads. Returns false if the tile could not be
+/// passed on (no receiver yet); see [`Renderer::forget_all`].
+pub type TileSink = Box<dyn Fn(TileEvent) -> bool + Send + Sync>;
 
 #[derive(Clone, Copy, Debug)]
 pub struct RendererConfig {
@@ -152,6 +153,18 @@ impl State {
         Some(Job::Render { key, version, page })
     }
 
+    /// Visible (not prefetch) ink tiles of `page` whose current version hasn't been delivered.
+    fn pending_visible_ink(&self, page: PageKey) -> Vec<(TileKey, u64)> {
+        self.wanted
+            .iter()
+            .filter(|(k, p)| k.page == page && k.layer == Layer::Ink && p.class == 0)
+            .filter_map(|(k, _)| {
+                let version = self.tile_version(k)?;
+                (self.delivered.get(k) != Some(&version)).then_some((*k, version))
+            })
+            .collect()
+    }
+
     fn drop_page_state(&mut self, mut matches: impl FnMut(&PageKey) -> bool) {
         self.wanted.retain(|k, _| !matches(&k.page));
         self.delivered.retain(|k, _| !matches(&k.page));
@@ -211,9 +224,10 @@ impl Renderer {
         Self { shared, workers }
     }
 
-    fn change(&self, f: impl FnOnce(&mut State)) {
-        f(&mut self.shared.lock());
+    fn change<R>(&self, f: impl FnOnce(&mut State) -> R) -> R {
+        let result = f(&mut self.shared.lock());
         self.shared.work.notify_all();
+        result
     }
 
     // ----- page data (deltas from Dart) -----
@@ -235,6 +249,14 @@ impl Renderer {
         });
     }
 
+    /// Closes all pages (used when Dart restarts and its state is gone).
+    pub fn close_all(&self) {
+        self.change(|s| {
+            s.pages.clear();
+            s.drop_page_state(|_| true);
+        });
+    }
+
     /// Closes all pages of a document.
     pub fn close_document(&self, doc: u64) {
         self.change(|s| {
@@ -245,22 +267,38 @@ impl Renderer {
 
     /// Adds strokes on top; strokes with an existing ID replace the old one. Ignored for pages
     /// that aren't open.
-    pub fn add_strokes(&self, page: PageKey, strokes: Vec<Stroke>) {
+    ///
+    /// Like all ink changes, returns the visible ink tiles of the page that are not delivered in
+    /// their current version: once these arrived (or newer ones), the screen shows the change.
+    pub fn add_strokes(&self, page: PageKey, strokes: Vec<Stroke>) -> Vec<(TileKey, u64)> {
         self.change(|s| {
             let version = s.next_version();
             if let Some(p) = s.pages.get_mut(&page) {
                 p.add_strokes(strokes, version);
             }
-        });
+            s.pending_visible_ink(page)
+        })
     }
 
-    pub fn remove_strokes(&self, page: PageKey, ids: &[u64]) {
+    pub fn remove_strokes(&self, page: PageKey, ids: &[u64]) -> Vec<(TileKey, u64)> {
         self.change(|s| {
             let version = s.next_version();
             if let Some(p) = s.pages.get_mut(&page) {
                 p.remove_strokes(ids, version);
             }
-        });
+            s.pending_visible_ink(page)
+        })
+    }
+
+    /// Sets the ink strokes that are not drawn (replaces the previous set).
+    pub fn set_hidden(&self, page: PageKey, ids: HashSet<u64>) -> Vec<(TileKey, u64)> {
+        self.change(|s| {
+            let version = s.next_version();
+            if let Some(p) = s.pages.get_mut(&page) {
+                p.set_hidden(ids, version);
+            }
+            s.pending_visible_ink(page)
+        })
     }
 
     pub fn set_background(&self, page: PageKey, color: u32, strokes: Vec<Stroke>) {
@@ -307,6 +345,11 @@ impl Renderer {
             }
             s.wanted = wanted;
         });
+    }
+
+    /// The receiver has no tiles any more (e.g. it was just connected): deliver everything again.
+    pub fn forget_all(&self) {
+        self.change(|s| s.delivered.clear());
     }
 
     /// The receiver dropped these tiles; deliver them again when they are wanted.
@@ -366,17 +409,14 @@ fn worker(shared: &Shared) {
             Some(Job::Cached(event)) => {
                 state.delivered.insert(event.key, event.version);
                 state.stats.cache_hits += 1;
-                state.stats.delivered += 1;
-                drop(state);
-                (shared.sink)(event);
-                state = shared.lock();
+                state = deliver(shared, state, event);
             }
             Some(Job::Render { key, version, page }) => {
                 state.in_flight.insert(key, version);
                 drop(state);
 
                 let pixmap = render_tile(&page, key.layer, key.scale.get(), key.x, key.y);
-                let pixels = Arc::new(to_straight_rgba(&pixmap));
+                let pixels = Arc::new(into_rgba(pixmap));
 
                 state = shared.lock();
                 if state.in_flight.get(&key) == Some(&version) {
@@ -389,14 +429,24 @@ fn worker(shared: &Shared) {
                     state.cache.insert(key, (version, pixels.clone()), TILE_BYTES);
                     if state.wanted.contains_key(&key) && state.delivered.get(&key).is_none_or(|v| *v < version) {
                         state.delivered.insert(key, version);
-                        state.stats.delivered += 1;
-                        drop(state);
-                        (shared.sink)(TileEvent { key, version, pixels });
-                        state = shared.lock();
+                        state = deliver(shared, state, TileEvent { key, version, pixels });
                     }
                 }
                 shared.idle.notify_all();
             }
         }
     }
+}
+
+/// Calls the sink without holding the lock. The tile is recorded as delivered before (so no other
+/// worker sends it again) and stays recorded even if the sink couldn't take it: retrying at once
+/// would spin; the receiver calls [`Renderer::forget_all`] when it connects.
+fn deliver<'a>(shared: &'a Shared, state: MutexGuard<'a, State>, event: TileEvent) -> MutexGuard<'a, State> {
+    drop(state);
+    let sent = (shared.sink)(event);
+    let mut state = shared.lock();
+    if sent {
+        state.stats.delivered += 1;
+    }
+    state
 }

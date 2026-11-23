@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/global_providers.dart';
+import '../../editor/rendering/page_renderer.dart' show rustRendererEnabledProvider;
 import 'package:path/path.dart' as p;
 
 
@@ -128,6 +129,14 @@ class SettingsNotifier extends Notifier<Settings> {
   }
 
 
+
+  Future<void> setRustRenderer(bool value) async {
+    state = state.copyWith(rustRenderer: value);
+    ref.read(rustRendererEnabledProvider.notifier).set(value);
+    final config = await loadConfig();
+    config['rustRenderer'] = value;
+    await file.writeAsString(jsonEncode(config), flush: true,);
+  }
 
   Future<void> setDebugMode(bool value) async {
     state = state.copyWith(debugMode: value);
@@ -255,6 +264,7 @@ class SettingsNotifier extends Notifier<Settings> {
       error: Color(config['error']),
       onError: Color(config['onError']),
       debugMode: config['debugMode'],
+      rustRenderer: config['rustRenderer'] == true,
       theme: ThemeData(colorScheme: ColorScheme(
         brightness: brightness,
         primary: Color(config['primary']),
@@ -271,7 +281,7 @@ class SettingsNotifier extends Notifier<Settings> {
 
       ),
     );
-
+    ref.read(rustRendererEnabledProvider.notifier).set(state.rustRenderer);
   }
 
   Future<void> writeColorsToConfig(bool darkMode, ColorScheme colorScheme)async {

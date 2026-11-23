@@ -50,7 +50,7 @@ pub fn render_tile(page: &PageGeometry, layer: Layer, scale: f32, x: u32, y: u32
     }
 
     for stroke in page.strokes(layer) {
-        if stroke.bounds().overlaps(&visible) {
+        if stroke.bounds().overlaps(&visible) && !(layer == Layer::Ink && page.hidden.contains(&stroke.id)) {
             draw_stroke(&mut pixmap, stroke, transform);
         }
     }
@@ -192,15 +192,11 @@ fn clear_outside(pixmap: &mut Pixmap, right: u32, bottom: u32) {
     }
 }
 
-/// Pixels as RGBA with straight (non-premultiplied) alpha, the format Flutter's
-/// `decodeImageFromPixels(..., PixelFormat.rgba8888, ...)` expects.
-pub fn to_straight_rgba(pixmap: &Pixmap) -> Vec<u8> {
-    let mut out = Vec::with_capacity(pixmap.data().len());
-    for p in pixmap.pixels() {
-        let c = p.demultiply();
-        out.extend_from_slice(&[c.red(), c.green(), c.blue(), c.alpha()]);
-    }
-    out
+/// The pixels as RGBA bytes with premultiplied alpha: the format of Flutter's
+/// `decodeImageFromPixels(..., PixelFormat.rgba8888, ...)` (documented as premultiplied), and
+/// tiny-skia's own format, so no conversion is needed.
+pub fn into_rgba(pixmap: Pixmap) -> Vec<u8> {
+    pixmap.take()
 }
 
 #[cfg(test)]
@@ -249,10 +245,18 @@ mod tests {
     }
 
     #[test]
-    fn straight_alpha_output() {
+    fn premultiplied_output() {
         let tile = render_tile(&page_with(vec![Stroke::new(1, 0x80ff0000, vec![Point::new(8.0, 8.0, 4.0)])]), Layer::Ink, 16.0, 0, 0);
-        let rgba = to_straight_rgba(&tile);
+        let rgba = into_rgba(tile);
         let i = (128 * TILE_PX as usize + 128) * 4;
-        assert_eq!(&rgba[i..i + 4], &[255, 0, 0, 128]);
+        assert_eq!(&rgba[i..i + 4], &[128, 0, 0, 128]);
+    }
+
+    #[test]
+    fn hidden_strokes_are_not_drawn() {
+        let mut page = page_with(vec![Stroke::new(1, 0xff000000, vec![Point::new(8.0, 8.0, 4.0)])]);
+        page.hidden = Arc::new([1].into_iter().collect());
+        let tile = render_tile(&page, Layer::Ink, 16.0, 0, 0);
+        assert_eq!(alpha_at(&tile, 128, 128), 0);
     }
 }

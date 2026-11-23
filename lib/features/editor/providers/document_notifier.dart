@@ -14,6 +14,7 @@ import '../models/page/image_model.dart';
 import '../models/page/page_model.dart';
 import '../models/page/stroke.dart';
 import '../rendering/page_renderer.dart';
+import '../rendering/rust_page_renderer.dart';
 import 'open_documents_notifier.dart';
 
 /// State of one open document (D2). Created by [OpenDocumentsNotifier.open], which also keeps it
@@ -40,12 +41,18 @@ class DocumentNotifier extends Notifier<DocumentModel> {
   DocumentModel build() {
     final opened = ref.read(openDocumentsProvider.notifier).takeOpened(docID);
     _store = opened.store;
+    print("document_notifier: doc $docID uses the ${renderer is RustPageRenderer ? 'Rust' : 'Dart'} renderer");
     return opened.document;
   }
 
   PageKey _key(int pageID) => (docID: docID, pageID: pageID);
 
-  PageRenderer get _renderer => ref.read(pageRendererProvider);
+  /// The renderer of this document, chosen when it is opened (switching needs a reopen).
+  late final PageRenderer renderer = ref.read(rustRendererEnabledProvider)
+      ? ref.read(rustPageRendererProvider)
+      : ref.read(dartPageRendererProvider);
+
+  PageRenderer get _renderer => renderer;
 
   // ============================================================
   // Elements (strokes, images)

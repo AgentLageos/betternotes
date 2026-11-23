@@ -1,5 +1,6 @@
 //! The renderer's mirror of a page (D4): geometry needed for drawing plus change versions.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use super::geometry::{Rect, Stroke};
@@ -35,11 +36,14 @@ pub struct PageGeometry {
     pub background: Arc<Vec<Arc<Stroke>>>,
     /// Strokes in drawing order.
     pub ink: Arc<Vec<Arc<Stroke>>>,
+    /// IDs of ink strokes that are not drawn (being erased or moved by a selection; Flutter draws
+    /// the preview on top).
+    pub hidden: Arc<HashSet<u64>>,
 }
 
 impl PageGeometry {
     pub fn new(width: f32, height: f32, color: u32) -> Self {
-        Self { width, height, color, background: Arc::default(), ink: Arc::default() }
+        Self { width, height, color, background: Arc::default(), ink: Arc::default(), hidden: Arc::default() }
     }
 
     pub fn rect(&self) -> Rect {
@@ -174,6 +178,22 @@ impl PageMirror {
         });
     }
 
+    /// Sets the hidden ink strokes (replaces the previous set). Only strokes whose state changes
+    /// mark their area as changed.
+    pub fn set_hidden(&mut self, ids: HashSet<u64>, version: u64) {
+        if *self.geometry.hidden == ids {
+            return;
+        }
+        let old = std::mem::take(&mut self.geometry.hidden);
+        let grid = &mut self.versions[Layer::Ink as usize];
+        for stroke in self.geometry.ink.iter() {
+            if old.contains(&stroke.id) != ids.contains(&stroke.id) {
+                grid.bump(&stroke.bounds().inflate(CHANGE_MARGIN_MM), version);
+            }
+        }
+        self.geometry.hidden = Arc::new(ids);
+    }
+
     /// Changes the page size, keeping the content. Everything counts as changed.
     pub fn resize(&mut self, width: f32, height: f32, version: u64) {
         self.geometry.width = width;
@@ -234,6 +254,19 @@ mod tests {
         page.add_strokes(vec![stroke(2, 30.0, 30.0)], 3);
         assert_eq!(snapshot.ink.len(), 1);
         assert_eq!(page.geometry().ink.len(), 2);
+    }
+
+    #[test]
+    fn hiding_bumps_only_strokes_that_change() {
+        let mut page = PageMirror::new(210.0, 297.0, 0xffffffff, 1);
+        page.add_strokes(vec![stroke(1, 20.0, 20.0), stroke(2, 100.0, 100.0)], 2);
+        let at = |page: &PageMirror, x: f32| page.version_in(Layer::Ink, &Rect::from_ltwh(x - 4.0, x - 4.0, 8.0, 8.0));
+        page.set_hidden([1].into_iter().collect(), 3);
+        assert_eq!((at(&page, 20.0), at(&page, 100.0)), (3, 2));
+        page.set_hidden([1].into_iter().collect(), 4); // unchanged: no bump
+        assert_eq!(at(&page, 20.0), 3);
+        page.set_hidden([2].into_iter().collect(), 5);
+        assert_eq!((at(&page, 20.0), at(&page, 100.0)), (5, 5));
     }
 
     #[test]

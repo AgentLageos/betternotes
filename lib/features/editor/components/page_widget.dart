@@ -21,6 +21,7 @@ import 'package:betternotes/features/editor/components/selection_drawer.dart';
 
 import '../models/tools/line_tool.dart';
 import '../rendering/page_tiles.dart';
+import '../rendering/rust_page_renderer.dart';
 
 
 
@@ -57,6 +58,8 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
   Set<int> activePointers = {};
 
+  late final bool usesDartRenderer = ref.read(documentProvider(widget.docID).notifier).renderer is! RustPageRenderer;
+
 
 
   double eraseRadius = 10.0;      //size of the eraser
@@ -77,6 +80,9 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
   List<Stroke> activeStrokes = [];
   List<Stroke> erasedStrokes = [];
+  /// Strokes already committed to the document but not yet visible in the rendered tiles; drawn
+  /// like active strokes until [PageRenderer.updateStrokes] completes, so they never disappear.
+  List<Stroke> pendingStrokes = [];
 
   late double lastPressure;
 
@@ -213,13 +219,14 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
                 child: Stack(
                     children: [
-                      DrawerWidget(pageID: pageID, docID: docID, activeStrokes: activeStrokes, erasedStrokes: erasedStrokes, laserStrokes: laserStrokes,),
+                      DrawerWidget(pageID: pageID, docID: docID, activeStrokes: [...pendingStrokes, ...activeStrokes], erasedStrokes: erasedStrokes, laserStrokes: laserStrokes,),
                       //ActiveDrawer(pageWidth: pageWidth, pageHeight: pageHeight, tiles: tiles, activeStrokes: activeStrokes, page: page, images: page.images),          //drawing currently active strokes, drawing images, manages smooth erasing behavior
                       //VVV  displaying selection outline and selection menu   VVV
                       SelectionDrawer(width: pageWidth, height: pageHeight, selectionStrokes: selectionStrokes, selectionActive: selectionActive, selectionOperation: selectionOperation, selectionColor: selectionColor, deleteSelection: () { deleteSelection(); }, copySelection: () { copySelection();}, colorSelection: () { colorSelection(ref); },),
                       if (settings.debugMode) Positioned(right: 16, bottom: 16, child: Text("$pageID    ${pageIndex + 1}", style: TextStyle(fontSize: 12, color: Colors.grey.shade700),),)       //displaying pagenumber and pageid, NEEDS TO BE HERE SO STYLUS IS RECOGNIZED OVER TEXT AND DOESNT GET OVERLAYED WHILE ERASING
                       else Positioned(right: 16, bottom: 16, child: Text("${pageIndex + 1}", style: TextStyle(fontSize: 12, color: Colors.grey.shade700),),),
-                      if(ref.watch(pageTilesProvider.select((m) => m[(docID: docID, pageID: pageID)]?.isEmpty ?? true)))   Positioned.fill(
+                      // Loading indicator until the Dart renderer has tiles (the Rust renderer is fast enough without).
+                      if(usesDartRenderer && ref.watch(pageTilesProvider.select((m) => m[(docID: docID, pageID: pageID)]?.isEmpty ?? true)))   Positioned.fill(
                         child: IgnorePointer(
                           child: Center(
                             child: SizedBox(
@@ -394,8 +401,13 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     if (event.kind == PointerDeviceKind.stylus || event.kind == PointerDeviceKind.invertedStylus || event.pressure!=variableWidth) {
 
       if (activeStrokes.isNotEmpty && (selectedTool is PenTool || selectedTool is ShapeTool || selectedTool is LineTool)) {
-        unawaited(ref.read(documentProvider(docID).notifier).modifyElements(pageID, activeStrokes, [], [], []));
+        final committed = activeStrokes;
+        pendingStrokes = [...pendingStrokes, ...committed];
         activeStrokes = [];
+        unawaited(ref.read(documentProvider(docID).notifier).modifyElements(pageID, committed, [], [], []).whenComplete(() {
+          if (!mounted) return;
+          setState(() => pendingStrokes = [for (final s in pendingStrokes) if (!committed.contains(s)) s]);
+        }));
       }
       else if ((erasedImages.isNotEmpty || erasedStrokes.isNotEmpty) && selectedTool is EraserTool) {
         Set<int>idsToRemove = erasedStrokes.map((s) => s.strokeID).toSet();
@@ -582,6 +594,9 @@ class PageWidgetState extends ConsumerState<PageWidget> {
       scaleCenter = null;
       activeImages = [];
       erasedImages = [];
+      // Rebuild so DrawerWidget sees the cleared lists (the Rust renderer would keep the
+      // selected strokes hidden otherwise).
+      if (mounted) setState(() {});
 
 
     }

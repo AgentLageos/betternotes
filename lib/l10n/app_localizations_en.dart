@@ -162,6 +162,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get debug_mode => 'Debug Mode';
 
   @override
+  String get rust_renderer => 'Rust renderer (experimental)';
+
+  @override
+  String get rust_renderer_hint => 'Applies to documents opened afterwards';
+
+  @override
   String get manage_app_permissions => 'Manage App Permissions';
 
   @override

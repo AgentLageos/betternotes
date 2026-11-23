@@ -4,6 +4,7 @@
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
 import 'api/info.dart';
+import 'api/renderer.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' as ffi;
@@ -19,10 +20,58 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   });
 
   @protected
+  AnyhowException dco_decode_AnyhowException(dynamic raw);
+
+  @protected
+  RustStreamSink<TileUpdate> dco_decode_StreamSink_tile_update_Sse(dynamic raw);
+
+  @protected
   String dco_decode_String(dynamic raw);
 
   @protected
+  double dco_decode_f_32(dynamic raw);
+
+  @protected
+  PlatformInt64 dco_decode_i_64(dynamic raw);
+
+  @protected
+  List<PageViewportData> dco_decode_list_page_viewport_data(dynamic raw);
+
+  @protected
+  List<PendingTile> dco_decode_list_pending_tile(dynamic raw);
+
+  @protected
+  Float32List dco_decode_list_prim_f_32_strict(dynamic raw);
+
+  @protected
+  Int64List dco_decode_list_prim_i_64_strict(dynamic raw);
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  List<StrokeData> dco_decode_list_stroke_data(dynamic raw);
+
+  @protected
+  List<TileId> dco_decode_list_tile_id(dynamic raw);
+
+  @protected
+  PageViewportData dco_decode_page_viewport_data(dynamic raw);
+
+  @protected
+  PendingTile dco_decode_pending_tile(dynamic raw);
+
+  @protected
+  StrokeData dco_decode_stroke_data(dynamic raw);
+
+  @protected
+  TileId dco_decode_tile_id(dynamic raw);
+
+  @protected
+  TileUpdate dco_decode_tile_update(dynamic raw);
+
+  @protected
+  int dco_decode_u_32(dynamic raw);
 
   @protected
   int dco_decode_u_8(dynamic raw);
@@ -31,10 +80,62 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void dco_decode_unit(dynamic raw);
 
   @protected
+  AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
+
+  @protected
+  RustStreamSink<TileUpdate> sse_decode_StreamSink_tile_update_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  double sse_decode_f_32(SseDeserializer deserializer);
+
+  @protected
+  PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
+
+  @protected
+  List<PageViewportData> sse_decode_list_page_viewport_data(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<PendingTile> sse_decode_list_pending_tile(SseDeserializer deserializer);
+
+  @protected
+  Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer);
+
+  @protected
+  Int64List sse_decode_list_prim_i_64_strict(SseDeserializer deserializer);
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  List<StrokeData> sse_decode_list_stroke_data(SseDeserializer deserializer);
+
+  @protected
+  List<TileId> sse_decode_list_tile_id(SseDeserializer deserializer);
+
+  @protected
+  PageViewportData sse_decode_page_viewport_data(SseDeserializer deserializer);
+
+  @protected
+  PendingTile sse_decode_pending_tile(SseDeserializer deserializer);
+
+  @protected
+  StrokeData sse_decode_stroke_data(SseDeserializer deserializer);
+
+  @protected
+  TileId sse_decode_tile_id(SseDeserializer deserializer);
+
+  @protected
+  TileUpdate sse_decode_tile_update(SseDeserializer deserializer);
+
+  @protected
+  int sse_decode_u_32(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_8(SseDeserializer deserializer);
@@ -49,13 +150,85 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
+  void sse_encode_AnyhowException(
+    AnyhowException self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_tile_update_Sse(
+    RustStreamSink<TileUpdate> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_String(String self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_f_32(double self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_page_viewport_data(
+    List<PageViewportData> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_pending_tile(
+    List<PendingTile> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_prim_f_32_strict(
+    Float32List self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_prim_i_64_strict(
+    Int64List self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_list_stroke_data(
+    List<StrokeData> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_tile_id(List<TileId> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_page_viewport_data(
+    PageViewportData self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_pending_tile(PendingTile self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_stroke_data(StrokeData self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_tile_id(TileId self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_tile_update(TileUpdate self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_32(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_8(int self, SseSerializer serializer);

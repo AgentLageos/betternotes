@@ -18,7 +18,10 @@ const OTHER: PageKey = PageKey { doc: 1, page: 11 };
 fn collecting(config: RendererConfig) -> (Renderer, Arc<Mutex<Vec<TileEvent>>>) {
     let events = Arc::new(Mutex::new(Vec::new()));
     let sink = events.clone();
-    let renderer = Renderer::new(config, Box::new(move |e| sink.lock().unwrap().push(e)));
+    let renderer = Renderer::new(config, Box::new(move |e| {
+        sink.lock().unwrap().push(e);
+        true
+    }));
     (renderer, events)
 }
 
@@ -47,7 +50,7 @@ fn take(events: &Mutex<Vec<TileEvent>>) -> Vec<TileEvent> {
 fn delivers_every_visible_tile_once_with_current_version() {
     let (renderer, events) = collecting(config(4, 0));
     open(&renderer, PAGE);
-    renderer.add_strokes(PAGE, common::sample_ink());
+    let _ = renderer.add_strokes(PAGE, common::sample_ink());
     renderer.set_viewport(&[whole_page(PAGE)]);
     renderer.wait_idle();
 
@@ -69,13 +72,13 @@ fn a_change_redelivers_only_affected_ink_tiles() {
     renderer.wait_idle();
     take(&events);
 
-    renderer.add_strokes(PAGE, vec![dot(1, 100.0, 100.0)]); // inside tile (1, 1)
+    let _ = renderer.add_strokes(PAGE, vec![dot(1, 100.0, 100.0)]); // inside tile (1, 1)
     renderer.wait_idle();
     let changed = take(&events);
     assert_eq!(changed.len(), 1);
     assert_eq!((changed[0].key.layer, changed[0].key.x, changed[0].key.y), (Layer::Ink, 1, 1));
 
-    renderer.remove_strokes(PAGE, &[1]);
+    let _ = renderer.remove_strokes(PAGE, &[1]);
     renderer.wait_idle();
     assert_eq!(take(&events).len(), 1);
 
@@ -112,6 +115,7 @@ fn viewport_change_cancels_tiles_that_are_no_longer_wanted() {
             rx.recv().unwrap();
         }
         sink_events.lock().unwrap().push(e);
+        true
     }));
     open(&renderer, PAGE);
     open(&renderer, OTHER);
@@ -170,7 +174,7 @@ fn closed_pages_get_no_tiles_and_lose_their_state() {
     open(&renderer, PAGE);
     renderer.close_page(PAGE);
     renderer.set_viewport(&[whole_page(PAGE)]);
-    renderer.add_strokes(PAGE, vec![dot(1, 10.0, 10.0)]); // ignored
+    let _ = renderer.add_strokes(PAGE, vec![dot(1, 10.0, 10.0)]); // ignored
     renderer.wait_idle();
     assert!(take(&events).is_empty());
 
@@ -193,7 +197,7 @@ fn versions_only_grow() {
     renderer.set_viewport(&[whole_page(PAGE)]);
     let mut last: HashMap<TileKey, u64> = HashMap::new();
     for i in 0..20 {
-        renderer.add_strokes(PAGE, vec![dot(i, 5.0 + i as f32 * 10.0, 100.0)]);
+        let _ = renderer.add_strokes(PAGE, vec![dot(i, 5.0 + i as f32 * 10.0, 100.0)]);
     }
     renderer.wait_idle();
     for e in take(&events) {
@@ -204,6 +208,80 @@ fn versions_only_grow() {
     for (key, version) in last {
         assert_eq!(Some(version), renderer.tile_version(&key));
     }
+}
+
+#[test]
+fn changes_report_the_visible_ink_tiles_to_wait_for() {
+    let (renderer, events) = collecting(config(2, 1));
+    open(&renderer, PAGE);
+    renderer.set_viewport(&[PageViewport { page: PAGE, scale: 4.0, visible: Rect::from_ltwh(0.0, 0.0, 128.0, 128.0) }]);
+    renderer.wait_idle();
+    take(&events);
+
+    let pending = renderer.add_strokes(PAGE, vec![dot(1, 100.0, 100.0)]);
+    assert_eq!(pending.len(), 1, "only the visible ink tile with the stroke");
+    let (key, version) = pending[0];
+    assert_eq!((key.layer, key.x, key.y), (Layer::Ink, 1, 1));
+    renderer.wait_idle();
+    assert!(take(&events).iter().any(|e| e.key == key && e.version >= version));
+
+    // Prefetch tiles (outside the visible area) are not reported.
+    assert!(renderer.add_strokes(PAGE, vec![dot(2, 150.0, 150.0)]).is_empty());
+}
+
+#[test]
+fn hidden_strokes_rerender_their_tiles() {
+    let (renderer, events) = collecting(config(2, 0));
+    open(&renderer, PAGE);
+    let _ = renderer.add_strokes(PAGE, vec![dot(1, 100.0, 100.0)]);
+    renderer.set_viewport(&[whole_page(PAGE)]);
+    renderer.wait_idle();
+    take(&events);
+
+    let pending = renderer.set_hidden(PAGE, [1].into_iter().collect());
+    assert_eq!(pending.len(), 1);
+    renderer.wait_idle();
+    let hidden = take(&events);
+    assert_eq!(hidden.len(), 1);
+    assert!(hidden[0].pixels.iter().all(|b| *b == 0), "dot not drawn");
+
+    assert_eq!(renderer.set_hidden(PAGE, Default::default()).len(), 1);
+}
+
+#[test]
+fn close_all_forgets_everything() {
+    let (renderer, events) = collecting(config(2, 0));
+    open(&renderer, PAGE);
+    open(&renderer, OTHER);
+    renderer.close_all();
+    renderer.set_viewport(&[whole_page(PAGE), whole_page(OTHER)]);
+    renderer.wait_idle();
+    assert!(take(&events).is_empty());
+}
+
+#[test]
+fn tiles_the_sink_could_not_take_are_sent_again_after_forget_all() {
+    let connected = Arc::new(Mutex::new(false));
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let (c, sink_events) = (connected.clone(), events.clone());
+    let renderer = Renderer::new(config(2, 0), Box::new(move |e| {
+        if !*c.lock().unwrap() {
+            return false;
+        }
+        sink_events.lock().unwrap().push(e);
+        true
+    }));
+    open(&renderer, PAGE);
+    renderer.set_viewport(&[whole_page(PAGE)]);
+    renderer.wait_idle();
+    assert!(take(&events).is_empty());
+    assert_eq!(renderer.stats().delivered, 0);
+
+    *connected.lock().unwrap() = true;
+    renderer.forget_all();
+    renderer.wait_idle();
+    assert_eq!(take(&events).len(), 40);
+    assert_eq!(renderer.stats().rendered, 40, "served from the cache");
 }
 
 #[test]
