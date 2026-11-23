@@ -31,7 +31,10 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
 
 
 
-  EditorTopBar({super.key,});
+  EditorTopBar({super.key, required this.docID});
+
+  /// The document shown in the editor.
+  final int docID;
 
 
 
@@ -43,8 +46,7 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
 
-    int docIndex = ref.read(documentsProvider.notifier).currentDocIndex;
-    DocumentModel document = ref.read(documentsProvider.select((docs) => docs[docIndex]));
+    DocumentModel document = ref.read(documentProvider(docID));
 
 
 
@@ -92,8 +94,7 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
 
                   IconButton(
                     onPressed: () async {
-                      final docID = ref.read(documentsProvider.notifier).currentDocID;
-                      await ref.read(documentsProvider.notifier).closeDoc(docID);
+                      await ref.read(openDocumentsProvider.notifier).close(docID);
                       await ref.read(editorSetupProvider.notifier).saveToJson();
                       print("editor_top_bar: currnetDir= ${ref.read(platformProvider).currentDirectory}");
                       if (!context.mounted) return;
@@ -107,7 +108,7 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
 
                   IconButton(
                     onPressed: () {
-                      ref.read(documentsProvider.notifier).saveAsBnf(ref.read(documentsProvider.notifier).currentDocID);
+                      ref.read(documentProvider(docID).notifier).save();
 
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text(AppLocalizations.of(context)!.saved)),
@@ -120,16 +121,15 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
                   Spacer(),
                   IconButton(
                     onPressed: () async {
-                      document = ref.read(documentsProvider).firstWhere((d) => d.docID == ref.read(documentsProvider.notifier).currentDocID);
-                      await ref.read(documentsProvider.notifier).modifyPages(document.docID, [PageModel(strokes: [], backgroundStrokes: document.defaultPage.backgroundStrokes, images: [], pageWidth: document.defaultPage.pageWidth, pageHeight: document.defaultPage.pageHeight, pageColor: document.defaultPage.pageColor)], [document.currentPageIndex+1], []);
+                      document = ref.read(documentProvider(docID));
+                      await ref.read(documentProvider(docID).notifier).modifyPages([PageModel(strokes: [], backgroundStrokes: document.defaultPage.backgroundStrokes, images: [], pageWidth: document.defaultPage.pageWidth, pageHeight: document.defaultPage.pageHeight, pageColor: document.defaultPage.pageColor)], [document.currentPageIndex+1], []);
                     },
                     icon: Icon(Icons.note_add, color: Theme.of(context).colorScheme.onPrimary,),
                     padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
                   ),
                   IconButton(
                     onPressed: () {
-                      final docID = ref.read(documentsProvider.notifier).currentDocID;
-                      document = ref.read(documentsProvider).firstWhere((d) => d.docID == docID);
+                      document = ref.read(documentProvider(docID));
 
                       // currentPageIndex is a position in pageList (the whole document); doc.pages only
                       // holds the loaded window around it, so look the current page up by ID.
@@ -140,7 +140,7 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
                         print("editor_top_bar: delete page: current page $pageID is not loaded yet, not deleted");
                         return;     //undo needs the page content
                       }
-                      ref.read(documentsProvider.notifier).modifyPages(document.docID, [], [], [pageID]);
+                      ref.read(documentProvider(docID).notifier).modifyPages([], [], [pageID]);
                     },
                     icon: Icon(Icons.delete, color: Theme.of(context).colorScheme.onPrimary,),
                     padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
@@ -159,7 +159,7 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
             ),
 
             //bottom bar
-            EditorTopBarPanel(),
+            EditorTopBarPanel(docID: docID),
 
           ],
         ),
@@ -175,7 +175,7 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
       context: context,
       builder: (context) {
 
-        return PageSetupMenu(onSelected: onSelected);
+        return PageSetupMenu(docID: docID, onSelected: onSelected);
       },
     );
   }
@@ -222,8 +222,7 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
           // Insert into the current page. Look it up by ID after the awaits: `pages` only holds
           // the loaded window around the current page, so its positions say nothing about which
           // page is current, and the window may have changed while decoding.
-          final docID = ref.read(documentsProvider.notifier).currentDocID;
-          final doc = ref.read(documentsProvider).firstWhere((d) => d.docID == docID);
+          final doc = ref.read(documentProvider(docID));
           if (doc.currentPageIndex < 0 || doc.currentPageIndex >= doc.pageList.length) return;
           final pageID = doc.pageList[doc.currentPageIndex];
           final pageIndex = doc.pages.indexWhere((p) => p.pageID == pageID && !p.isTemp);
@@ -233,7 +232,7 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
           }
           final page = doc.pages[pageIndex];
           //imageDecoded.width.toDouble()/100
-          await ref.read(documentsProvider.notifier).modifyElements(doc.docID, pageID, [], [ImageModel(height: imageDecoded.height/imageDecoded.width*page.pageWidth*0.8, width: page.pageWidth*0.8, position: Offset(page.pageWidth*0.1,page.pageHeight*0.1), image: frame.image, rotation: 0, encodedBytes: bytes)], [], []);
+          await ref.read(documentProvider(docID).notifier).modifyElements(pageID, [], [ImageModel(height: imageDecoded.height/imageDecoded.width*page.pageWidth*0.8, width: page.pageWidth*0.8, position: Offset(page.pageWidth*0.1,page.pageHeight*0.1), image: frame.image, rotation: 0, encodedBytes: bytes)], [], []);
 
 
         }

@@ -9,7 +9,7 @@ import 'package:betternotes/core/utils/id_generator.dart';
 /// through [copyWith].
 ///
 /// [pageList] and [pageHeights] describe the whole document; [pages] holds only the loaded window
-/// around [currentPageIndex] (other pages are not in memory, see `DocumentsNotifier`).
+/// around [currentPageIndex] (other pages are not in memory, see `DocumentNotifier`).
 class DocumentModel {
   final List<PageModel> pages;
   final String pathToFile;
@@ -96,6 +96,25 @@ class DocumentModel {
       pageHeights: pageHeights ?? this.pageHeights,
       pageList: pageList ?? this.pageList,
     );
+  }
+
+  /// Page [pageID] if it is in the loaded window and loaded (not a placeholder), otherwise null.
+  PageModel? loadedPage(int pageID) {
+    for (final page in pages) {
+      if (page.pageID == pageID) return page.isTemp ? null : page;
+    }
+    return null;
+  }
+
+  /// ID of the page at [currentPageIndex], or null for an empty document.
+  int? get currentPageID =>
+      currentPageIndex >= 0 && currentPageIndex < pageList.length ? pageList[currentPageIndex] : null;
+
+  /// The current page if it is loaded. [currentPageIndex] is a position in [pageList], not in
+  /// [pages] (the loaded window), so the page is looked up by ID.
+  PageModel? get currentPage {
+    final id = currentPageID;
+    return id == null ? null : loadedPage(id);
   }
 
   /// Metadata stored in the `.bnf` file (the repository adds `modified`).

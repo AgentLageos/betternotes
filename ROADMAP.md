@@ -278,10 +278,10 @@ Mechanical work that makes the rest easier. **Prints stay** (see Ground rules).
     awaiting page loads, reverting undo/redo done meanwhile (page didn't reappear on the second
     undo); it now applies loaded pages to the current state. Undo/redo can't overlap any more.
     Still open: `addCommands` mutation, undo on unloaded pages.
-- [ ] **P4-03** Per-document state (D2): one notifier per open document keyed by `docID`
+- [x] **P4-03** Per-document state (D2): one notifier per open document keyed by `docID`
   (e.g. a Riverpod family), plus a small "open documents" provider. All APIs take `docID`.
   Goal: tabs become a UI-only change.
-- [ ] **P4-04** Split `documents_notifier.dart`: document state, undo/redo service, lazy loading,
+- [x] **P4-04** Split `documents_notifier.dart`: document state, undo/redo service, lazy loading,
   repository (P3-04). Rendering moves out entirely (Phase 5).
 - [x] **P4-05** Unify navigation: GoRouter everywhere or drop it (currently GoRouter for two
   routes, `Navigator.push` elsewhere; `RouteSaver` relies on route names GoRouter may not set).
@@ -321,6 +321,26 @@ Mechanical work that makes the rest easier. **Prints stay** (see Ground rules).
   apply live. Removed `RestartWidget`, `RouteSaver`/`app_router.dart` and the `lastRoute` pref; the
   app always starts in the file manager. Side effect: open documents no longer get thrown away by a
   theme change.
+- P4-03/P4-04: `documents_notifier.dart` (single `List<DocumentModel>` state) replaced by:
+  - `providers/document_notifier.dart`: `documentProvider(docID)` (`NotifierProvider.autoDispose.family`),
+    one `DocumentNotifier` per open document: element/page changes, undo/redo, lazy-loading window,
+    saving. Methods no longer take a docID; async methods check `ref.mounted` after awaits.
+  - `providers/open_documents_notifier.dart`: `openDocumentsProvider` (open/close, keeps each document's
+    provider alive while open) and `activeDocumentProvider` (document shown in the editor). Tabs only
+    need UI on top of these. Both are re-exported from `global_providers.dart`.
+  - `data/document_store.dart`: the file behind a document (page loading, chained saves, close with
+    compaction).
+  - `models/commands/undo_history.dart`: pure push/cap logic.
+  - `rendering/tile_renderer.dart`: the isolate pool (one for all documents, returns finished grids).
+    Tiles in `pageTilesProvider` are keyed by `(docID, pageID)`.
+  Editor widgets get the docID passed down (`DocumentWidget`, `PageWidget`, `EditorTopBar`,
+  `EditorTopBarPanel`, `PageSetupMenu`) instead of a hard-coded `docIndex = 0`.
+- Bugs found on the way (window index vs. page list position): the lasso read `pages[pageIndex]`
+  with a page-list position (wrong page or RangeError from the 2nd page on); the page setup menu and
+  the editor's zoom read `pages[currentPageIndex]` the same way. Now looked up by ID
+  (`DocumentModel.currentPage`, `loadedPage`). "Apply to this page" in page setup only applied the
+  width; now width and height (`setPageSize`), and page heights stay in sync with `pageHeights`.
+- Tested on the tablet: open, draw/lasso/move/undo on page 6, close + reopen, PDF import.
 - Still open (not command-based): the page setup menu (`setAllPageColors`, `setAllBackgroundStrokesExecute`,
   `setAllHeights/Widths`) only changes loaded pages and isn't undoable.
 
@@ -410,7 +430,7 @@ seams, and without the async workarounds.
 - [ ] **R5-01** Build and test on Windows, macOS, iOS. **(low)**
 - [ ] **R5-02** Web via WASM (threads need cross-origin isolation headers). **(low)**
 - [ ] **R5-03** Delete the old Dart renderer (`tile.dart`, `initialize_tiles.dart`,
-  isolate code in `documents_notifier.dart`, `draw_strokes.dart`) once the Rust renderer matches it.
+  `rendering/tile_renderer.dart`, `rendering/page_tiles.dart`, `draw_strokes.dart`) once the Rust renderer matches it.
 
 ### Stopgap before Phase 5
 

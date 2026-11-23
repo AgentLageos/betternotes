@@ -86,9 +86,9 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
 
               final int? docID;
               try {
-                docID = await ref.read(documentsProvider.notifier).loadDoc(stringFile);
+                docID = await ref.read(openDocumentsProvider.notifier).open(stringFile);
               } catch (e) {
-                print("file_manager_list: loadDoc failed: $e");
+                print("file_manager_list: open failed: $e");
                 if (context.mounted) {
                   Navigator.pop(context);       //close the loading page
                   await _showOpenErrorDialog(context, e);
@@ -96,7 +96,8 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
                 return;
               }
               if (docID != null) {
-                unawaited(ref.read(documentsProvider.notifier).updateIsolatedPages(docID));    //pages load while the editor opens
+                ref.read(activeDocumentProvider.notifier).set(docID);
+                unawaited(ref.read(documentProvider(docID).notifier).loadWindowPages());    //pages load while the editor opens
               }
 
               if (!context.mounted) return;
@@ -240,7 +241,7 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
     await (await createDocumentFile(file.path, newDoc)).close();
 
 
-    final docID = await ref.read(documentsProvider.notifier).loadDoc(newPath);
+    final docID = await ref.read(openDocumentsProvider.notifier).open(newPath);
     if (docID == null) {
       await document.close();
       return;
@@ -280,12 +281,12 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
 
 
 
-        final document = ref.read(documentsProvider).where((d) => d.docID == docID).firstOrNull;
-        if (document == null) {
+        if (!ref.read(openDocumentsProvider).contains(docID)) {
           throw StateError('The document was closed during the import, $newPath is incomplete.');
         }
-        await ref.read(documentsProvider.notifier).modifyPages(docID, [newPage], [document.pageList.length], []);
-        await ref.read(documentsProvider.notifier).saveDoc(docID, [newPage]);
+        final notifier = ref.read(documentProvider(docID).notifier);
+        await notifier.modifyPages([newPage], [ref.read(documentProvider(docID)).pageList.length], []);
+        await notifier.saveDoc([newPage]);
 
 
       }
@@ -296,7 +297,7 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
     await document.close();
 
 
-    await ref.read(documentsProvider.notifier).closeDoc(docID);
+    await ref.read(openDocumentsProvider.notifier).close(docID);
 
 
 

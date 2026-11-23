@@ -56,11 +56,15 @@ class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
   bool _isZooming = false;
   Timer? _zoomStabilityTimer;
 
-  int docIndex=0;
+  /// The document this editor shows (set by the file manager before opening the editor).
+  late final int docID = ref.read(activeDocumentProvider)!;
 
-  late final doc= ref.read(documentsProvider)[docIndex];
-  late final docCurrentPage = doc.currentPageIndex;
-  late final double pageWidth = doc.pages[docCurrentPage].pageWidth;
+  /// Width of the current page, for zooming. [DocumentModel.currentPageIndex] is a position in
+  /// the page list, not in the loaded window, so the page is looked up by ID.
+  double get currentPageWidth {
+    final doc = ref.read(documentProvider(docID));
+    return (doc.currentPage ?? doc.pages.where((p) => !p.isTemp).firstOrNull)?.pageWidth ?? 210;
+  }
 
 
 
@@ -76,7 +80,7 @@ class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
 
 
 
-    pathToFile = ref.read(documentsProvider)[0].pathToFile;
+    pathToFile = ref.read(documentProvider(docID)).pathToFile;
     print("editor: pathToFile: $pathToFile");
     WidgetsBinding.instance.addPostFrameCallback((_) {
       setState(() {
@@ -107,13 +111,13 @@ class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
     Tool selectedTool = ref.watch(editorSetupProvider)[editorIndex].tools[setup.toolIndex];
     bool finger = !selectedTool.finger;
 
-    final currentPage = ref.watch(documentsProvider)[docIndex].currentPageIndex;
+    final currentPage = ref.watch(documentProvider(docID).select((d) => d.currentPageIndex));
 
 
     return Scaffold(
       //backgroundColor: Colors.grey[300],                                //background behind pages
       backgroundColor: HSLColor.fromColor(Theme.of(context).colorScheme.surface).withLightness((HSLColor.fromColor(Theme.of(context).colorScheme.surface).lightness * 0.8).clamp(0.0, 1.0)).toColor(),
-      appBar: EditorTopBar(
+      appBar: EditorTopBar(docID: docID,
           //onAddPage: _addPage, onRemovePage: _removePage, onSave: saveAsBnf, onUndo: undo, onRedo: redo, currentPage: currentPage, page: _documentWidgetKey.currentState?.getPage(currentPage.value)
       ),           //topbar menu
       body: LayoutBuilder(                                              //pages
@@ -140,7 +144,7 @@ class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
                     maxScale: maxScale,
                     child: SizedBox(
                         width: constraints.maxWidth,
-                        child: DocumentWidget()
+                        child: DocumentWidget(docID: docID)
                     ),
                   ),
                 ),
@@ -196,9 +200,7 @@ class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
   }
 
   void adjustZoom() {
-    late final doc= ref.read(documentsProvider)[docIndex];
-    late final docCurrentPage = doc.currentPageIndex;
-    late final double pageWidth = doc.pages[docCurrentPage].pageWidth;
+    final double pageWidth = currentPageWidth;
     double translateX = _customTransformationController.value.getTranslation().x;
     double translateY = _customTransformationController.value.getTranslation().y;
     double zoom = (MediaQuery.of(context).size.width - 2*zoomedInSideSpace) / pageWidth;
@@ -211,9 +213,7 @@ class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
   }
 
   void doubleTap(Offset position) {
-    late final doc= ref.read(documentsProvider)[docIndex];
-    late final docCurrentPage = doc.currentPageIndex;
-    late final double pageWidth = doc.pages[docCurrentPage].pageWidth;
+    final double pageWidth = currentPageWidth;
     final transformation = _customTransformationController.value;
     final currentZoom = transformation.getMaxScaleOnAxis();
     double translateY = transformation.getTranslation().y;
@@ -239,9 +239,7 @@ class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
 
   void _onOrientationChanged(Orientation newOrientation) {                      //when user rotates device
     WidgetsBinding.instance.addPostFrameCallback((_) {                          //has to be done 1 frame later
-      late final doc= ref.read(documentsProvider)[docIndex];
-      late final docCurrentPage = doc.currentPageIndex;
-      late final double pageWidth = doc.pages[docCurrentPage].pageWidth;
+      final double pageWidth = currentPageWidth;
 
       final screenSize = MediaQuery.of(context).size;
       final screenWidth = screenSize.width;
@@ -288,14 +286,14 @@ class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
 
   Future<void> _onTransformationChanged() async {
 
-    late final doc= ref.read(documentsProvider)[docIndex];
+    final doc = ref.read(documentProvider(docID));
     int currentPage = doc.currentPageIndex;
     if (currentPage>doc.pageHeights.length-1) {
       currentPage = doc.pageHeights.length-1;
     }
 
 
-    late final double pageWidth = doc.pages[0].pageWidth;
+    final double pageWidth = currentPageWidth;
 
 
 
@@ -364,7 +362,7 @@ class _EditorState extends ConsumerState<Editor> with WidgetsBindingObserver {
           currentPage = newCurrentPage;
           print("editor: scrollY = $scrollY, zoom=$zoom translateY = $translateY");
           print("editor: setcurrentpage $newCurrentPage");
-          unawaited(ref.read(documentsProvider.notifier).setCurrentPageIndex(ref.read(documentsProvider.notifier).currentDocID, newCurrentPage));
+          unawaited(ref.read(documentProvider(docID).notifier).setCurrentPageIndex(newCurrentPage));
         }
       }
 

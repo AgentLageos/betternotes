@@ -7,11 +7,15 @@ import '../models/page/page_model.dart';
 import '../models/page/stroke.dart';
 import '../models/page/tile.dart';
 
-/// Render state of the current Dart renderer: one tile grid per page, keyed by pageID.
+/// Render state of the current Dart renderer: one tile grid per page, keyed by document and page
+/// (the same file can be open twice, with the same page IDs).
 ///
 /// Kept out of [PageModel] (P4-01): pages are immutable values shared with older states and the
 /// undo history, while tiles are a mutable cache that the renderer updates in place.
 /// Replaced by the Rust renderer in Phase 5 (R5-03).
+
+/// Identifies a page of an open document.
+typedef PageKey = ({int docID, int pageID});
 
 /// Tile size in mm.
 const Rect tileRect = Rect.fromLTWH(0, 0, 20, 20);
@@ -27,34 +31,37 @@ class PageTiles {
   bool get isEmpty => grid.isEmpty || grid.first.isEmpty;
 }
 
-class PageTilesNotifier extends Notifier<Map<int, PageTiles>> {
+class PageTilesNotifier extends Notifier<Map<PageKey, PageTiles>> {
   @override
-  Map<int, PageTiles> build() => const {};
+  Map<PageKey, PageTiles> build() => const {};
 
-  /// Stores [grid] as the tiles of [pageID].
-  void set(int pageID, List<List<Tile>> grid) {
-    state = {...state, pageID: PageTiles(grid, (state[pageID]?.version ?? 0) + 1)};
+  /// Stores [grid] as the tiles of [key].
+  void set(PageKey key, List<List<Tile>> grid) {
+    state = {...state, key: PageTiles(grid, (state[key]?.version ?? 0) + 1)};
   }
 
-  /// Signals that the grid of [pageID] was updated in place.
-  void touch(int pageID) {
-    final tiles = state[pageID];
+  /// Signals that the grid of [key] was updated in place.
+  void touch(PageKey key) {
+    final tiles = state[key];
     if (tiles == null) return;
-    state = {...state, pageID: PageTiles(tiles.grid, tiles.version + 1)};
+    state = {...state, key: PageTiles(tiles.grid, tiles.version + 1)};
   }
 
-  /// Drops the tiles of [pageIDs] (pages that left the loaded window or were closed).
-  void remove(Iterable<int> pageIDs) {
-    final ids = pageIDs.where(state.containsKey).toSet();
-    if (ids.isEmpty) return;
+  /// Drops the tiles of [keys] (pages that left the loaded window).
+  void remove(Iterable<PageKey> keys) {
+    final drop = keys.where(state.containsKey).toSet();
+    if (drop.isEmpty) return;
     state = {
       for (final entry in state.entries)
-        if (!ids.contains(entry.key)) entry.key: entry.value,
+        if (!drop.contains(entry.key)) entry.key: entry.value,
     };
   }
+
+  /// Drops all tiles of document [docID] (closed).
+  void removeDocument(int docID) => remove([for (final key in state.keys) if (key.docID == docID) key]);
 }
 
-final pageTilesProvider = NotifierProvider<PageTilesNotifier, Map<int, PageTiles>>(PageTilesNotifier.new);
+final pageTilesProvider = NotifierProvider<PageTilesNotifier, Map<PageKey, PageTiles>>(PageTilesNotifier.new);
 
 /// Empty tile grid covering a page of the given size. The last row and column are cut to the
 /// page size.

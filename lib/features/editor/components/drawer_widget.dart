@@ -70,17 +70,7 @@ class DrawerWidgetState extends ConsumerState<DrawerWidget> {
     final erasedStrokes = widget.erasedStrokes;
     final laserStrokes = widget.laserStrokes;
 
-    final page = ref.watch(
-      documentsProvider.select((docs) {
-        final doc = docs.where((d) => d.docID == docID);
-        if (doc.isEmpty) return null;
-
-        final pages = doc.first.pages.where((p) => p.pageID == pageID);
-        if (pages.isEmpty) return null;
-
-        return pages.first;
-      }),
-    );
+    final page = ref.watch(documentProvider(docID).select((doc) => doc.pages.where((p) => p.pageID == pageID).firstOrNull));
 
     if (page == null) {
       return const SizedBox();
@@ -117,7 +107,7 @@ class DrawerWidgetState extends ConsumerState<DrawerWidget> {
 
 
 
-      final tiles = ref.watch(pageTilesProvider.select((m) => m[pageID]))?.grid ?? const <List<Tile>>[];
+      final tiles = ref.watch(pageTilesProvider.select((m) => m[(docID: docID, pageID: pageID)]))?.grid ?? const <List<Tile>>[];
 
 
     return ClipRect(

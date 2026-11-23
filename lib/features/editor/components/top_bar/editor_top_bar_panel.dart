@@ -15,7 +15,10 @@ class EditorTopBarPanel extends ConsumerWidget implements PreferredSizeWidget {
 
 
 
-  const EditorTopBarPanel({super.key,});
+  const EditorTopBarPanel({super.key, this.docID});
+
+  /// The document shown in the editor; null for the preview in the settings.
+  final int? docID;
 
   final height3 = 30.0;      //height of the lower container
 
@@ -27,7 +30,6 @@ class EditorTopBarPanel extends ConsumerWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
 
-    int docIndex = ref.read(documentsProvider.notifier).currentDocIndex;
 
     final double spacing = (MediaQuery.of(context).size.width)/80;
 
@@ -59,7 +61,6 @@ class EditorTopBarPanel extends ConsumerWidget implements PreferredSizeWidget {
                       height: height3,
                       backgroundColor: Theme.of(context).colorScheme.surface,
                       ref: ref,
-                      docIndex: docIndex,
                     ),
                   );
                 }),
@@ -89,7 +90,6 @@ class EditorTopBarPanel extends ConsumerWidget implements PreferredSizeWidget {
     required double height,
     required Color backgroundColor,
     required WidgetRef ref,
-    required int docIndex,
   }) {
     switch (poolType) {
       case 0: // tools
@@ -116,12 +116,12 @@ class EditorTopBarPanel extends ConsumerWidget implements PreferredSizeWidget {
           scrollDirection: Axis.horizontal,
           children: [
             UndoButton(
-              onPressed: () {ref.read(documentsProvider.notifier).undo(ref.read(documentsProvider.notifier).currentDocID);},
+              onPressed: () {if (docID != null) ref.read(documentProvider(docID!).notifier).undo();},
           ),
           const SizedBox(width: 5),
           RedoButton(
             onPressed: () {
-              ref.read(documentsProvider.notifier).redo(ref.read(documentsProvider.notifier).currentDocID);
+              if (docID != null) ref.read(documentProvider(docID!).notifier).redo();
             },
           ),
           ],

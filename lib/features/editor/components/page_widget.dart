@@ -27,6 +27,7 @@ import '../rendering/page_tiles.dart';
 
 
 class PageWidget extends ConsumerStatefulWidget {
+  final int docID;
   final int pageIndex;
   final int pageID;
 
@@ -36,6 +37,7 @@ class PageWidget extends ConsumerStatefulWidget {
 
   const PageWidget({
     super.key,
+    required this.docID,
     required this.pageIndex,
     required this.pageID,
 
@@ -94,9 +96,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
   List<ImageModel> erasedImages = [];
 
-  int get docID => ref.read(documentsProvider.notifier).currentDocID;
-
-  final int docIndex=0;
+  int get docID => widget.docID;
   final int editorIndex = 0;
 
 
@@ -145,7 +145,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
   Widget build(BuildContext context) {
 
 
-    final docs = ref.watch(documentsProvider);
+    final doc = ref.watch(documentProvider(docID));
 
 
 
@@ -155,18 +155,10 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     final selectionColor = setup.selectionColor;
 
 
-    if (docIndex < 0 || docIndex >= docs.length) {
-      return const SizedBox();
-
-    }
-    final doc = docs[docIndex];
-
-    if (doc.pages.isEmpty) {
+    final page = doc.pages.where((p) => p.pageID == pageID).firstOrNull;
+    if (page == null) {
       return const SizedBox();
     }
-
-
-    final page = docs[docIndex].pages.firstWhere((p) => p.pageID == pageID);
     pageIndex = doc.pageList.indexWhere((p) => p == pageID);
 
 
@@ -193,9 +185,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
 
             ),
-            if (settings.debugMode && ref.read(documentsProvider)
-              [docIndex].pages.any((p) => p.pageID == page.pageID)
-            ) Container(
+            if (settings.debugMode) Container(
               height: pageHeight,
               width: pageWidth,
               decoration: BoxDecoration(
@@ -229,7 +219,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
                       SelectionDrawer(width: pageWidth, height: pageHeight, selectionStrokes: selectionStrokes, selectionActive: selectionActive, selectionOperation: selectionOperation, selectionColor: selectionColor, deleteSelection: () { deleteSelection(); }, copySelection: () { copySelection();}, colorSelection: () { colorSelection(ref); },),
                       if (settings.debugMode) Positioned(right: 16, bottom: 16, child: Text("$pageID    ${pageIndex + 1}", style: TextStyle(fontSize: 12, color: Colors.grey.shade700),),)       //displaying pagenumber and pageid, NEEDS TO BE HERE SO STYLUS IS RECOGNIZED OVER TEXT AND DOESNT GET OVERLAYED WHILE ERASING
                       else Positioned(right: 16, bottom: 16, child: Text("${pageIndex + 1}", style: TextStyle(fontSize: 12, color: Colors.grey.shade700),),),
-                      if(ref.watch(pageTilesProvider.select((m) => m[pageID]?.isEmpty ?? true)))   Positioned.fill(
+                      if(ref.watch(pageTilesProvider.select((m) => m[(docID: docID, pageID: pageID)]?.isEmpty ?? true)))   Positioned.fill(
                         child: IgnorePointer(
                           child: Center(
                             child: SizedBox(
@@ -296,8 +286,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     final width = setup.widths[setup.widthIndex];
     final selectedTool = setup.tools[setup.toolIndex];
 
-    final docs = ref.read(documentsProvider);
-    final page = docs[docIndex].pages.firstWhere((p) => p.pageID == pageID);
+    final page = ref.read(documentProvider(docID)).pages.firstWhere((p) => p.pageID == pageID);
 
     //prevents writing next to page
 
@@ -342,7 +331,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
           erasedImages.add(img);
 
-          ref.read(documentsProvider.notifier).modifyElementsExecute(docID, pageID,[], [], [], [img.imageID]);
+          ref.read(documentProvider(docID).notifier).modifyElementsExecute(pageID,[], [], [], [img.imageID]);
         }
 
         setState(() {});
@@ -405,13 +394,13 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     if (event.kind == PointerDeviceKind.stylus || event.kind == PointerDeviceKind.invertedStylus || event.pressure!=variableWidth) {
 
       if (activeStrokes.isNotEmpty && (selectedTool is PenTool || selectedTool is ShapeTool || selectedTool is LineTool)) {
-        unawaited(ref.read(documentsProvider.notifier).modifyElements(docID, pageID, activeStrokes, [], [], []));
+        unawaited(ref.read(documentProvider(docID).notifier).modifyElements(pageID, activeStrokes, [], [], []));
         activeStrokes = [];
       }
       else if ((erasedImages.isNotEmpty || erasedStrokes.isNotEmpty) && selectedTool is EraserTool) {
         Set<int>idsToRemove = erasedStrokes.map((s) => s.strokeID).toSet();
         _eraserPosition = null;
-        await ref.read(documentsProvider.notifier).modifyElements(docID, pageID, [], [], idsToRemove.toList(), erasedImages);
+        await ref.read(documentProvider(docID).notifier).modifyElements(pageID, [], [], idsToRemove.toList(), erasedImages);
         erasedImages = [];
         erasedStrokes =[];
       }
@@ -427,7 +416,8 @@ class PageWidgetState extends ConsumerState<PageWidget> {
       else if(selectionStrokes.isNotEmpty && selectionActive == false && selectionStrokes.last.points.isNotEmpty){
 
 
-        final page = ref.read(documentsProvider.select((docs) => docs[docIndex].pages[pageIndex]));          //important: this isnt a copy of the provider but a reference! youre modifying the provider live by calling this!
+        // Looked up by ID: pageIndex is a position in the whole document, pages only holds the loaded window.
+        final page = ref.read(documentProvider(docID)).pages.firstWhere((p) => p.pageID == pageID);
         final strokes = page.strokes;
         final images = page.images;
 
@@ -579,7 +569,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
         copiedAddedImages.add(i);
       }
 
-      await ref.read(documentsProvider.notifier).modifyElements(docID, pageID, activeStrokes, copiedAddedImages, erasedStrokeIDs, erasedImages);
+      await ref.read(documentProvider(docID).notifier).modifyElements(pageID, activeStrokes, copiedAddedImages, erasedStrokeIDs, erasedImages);
 
 
       oldPosition = Offset(0,0);
@@ -862,7 +852,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
   Future<void> deleteSelection() async {
     final idsToRemove = activeStrokes.map((s) => s.strokeID).toList();
 
-    await ref.read(documentsProvider.notifier).modifyElements(docID, pageID, [], [], idsToRemove.toList(), activeImages);
+    await ref.read(documentProvider(docID).notifier).modifyElements(pageID, [], [], idsToRemove.toList(), activeImages);
 
     eraserUsed = false;
 
@@ -897,7 +887,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     moveSelection(Offset(3,3));
     oldPosition = Offset(0,0);
 
-    await ref.read(documentsProvider.notifier).modifyElements(docID, pageID, [], activeImages, [], []);
+    await ref.read(documentProvider(docID).notifier).modifyElements(pageID, [], activeImages, [], []);
 
 
     lastDistance = null;
