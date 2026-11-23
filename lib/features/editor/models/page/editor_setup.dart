@@ -57,7 +57,7 @@ class EditorSetup {
         colorIndex = colorIndex ?? 0,
         spaces = spaces ?? [0.4, 0.25, 0.25,0.1],
         eraserWidth = eraserWidth ?? 4.0,
-        defaultPage = defaultPage ?? PageModel(strokes: [], pageWidth: 210, pageHeight: 297, backgroundStrokes: [], images: [], pageColor: Colors.white, tiles: [])
+        defaultPage = defaultPage ?? PageModel(pageWidth: 210, pageHeight: 297, pageColor: Colors.white)
 
   ;
 

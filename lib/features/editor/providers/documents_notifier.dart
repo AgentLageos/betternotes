@@ -16,11 +16,11 @@ import 'package:betternotes/features/editor/models/page/document_model.dart';
 import '../../../core/utils/isolates/initialize_tiles.dart' as iso;
 import '../../../core/utils/id_generator.dart';
 import '../models/commands/command.dart';
-import '../models/commands/empty_command.dart';
 
 import '../models/page/image_model.dart';
 
 import '../models/page/tile.dart';
+import '../rendering/page_tiles.dart';
 
 
 class DocumentsNotifier extends Notifier<List<DocumentModel>> {
@@ -40,29 +40,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
   @override
   List<DocumentModel> build() => [DocumentModel(pages: [], created: DateTime.now(), author: '', title: '', )];
-
-  void setPageHeight(int docID, int pageIndex, double value) {
-    final docIndex = _docIndexOf(docID);
-    if (docIndex == -1) return;
-
-
-    final newDocuments = [...state];    //copy old list
-
-    final oldDoc = newDocuments[docIndex];
-
-    final newPages = [
-      for (int i = 0; i < oldDoc.pages.length; i++)
-        if (i == pageIndex)
-          oldDoc.pages[i].copyWith(pageHeight: value)
-        else
-          oldDoc.pages[i],
-    ];
-
-    newDocuments[docIndex] = oldDoc.copyWith(pages: newPages);
-
-    state = newDocuments;
-
-  }
 
   Future<void> setAllHeights(int docID, double value) async {
     final docIndex = _docIndexOf(docID);
@@ -125,105 +102,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
   }
 
 
-  Future<void> addPageExecute(int docID, double pageHeight, double pageWidth, List<Stroke>? strokes, List<Stroke>? backgroundStrokes, List<ImageModel>? images, Color pageColor, bool? backgroundUpdate) async {
-    final docIndex = _docIndexOf(docID);
-    if (docIndex == -1) return;
-    final newDocuments = [...state];
-
-    final oldDoc = newDocuments[docIndex];
-
-    final newPage = PageModel(
-      strokes: strokes ?? [],
-      backgroundStrokes: backgroundStrokes ?? [],
-      images: images ?? [],
-      pageWidth: pageWidth,
-      pageHeight: pageHeight,
-      pageColor: pageColor,
-      tiles: [[]],
-    );
-
-    await newPage.initializeTiles();
-
-    final newPages = [...oldDoc.pages, newPage];
-
-    newDocuments[docIndex] = oldDoc.copyWith(pages: newPages);
-
-    state = newDocuments;
-  }
-
-  void addPagesWithID(int docID, List<PageModel> newPages, List<int> positions) {
-    final docIndex = _docIndexOf(docID);
-    if (docIndex == -1) return;
-    final newDocuments = [...state];
-
-    final oldDoc = newDocuments[docIndex];
-
-    List<PageModel> pages = oldDoc.pages;
-
-
-    if (positions[0] == -1){                                      //when position is unknown, create the new page at end of list
-      pages = [...oldDoc.pages, ...newPages];
-    }
-    else {
-      for (int i = 0; i<newPages.length; i++){                    //if position is known, create new page there (if this position is end, create at end)
-        if (positions[i]<pages.length){
-          pages.insert(positions[i], newPages[i]);
-        }
-        else {
-          pages.add(newPages[i]);
-        }
-      }
-    }
-
-
-    newDocuments[docIndex] = oldDoc.copyWith(pages: pages);
-
-    state = newDocuments;
-  }
-
-  Future<void> setPage(int docID, int pageID, PageModel newDefaultPage) async {
-    List<DocumentModel> docs = [...state];
-    DocumentModel doc = docs.firstWhere((d) => d.docID == docID);
-    PageModel page = doc.pages.firstWhere((p) => p.pageID == pageID);
-    final docIndex = docs.indexWhere((d) => d.docID == docID);
-    final pageIndex = doc.pages.indexWhere((p) => p.pageID == pageID);
-
-
-    final newPage = page.copyWith(pageColor: newDefaultPage.pageColor, pageHeight: newDefaultPage.pageHeight, pageWidth: newDefaultPage.pageWidth, backgroundStrokes: newDefaultPage.backgroundStrokes, tiles: newDefaultPage.tiles);
-
-
-    final newPages = [
-      for (int i = 0; i < doc.pages.length; i++)
-        if (i == pageIndex)
-          newPage
-        else
-          doc.pages[i],
-    ];
-
-    doc = doc.copyWith(pages: newPages);
-
-    docs[docIndex] = doc;
-
-    state = docs;
-
-
-  }
-
-  Future<void> setAllPages(int docID, PageModel newDefaultPage) async {
-    List<DocumentModel> docs = [...state];
-    DocumentModel doc = docs.firstWhere((d) => d.docID == docID);
-    final docIndex = docs.indexWhere((d) => d.docID == docID);
-
-    final newPages = doc.pages.map((page) => page.copyWith(pageWidth: newDefaultPage.pageWidth, pageHeight: newDefaultPage.pageHeight, pageColor: newDefaultPage.pageColor, backgroundStrokes: newDefaultPage.backgroundStrokes,)).toList();
-
-    docs[docIndex] = doc.copyWith(pages: newPages);
-
-    state = docs;
-
-    await initializeAllPageTiles(docID);
-
-  }
-
   void setDefaultPage(int docID, PageModel newDefaultPage) {
     List<DocumentModel> docs = [...state];
     final docIndex = docs.indexWhere((d) => d.docID == docID);
@@ -233,46 +111,70 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
   }
 
+  /// Adds and removes strokes/images on page [pageID] and records it for undo.
+  /// Works on pages outside the loaded window too (they are read from and saved to the file).
   Future<void> modifyElements(int docID, int pageID, List<Stroke> addStrokes, List<ImageModel> addImages, List<int> removeStrokeIDs, List<ImageModel> removeImages) async {
+    final page = await _currentPage(docID, pageID);
+    if (page == null) {
+      print("documents_notifier: modifyElements: page $pageID not found");
+      return;
+    }
 
-
-
-    final docs = [...state];
-    final doc = docs.firstWhere((d) => d.docID == docID);
-    final page = doc.pages.firstWhere((p) => p.pageID == pageID);
-
-
+    addStrokes = [for (final s in addStrokes) s.frozen()];     //the command and the page share these
     final removeStrokes = page.strokes.where((s) => removeStrokeIDs.contains(s.strokeID)).toList();
     final List<int>removeImageIDs = removeImages.map((s) => s.imageID).toList();
 
     addCommands(docID, [ModifyElementsCommand(addedStrokes: addStrokes, addedImages: addImages, removedStrokes: removeStrokes, removedImages: removeImages, pageID: pageID)]);
     await modifyElementsExecute(docID, pageID, addStrokes, addImages, removeStrokeIDs, removeImageIDs);
-
   }
 
+  /// Applies a stroke/image change to page [pageID] without recording it (used by undo/redo).
+  ///
+  /// The change is idempotent: elements are removed by ID, and added elements replace elements
+  /// with the same ID. That allows applying it to the file and, if the page got loaded meanwhile,
+  /// to the loaded window as well.
   Future<void> modifyElementsExecute(int docID, int pageID, List<Stroke> addStrokes, List<ImageModel> addImages, List<int> removeStrokeIDs, List<int> removeImageIDs) async {
+    final addedStrokeIDs = {for (final s in addStrokes) s.strokeID};
+    final addedImageIDs = {for (final i in addImages) i.imageID};
+    PageModel apply(PageModel page) => page.copyWith(
+      images: [...page.images.where((img) => !removeImageIDs.contains(img.imageID) && !addedImageIDs.contains(img.imageID)), ...addImages],
+      strokes: [...page.strokes.where((stroke) => !removeStrokeIDs.contains(stroke.strokeID) && !addedStrokeIDs.contains(stroke.strokeID)), ...addStrokes],
+    );
 
-    state = [
-      for (int i = 0; i < state.length; i++)
-        if (state[i].docID == docID)
-          state[i].copyWith(
-            pages: [
-              for (int j = 0; j < state[i].pages.length; j++)
-                if (state[i].pages[j].pageID == pageID)
-                  state[i].pages[j].copyWith(
-                    images: [...state[i].pages[j].images.where((img) => !removeImageIDs.contains(img.imageID)), ...addImages],
-                    strokes: [...state[i].pages[j].strokes.where((stroke) => !removeStrokeIDs.contains(stroke.strokeID)), ...addStrokes]
-                  )
-                else
-                  state[i].pages[j]
-            ],
-          )
-        else
-          state[i]
-    ];
+    if (_loadedPage(docID, pageID) == null) {
+      // Not in the loaded window: change the stored page.
+      final page = await _currentPage(docID, pageID);
+      if (page == null) {
+        print("documents_notifier: modifyElementsExecute: page $pageID not found");
+        return;
+      }
+      await saveDoc(docID, [apply(page)]);
+    }
 
-    await updatePage(docID, pageID, addStrokes, removeStrokeIDs);
+    final loaded = _loadedPage(docID, pageID);
+    if (loaded != null) {
+      _replacePage(docID, apply(loaded));
+      await updatePage(docID, pageID, addStrokes, removeStrokeIDs);
+    }
+  }
 
+  /// Page [pageID] if it is loaded (in the window and not a placeholder), otherwise null.
+  PageModel? _loadedPage(int docID, int pageID) {
+    final docIndex = _docIndexOf(docID);
+    if (docIndex == -1) return null;
+    final page = state[docIndex].pages.where((p) => p.pageID == pageID).firstOrNull;
+    return page == null || page.isTemp ? null : page;
+  }
+
+  /// Current version of page [pageID]: the loaded one, or the one stored in the file.
+  /// Waits for a page of the window that is still loading. Returns null if there is no such page.
+  Future<PageModel?> _currentPage(int docID, int pageID) async {
+    final docIndex = _docIndexOf(docID);
+    if (docIndex == -1) return null;
+    if (state[docIndex].pages.any((p) => p.pageID == pageID && p.isTemp)) {
+      await updateIsolatedPages(docID);
+    }
+    return _loadedPage(docID, pageID) ?? (await loadPages(docID, [pageID])).firstOrNull;
   }
 
   Future<void> modifyPages(int docID, List<PageModel> addPages, List<int> addPageIndexes, List<int> removePageIDs) async{
@@ -288,9 +190,10 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     final removePages = <PageModel>[];
     final removePageIndexes = <int>[];
     for (final id in removePageIDs) {
-      final page = doc.pages.where((p) => p.pageID == id).firstOrNull;
       final position = doc.pageList.indexOf(id);
-      if (page == null || position == -1) continue;
+      if (position == -1) continue;
+      final page = await _currentPage(docID, id);        //loaded or read from the file, for undo
+      if (page == null) continue;
       removePages.add(page);
       removePageIndexes.add(position);
     }
@@ -387,6 +290,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     final newDocuments = [...state];
     final oldDoc = newDocuments[docIndex];
 
+    ref.read(pageTilesProvider.notifier).remove(oldDoc.pages.map((p) => p.pageID));
     newDocuments[docIndex] = oldDoc.copyWith(pages: []);
 
     state = newDocuments;
@@ -434,6 +338,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
 
     unawaited(saveDoc(docID, removePages));         //pages leaving the loaded window
+    ref.read(pageTilesProvider.notifier).remove(removePages.map((p) => p.pageID));
 
 
     double newPlaceholderHeight = 0;
@@ -472,7 +377,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     for(final page in doc.pages) {
       if(page.isTemp) {
         pagesToLoad.add(page.pageID);
-      } else if (page.tiles.isEmpty || page.tiles.first.isEmpty) {
+      } else if (_tiles[page.pageID]?.isEmpty ?? true) {
         loadedPages.add(page);        //loaded, but not rendered yet
       }
     }
@@ -664,19 +569,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
           return;
         }
 
-        final doc = state[_docIndexOf(docID)];
-
-
-        doc.pages[pageIndex].tiles = result.tiles;
-
-
-        state = [
-          for (int i = 0; i < state.length; i++)
-            if (state[i].docID == result.docID)
-              state[i].copyWith(pages: doc.pages)
-            else
-              state[i]
-        ];
+        ref.read(pageTilesProvider.notifier).set(pageID, result.tiles);
       } finally {
       }
     }
@@ -734,16 +627,6 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
   }
 
 
-  void setNewImage (int docID, int pageID, bool value) {
-    List<DocumentModel> docs = [...state];
-    DocumentModel doc = docs.firstWhere((d) => d.docID == docID);
-    final docIndex = docs.indexWhere((d) => d.docID == docID);
-    docs[docIndex] = doc.copyWith(pages: doc.pages);
-    state = docs;
-
-  }
-
-
   Future<void> setAllBackgroundStrokesExecute(int docID, List<double> horizontalSpaces, List<double> verticalSpaces, Color strokeColor, double strokeWidth) async {
     final docs = [...state];
     final docIndex = docs.indexWhere((d) => d.docID == docID);
@@ -766,21 +649,15 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     final doc = docs[docIndex];
     final pageIndex = doc.pages.indexWhere((p) => p.pageID == pageID);
     if (pageIndex == -1) return;
-    final newPages = [...doc.pages];
+    final newPage = doc.pages[pageIndex].withBackgroundSpacing(horizontalSpaces, verticalSpaces, strokeColor, strokeWidth);
 
+    _replacePage(docID, newPage);
 
-    newPages[pageIndex].setBackgroundStrokesBySpacing(horizontalSpaces, verticalSpaces, strokeColor, strokeWidth);
-
-    await newPages[pageIndex].updateTiles([], [], newPages[pageIndex].backgroundStrokes);
-
-
-    state = [
-      for (int i = 0; i < state.length; i++)
-        if (state[i].docID == docID)
-          state[i].copyWith(pages: newPages)
-        else
-          state[i]
-    ];
+    final tiles = _tiles[pageID];
+    if (tiles != null) {
+      await updateTileGrid(tiles.grid, newPage.strokes, [], [], newPage.backgroundStrokes);
+      ref.read(pageTilesProvider.notifier).touch(pageID);
+    }
   }
 
 
@@ -793,63 +670,61 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
 
 
 
-    for (int i=0; i<doc.pages.length; i++) {
-      await doc.pages[i].initializeTiles();
+    for (final page in doc.pages) {
+      if (page.isTemp) continue;
+      ref.read(pageTilesProvider.notifier).set(page.pageID, await renderPageTiles(page));
       await Future.delayed(Duration(milliseconds: 1));
     }
 
   }
 
 
+  /// Updates the tiles of [pageID] after strokes were added or removed.
+  /// Pages that have no tiles yet get them from the isolate renderer.
   Future<void> updatePage(int docID, int pageID, List<Stroke> strokes, List<int> erasedStrokeIDs) async {
-    final docs = [...state];
-
-    final docIndex = docs.indexWhere((d) => d.docID == docID);
+    final docIndex = _docIndexOf(docID);
     if (docIndex == -1) return;
+    final page = state[docIndex].pages.where((p) => p.pageID == pageID).firstOrNull;
+    final tiles = _tiles[pageID];
+    if (page == null || tiles == null || tiles.isEmpty) return;
 
-    final doc = docs[docIndex];
+    await updateTileGrid(tiles.grid, page.strokes, strokes, erasedStrokeIDs, []);
+    ref.read(pageTilesProvider.notifier).touch(pageID);
+  }
 
-    final pageIndex = doc.pages.indexWhere((p) => p.pageID == pageID);
-    if (pageIndex == -1) return;
+  /// Tile grids of the current renderer, per pageID.
+  Map<int, PageTiles> get _tiles => ref.read(pageTilesProvider);
 
-    // ⚠️ IMPORTANT: replace only this one page
-    final newPages = [...doc.pages];
-
-
-    await newPages[pageIndex].updateTiles(strokes, erasedStrokeIDs, []);
-
-
-    newPages[pageIndex].erasedIDs = [];
-
-    docs[docIndex] = doc.copyWith(pages: newPages);
-
-    state = docs;
-
-
+  /// Replaces the page with the same ID as [page] in document [docID] (if it is loaded).
+  void _replacePage(int docID, PageModel page) {
+    state = [
+      for (final doc in state)
+        if (doc.docID == docID)
+          doc.copyWith(pages: [
+            for (final p in doc.pages) p.pageID == page.pageID ? page : p,
+          ])
+        else
+          doc
+    ];
   }
 
 
+  /// Pushes [commands] onto the undo history of [docID]. Commands after the current position
+  /// (undone ones) are dropped; the oldest commands go when [DocumentModel.maxAmountCommands] is
+  /// exceeded.
   void addCommands(int docID, List<Command> commands) {
-    final newDocs = [...state];
-    final docIndex = newDocs.indexWhere((d) => d.docID == docID);
-    final doc = newDocs[docIndex];
-    List<Command> newCommands = doc.commands;
+    final docIndex = _docIndexOf(docID);
+    if (docIndex == -1) return;
+    final doc = state[docIndex];
 
-    for (int i = 0; i<commands.length; i++) {
-      if (doc.commandIndex<doc.commands.length) {                                              //when not at top of the stack remove all commands after the current index:     [][][][][i][+]  |  [x][x][x][x]
-        doc.commands.removeRange(doc.commandIndex, doc.commands.length);
-      }
-
-      if (doc.commands.length >= doc.maxAmountCommands) {                                           //remove oldest entry when max amount of undo steps is reached:     <--[] | [0][1][2][3][4]..[+]<--
-        doc.commands.removeAt(0);  // remove oldest command
-      }
-      newCommands.add(commands[i]);
-      doc.commandIndex=doc.commands.length;
-
+    var history = [...doc.commands.take(doc.commandIndex), ...commands];
+    if (history.length > doc.maxAmountCommands) {
+      history = history.sublist(history.length - doc.maxAmountCommands);
     }
 
-    newDocs[docIndex] = doc.copyWith(commands: newCommands, commandIndex: doc.commandIndex);
-
+    final newDocs = [...state];
+    newDocs[docIndex] = doc.copyWith(commands: history, commandIndex: history.length);
+    state = newDocs;
   }
 
 
@@ -878,132 +753,51 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
   }
 
   Future<void> _undo(int docID) async {
+    final docIndex = _docIndexOf(docID);
+    if (docIndex == -1) return;
+    final doc = state[docIndex];
+    if (doc.commandIndex <= 0) return;
 
-    final docs = [...state];
+    final command = doc.commands[doc.commandIndex - 1];
+    print("documents_notifier: undo: ${command.runtimeType} at ${doc.commandIndex - 1} (commands: ${doc.commands.length})");
 
-
-    final docIndex = docs.indexWhere((d) => d.docID == docID);
-    if (docIndex == -1) {
-      return;
+    if (command is ModifyElementsCommand) {
+      await modifyElementsExecute(docID, command.pageID, command.removedStrokes, command.removedImages,
+          [for (final s in command.addedStrokes) s.strokeID], [for (final i in command.addedImages) i.imageID]);
+    } else if (command is ModifyPagesCommand) {
+      await modifyPagesExecute(docID, command.removePages, command.removePageIndexes,
+          [for (final p in command.addPages) p.pageID]);
     }
 
-    DocumentModel doc = docs[docIndex];
-
-    List<Command> commands = doc.commands;
-
-
-    Command command;
-
-    int commandIndex = doc.commandIndex;
-
-
-
-    for(final page in doc.pages){                               //current selections will be canceled when undo/redo is called
-      setNewImage(doc.docID, page.pageID, false);
-    }
-
-    if (doc.commandIndex>0) {
-      commandIndex = doc.commandIndex-1;
-      command = commands[commandIndex];
-    }
-    else {
-      command=EmptyCommand();
-    }
-
-    print("documents_notifier: undo: ${command.runtimeType} at ${doc.commandIndex - 1} (commands: ${commands.length})");
-
-
-    if(command is ModifyElementsCommand) {
-
-
-
-      final modifyElementsCommand = command;
-      final pageIndex = doc.pages.indexWhere((p) => p.pageID == modifyElementsCommand.pageID);
-      if (pageIndex == -1) {
-        print("documents_notifier: undo: page not loaded");
-        return;
-      }
-
-
-      final addedStrokeIDs = modifyElementsCommand.addedStrokes.map((s) => s.strokeID).toList();
-      final addedImageIDs = modifyElementsCommand.addedImages.map((m) => m.imageID).toList();
-
-      await modifyElementsExecute(docID, modifyElementsCommand.pageID, modifyElementsCommand.removedStrokes, modifyElementsCommand.removedImages, addedStrokeIDs, addedImageIDs);
-
-    }
-    else if(command is ModifyPagesCommand) {
-      final modifyPagesCommand = command;
-      final addPageIDs = modifyPagesCommand.addPages.map((p) => p.pageID).toList();
-      await modifyPagesExecute(docID, modifyPagesCommand.removePages, modifyPagesCommand.removePageIndexes, addPageIDs);
-
-    }
-
-    final newDocs = [...state];
-
-    newDocs[docIndex] = newDocs[docIndex].copyWith(commands: commands, commandIndex: commandIndex);
-
-    state = newDocs;
-
+    _setCommandIndex(docID, doc.commandIndex - 1);
   }
 
-
   Future<void> _redo(int docID) async {
-    final docs = [...state];
-    final docIndex = docs.indexWhere((d) => d.docID == docID);
-    DocumentModel doc = docs[docIndex];
-    List<Command> commands = doc.commands;
+    final docIndex = _docIndexOf(docID);
+    if (docIndex == -1) return;
+    final doc = state[docIndex];
+    if (doc.commandIndex >= doc.commands.length) return;
 
-    Command command;
+    final command = doc.commands[doc.commandIndex];
+    print("documents_notifier: redo: ${command.runtimeType} at ${doc.commandIndex} (commands: ${doc.commands.length})");
 
-    int commandIndex = doc.commandIndex;
-
-
-    if (doc.commandIndex<doc.commands.length) {
-      command = commands[commandIndex];
-      commandIndex = doc.commandIndex+1;
-
-    }
-    else {
-      command=EmptyCommand();
+    if (command is ModifyElementsCommand) {
+      await modifyElementsExecute(docID, command.pageID, command.addedStrokes, command.addedImages,
+          [for (final s in command.removedStrokes) s.strokeID], [for (final i in command.removedImages) i.imageID]);
+    } else if (command is ModifyPagesCommand) {
+      await modifyPagesExecute(docID, command.addPages, command.addPageIndexes,
+          [for (final p in command.removePages) p.pageID]);
     }
 
-    print("documents_notifier: redo: ${command.runtimeType} at ${doc.commandIndex} (commands: ${commands.length})");
+    _setCommandIndex(docID, doc.commandIndex + 1);
+  }
 
-
-
-
-    if(command is ModifyElementsCommand) {
-
-      final modifyElementsCommand = command;
-
-      final pageIndex = doc.pages.indexWhere((p) => p.pageID == modifyElementsCommand.pageID);
-      if (pageIndex == -1) {
-        print("documents_notifier: redo: page not loaded");
-        return;
-      }
-
-      final removedStrokeIDs = modifyElementsCommand.removedStrokes.map((s) => s.strokeID).toList();
-      final removedImageIDs = modifyElementsCommand.removedImages.map((m) => m.imageID).toList();
-
-      await modifyElementsExecute(docID, modifyElementsCommand.pageID, modifyElementsCommand.addedStrokes, modifyElementsCommand.addedImages, removedStrokeIDs, removedImageIDs);
-    }
-    else if(command is ModifyPagesCommand) {
-      final modifyPagesCommand = command;
-      final removePageIDs = modifyPagesCommand.removePages.map((p) => p.pageID).toList();
-      await modifyPagesExecute(docID, modifyPagesCommand.addPages, modifyPagesCommand.addPageIndexes, removePageIDs);
-    }
-
+  void _setCommandIndex(int docID, int commandIndex) {
+    final docIndex = _docIndexOf(docID);
+    if (docIndex == -1) return;
     final newDocs = [...state];
-
-
-
-
-
-    newDocs[docIndex] = newDocs[docIndex].copyWith(commands: commands, commandIndex: commandIndex);
-
+    newDocs[docIndex] = newDocs[docIndex].copyWith(commandIndex: commandIndex);
     state = newDocs;
-
-
   }
 
 
@@ -1053,7 +847,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     final defaultPageJson = metadata['defaultPage'] as Map<String, dynamic>?;
     final defaultPage = defaultPageJson != null
         ? await PageModel.fromJson(defaultPageJson)
-        : PageModel(strokes: [], backgroundStrokes: [], images: [], pageWidth: 297, pageHeight: 210, pageColor: Colors.white70, tiles: [[]]);
+        : PageModel(pageWidth: 297, pageHeight: 210, pageColor: Colors.white70);
 
     final created = metadata['created'] != null ? DateTime.parse(metadata['created'] as String) : DateTime.now();
 

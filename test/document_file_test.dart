@@ -120,4 +120,25 @@ void main() {
       expect(ImageModel.contentID(Uint8List.fromList([...png, 0])), isNot(encoded.blockID));
     });
   });
+
+  test('models are immutable', () {
+    final stroke = stroke1();
+    final page = PageModel(strokes: [stroke]);
+    expect(() => page.strokes.add(stroke), throwsUnsupportedError);
+    expect(() => page.strokes.single.points.add(stroke.points.first), throwsUnsupportedError);
+    expect(identical(stroke.points, page.strokes.single.points), isFalse); // frozen copy, caller's list untouched
+
+    final doc = DocumentModel(pages: [page], created: DateTime(2026), author: '', title: '', pageList: [page.pageID]);
+    expect(() => doc.pageList.add(1), throwsUnsupportedError);
+    expect(() => doc.pages.clear(), throwsUnsupportedError);
+    expect(doc.copyWith(currentPageIndex: 3).docID, doc.docID);
+  });
+
+  test('single-point strokes are stored with one segment', () {
+    final dot = Stroke(color: Colors.black, width: 1, points: [const PointModel(pos: Offset(1, 2), width: 1)]);
+    expect(dot.frozen().points.length, 2);
+    expect(PageModel(strokes: [dot]).strokes.single.points.length, 2);
+  });
 }
+
+Stroke stroke1() => Stroke(color: Colors.black, width: 1, points: [const PointModel(pos: Offset(1, 1), width: 1), const PointModel(pos: Offset(2, 2), width: 1)]);

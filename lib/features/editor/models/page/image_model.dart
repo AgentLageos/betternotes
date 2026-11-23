@@ -14,11 +14,12 @@ class _EncodedImage {
   Uint8List? bytes;
 }
 
+/// An image placed on a page. Immutable (D1): changes produce a new model via [copyWith].
 class ImageModel {
-  double width;
-  double height;
-  Offset position;
-  double rotation;
+  final double width;
+  final double height;
+  final Offset position;
+  final double rotation;
   final ui.Image image;
   final int imageID;
   final _EncodedImage _encoded;
@@ -50,15 +51,14 @@ class ImageModel {
     double? height,
     double? width,
     Offset? position,
-    //int? path,
-
+    double? rotation,
     int? imageID
   }) {
     return ImageModel._shared(
       height: height ?? this.height,
       width: width ?? this.width,
       position: position ?? this.position,
-      rotation: rotation,
+      rotation: rotation ?? this.rotation,
       image: image,
       imageID: imageID ?? this.imageID,
       encoded: _encoded,
@@ -81,17 +81,6 @@ class ImageModel {
     );
   }
 
-  ImageModel copyWithID() {
-    return ImageModel._shared(
-      position: position,
-      height: height,
-      width: width,
-      rotation: rotation,
-      image: image,
-      imageID: imageID,
-      encoded: _encoded,
-    );
-  }
 
 
 

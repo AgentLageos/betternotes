@@ -229,9 +229,7 @@ class Tile extends ChangeNotifier{
 
     int j = -1;
 
-    if (stroke.points.length < 2) {
-      stroke.points.add(stroke.points.first);
-    }
+    if (stroke.points.length < 2) return;      //Stroke.frozen() pads single-point strokes
 
     double width = stroke.width;
 
@@ -268,9 +266,7 @@ class Tile extends ChangeNotifier{
 
     int j = -1;
 
-    if(stroke.points.length<2) {
-      stroke.points.add(stroke.points.first);
-    }
+    if (stroke.points.length < 2) return;      //Stroke.frozen() pads single-point strokes
 
     double width = stroke.width;
 

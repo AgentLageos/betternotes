@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -7,14 +6,15 @@ import 'package:flutter/material.dart';
 import 'image_model.dart';
 import 'stroke.dart';
 import 'package:betternotes/core/utils/id_generator.dart';
-import 'tile.dart';
 
 
 
 
+/// One page. Immutable (D1): all fields are final, lists are unmodifiable, changes go through
+/// [copyWith]. Render state (the tile grid) lives in `pageTilesProvider`, not here.
 class PageModel {
   final List<Stroke> strokes;
-  List<Stroke> backgroundStrokes;
+  final List<Stroke> backgroundStrokes;
   final List<ImageModel> images;
   final double pageHeight;
   final double pageWidth;
@@ -26,23 +26,11 @@ class PageModel {
 
   final ImageModel? backgroundImage;
 
-
-
-  List<List<Tile>> tiles = [[]];
-
-  List<int> erasedIDs = [];
-
-  final Rect rect = Rect.fromLTWH(0,0,20,20);
-
+  /// Placeholder for a page that is not loaded (outside the lazy-loading window).
   final bool isTemp;
 
-
+  /// Strokes are stored [Stroke.frozen], so nothing can change them after they enter a page.
   PageModel({
-
-
-    //required this.backgroundUpdate,
-
-
     List<double>? verticalSpaces,
     List<double>? horizontalSpaces,
     List<Stroke>? strokes,
@@ -51,31 +39,20 @@ class PageModel {
     double? pageHeight,
     double? pageWidth,
     Color? pageColor,
-    List<List<Tile>>? tiles,
     bool? isTemp,
     int? pageID,
     this.backgroundImage,
-
-
   }) :  pageID = pageID ?? IdGenerator.next(),
-
-        strokes = strokes ?? [],
-        backgroundStrokes = backgroundStrokes ?? [],
-        images = images ?? [],
+        strokes = List.unmodifiable([for (final s in strokes ?? const <Stroke>[]) s.frozen()]),
+        backgroundStrokes = List.unmodifiable([for (final s in backgroundStrokes ?? const <Stroke>[]) s.frozen()]),
+        images = List.unmodifiable(images ?? const <ImageModel>[]),
         pageHeight = pageHeight ?? 297,
         pageWidth = pageWidth ?? 210,
         pageColor = pageColor ?? Colors.white,
-        tiles = tiles ?? [[]],
+        verticalSpaces = List.unmodifiable(verticalSpaces ?? const <double>[]),
+        horizontalSpaces = List.unmodifiable(horizontalSpaces ?? const <double>[]),
+        isTemp = isTemp ?? false;
 
-        verticalSpaces = verticalSpaces ?? [],
-        horizontalSpaces = horizontalSpaces ?? [],
-        isTemp = isTemp ?? false
-
-
-
-  ;
-
-  // copyWith for immutable updates
   PageModel copyWith({
     List<Stroke>? strokes,
     List<Stroke>? backgroundStrokes,
@@ -84,18 +61,10 @@ class PageModel {
     double? pageWidth,
     Color? pageColor,
     int? pageID,
-    //bool? newImage,
-    //bool? didUndo,
-    //bool? didRedo,
-
-    List<List<Tile>>? tiles,
-    //bool? backgroundUpdate,
-
     List<double>? verticalSpaces,
     List<double>? horizontalSpaces,
     bool? isTemp,
     ImageModel? backgroundImage,
-
   }) {
     return PageModel(
       strokes: strokes ?? this.strokes,
@@ -105,143 +74,24 @@ class PageModel {
       pageWidth: pageWidth ?? this.pageWidth,
       pageColor: pageColor?? this.pageColor,
       pageID : pageID ?? this.pageID,
-      tiles: tiles ?? this.tiles,
-      //backgroundUpdate : backgroundUpdate ?? this.backgroundUpdate,
       verticalSpaces: verticalSpaces ?? this.verticalSpaces,
       horizontalSpaces: horizontalSpaces ?? this.horizontalSpaces,
       isTemp: isTemp ?? this.isTemp,
       backgroundImage: backgroundImage ?? this.backgroundImage,
-
     );
   }
 
-
-
-
-
-
-
-
-
-
-
-  Future<void> initializeTiles() async {
-    final newTiles = <List<Tile>>[];
-
-    final rows = (pageHeight / rect.height).ceil();
-    final cols = (pageWidth / rect.width).ceil();
-
-    double newWidth;
-    double newHeight;
-
-    for (int row = 0; row < rows; row++) {
-      final rowTiles = <Tile>[];
-      for (int col = 0; col < cols; col++) {
-
-        if (col >= cols-1) {newWidth = pageWidth-(cols-1)*rect.width;}       //sizing the most right and most down tiles so they have exactly the size of the page
-        else {newWidth = rect.width;}
-
-        if (row >= rows-1) {newHeight = pageHeight-(rows-1)*rect.height;}
-        else {newHeight = rect.height;}
-
-        rowTiles.add(
-          Tile(Rect.fromLTWH(col * rect.width, row * rect.height, newWidth, newHeight,), //false,
-          ),
-        );
-      }
-      newTiles.add(rowTiles);
-    }
-
-    tiles = newTiles;
-
-    await updateTiles(strokes, [], backgroundStrokes);
-
-  }
-
-
-
-
-  Future<void> updateTiles(List<Stroke> newStrokes, List<int> erasedStrokeIDs, List<Stroke> newBackgroundStrokes) async {
-
-
-    final Set<Point<int>> changedTiles = {};
-
-    for (int i = 0; i < tiles.length; i++) {
-      // i is the row
-      for (int j = 0; j < tiles[i].length; j++) {
-        // j is the column within the row
-
-        if(newBackgroundStrokes.isNotEmpty) {
-          tiles[i][j].addBackgroundStrokesAsAbstractStrokes(newBackgroundStrokes);
-          backgroundStrokes = newBackgroundStrokes;
-
-        }
-
-        for (int k = 0; k<erasedStrokeIDs.length; k++) {
-
-
-          if (tiles[i][j].aStrokes.any((s) => erasedStrokeIDs.contains(s.strokeID))) {
-            tiles[i][j].aStrokes.removeWhere((s) => erasedStrokeIDs.contains(s.strokeID));
-            changedTiles.add(Point(i, j));
-          }
-        }
-
-        final changed = tiles[i][j].addStrokesAsAbstractStrokes(newStrokes);
-
-
-        if (changed || newBackgroundStrokes.isNotEmpty) changedTiles.add(Point(i, j));
-
-      }
-    }
-
-
-    for (int i = 0; i < tiles.length; i++) {
-      // i is the row
-      for (int j = 0; j < tiles[i].length; j++) {
-        // j is the column within the row
-
-      }
-    }
-
-
-    final List<Future<void>> futures = [];
-
-    for (var point in changedTiles) {
-      futures.add(() async {
-        if (newBackgroundStrokes.isNotEmpty) {
-          await tiles[point.x][point.y].renderBackground(newBackgroundStrokes);
-        }
-
-
-        await tiles[point.x][point.y].renderAbstractStrokes(strokes);
-      }());
-    }
-
-    await Future.wait(futures);
-
-
-    erasedIDs = [];
-
-
-
-  }
-
-
-
-
-
-
-  void setBackgroundStrokesBySpacing(List<double> horizontalSpaces, List<double> verticalSpaces, Color strokeColor, double strokeWidth) {
-
-    backgroundStrokes = [];
-
+  /// Background line strokes for the given spacings (vertical lines every [verticalSpaces] mm,
+  /// horizontal lines every [horizontalSpaces] mm, each list repeated across the page).
+  List<Stroke> backgroundStrokesBySpacing(List<double> horizontalSpaces, List<double> verticalSpaces, Color strokeColor, double strokeWidth) {
+    final result = <Stroke>[];
     double i = 0;
 
     if (verticalSpaces.isNotEmpty && verticalSpaces.first>0.1) {
       while (i < pageWidth) {
         for (int j = 0; j < verticalSpaces.length; j++) {
           i += verticalSpaces[j];
-          backgroundStrokes.add(Stroke(color: strokeColor, width: strokeWidth, points: [PointModel(pos: Offset(i, 0), width: strokeWidth), PointModel(pos: Offset(i, pageHeight), width: strokeWidth)]));
+          result.add(Stroke(color: strokeColor, width: strokeWidth, points: [PointModel(pos: Offset(i, 0), width: strokeWidth), PointModel(pos: Offset(i, pageHeight), width: strokeWidth)]).frozen());
         }
       }
     }
@@ -251,19 +101,19 @@ class PageModel {
       while (i<pageHeight){
         for (int j = 0; j<horizontalSpaces.length; j++){
           i+=horizontalSpaces[j];
-          backgroundStrokes.add(Stroke(color: strokeColor, width: strokeWidth, points: [PointModel(pos: Offset(0, i), width: strokeWidth), PointModel(pos: Offset(pageWidth, i), width: strokeWidth)]));
+          result.add(Stroke(color: strokeColor, width: strokeWidth, points: [PointModel(pos: Offset(0, i), width: strokeWidth), PointModel(pos: Offset(pageWidth, i), width: strokeWidth)]).frozen());
         }
       }
     }
-
-
-
+    return result;
   }
 
+  /// This page with background lines for the given spacings (see [backgroundStrokesBySpacing]).
+  PageModel withBackgroundSpacing(List<double> horizontalSpaces, List<double> verticalSpaces, Color strokeColor, double strokeWidth) =>
+      copyWith(backgroundStrokes: backgroundStrokesBySpacing(horizontalSpaces, verticalSpaces, strokeColor, strokeWidth));
 
-  void clearTiles(){
-    tiles = [[]];
-  }
+
+
 
 
 
@@ -325,7 +175,6 @@ class PageModel {
       pageWidth: json['pageWidth']?.toDouble() ?? 210,
       pageHeight: json['pageHeight']?.toDouble() ?? 297,
       pageColor: Color(json['pageColor'] ?? 4294967295),
-      tiles: [[]],
       verticalSpaces: verticalSpaces,
       horizontalSpaces: horizontalSpaces,
       pageID: pageID ?? IdGenerator.next(),
@@ -500,7 +349,6 @@ class PageModel {
       pageID: pageID,
       verticalSpaces: verticalSpaces,
       horizontalSpaces: horizontalSpaces,
-      tiles: [[]],
       backgroundImage: backgroundImage,
     );
   }

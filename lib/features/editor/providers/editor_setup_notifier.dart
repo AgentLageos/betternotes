@@ -233,7 +233,7 @@ class EditorSetupNotifier extends Notifier<List<EditorSetup>> {
     backgroundStrokeWidth ??= newDefaultPage.backgroundStrokes.isNotEmpty ? newDefaultPage.backgroundStrokes.first.width : 0.4;
 
 
-    newDefaultPage.setBackgroundStrokesBySpacing([horizontalSpace], [verticalSpace], backgroundStrokeColor, backgroundStrokeWidth);
+    newDefaultPage = newDefaultPage.withBackgroundSpacing([horizontalSpace], [verticalSpace], backgroundStrokeColor, backgroundStrokeWidth);
 
 
     final newState = [...state];
@@ -288,7 +288,7 @@ class EditorSetupNotifier extends Notifier<List<EditorSetup>> {
           'selectionMode' : false,
           'selectionColor' :  Colors.blue.value,
           'spaces' : [0.325, 0.25, 0.3,0.125],
-          'defaultPage' : PageModel(strokes: [], pageHeight: 297, pageWidth: 210, backgroundStrokes: [], images: [], pageColor: Colors.white, tiles: []).toJson(),
+          'defaultPage' : PageModel(pageHeight: 297, pageWidth: 210, pageColor: Colors.white).toJson(),
         };
       }).toList(),
     };

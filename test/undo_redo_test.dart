@@ -140,21 +140,105 @@ void main() {
     });
   });
 
-  testWidgets('undo of a stroke on a page that is no longer loaded', (tester) async {
+  testWidgets('undo/redo of a stroke on a page that is no longer loaded', (tester) async {
     await tester.runAsync(() async {
       final docID = await open();
       final notifier = container.read(documentsProvider.notifier);
       final stroke = Stroke(color: Colors.black, width: 1, points: [PointModel(pos: const Offset(1, 1), width: 1)]);
       await notifier.modifyElements(docID, pages[0].pageID, [stroke], [], [], []);
 
-      // Scroll far away so page A leaves the loaded window, then undo.
+      // Add pages and move the window away so page A is no longer loaded.
       await notifier.modifyPages(docID, [for (var i = 0; i < 5; i++) PageModel()], [3, 4, 5, 6, 7], []);
       await notifier.setCurrentPageIndex(docID, 7);
-      await notifier.undo(docID); // undoes the page add
-      await notifier.undo(docID); // should undo the stroke on A
+      expect(doc().pages.any((p) => p.pageID == pages[0].pageID), isFalse);
+
+      await notifier.undo(docID); // the page add
+      await notifier.setCurrentPageIndex(docID, 2);
+      await notifier.updateIsolatedPages(docID);
+      expect(doc().pages.any((p) => p.pageID == pages[0].pageID && !p.isTemp), isFalse);
+
+      await notifier.undo(docID); // the stroke on A, which is not loaded
+      expect(doc().commandIndex, 0);
+      final repo = await BnfRepository.open(path);
+      expect(repo.pageIDs, contains(pages[0].pageID));
+
       await notifier.setCurrentPageIndex(docID, 0);
       await notifier.updateIsolatedPages(docID);
-      expect(doc().pages.firstWhere((p) => p.pageID == pages[0].pageID).strokes, isEmpty);
+      PageModel first() => doc().pages.firstWhere((p) => p.pageID == pages[0].pageID);
+      expect(first().strokes, isEmpty);
+
+      // Redo while A is loaded again.
+      await notifier.redo(docID);
+      expect(first().strokes.map((s) => s.strokeID), [stroke.strokeID]);
+      await settle(docID);
     });
-  }, skip: true); // known issue, P4-02: undo on unloaded pages does nothing
+  });
+
+  testWidgets('deleting a page that is not loaded can be undone', (tester) async {
+    await tester.runAsync(() async {
+      final docID = await open(); // window: A, B (C is not loaded)
+      final notifier = container.read(documentsProvider.notifier);
+      expect(doc().pages.any((p) => p.pageID == pages[2].pageID && !p.isTemp), isFalse);
+
+      await notifier.modifyPages(docID, [], [], [pages[2].pageID]);
+      expect(doc().pageList, ids([0, 1]));
+
+      await notifier.undo(docID);
+      expect(doc().pageList, ids([0, 1, 2]));
+      expect(doc().pageHeights, [100, 200, 300]);
+      await notifier.setCurrentPageIndex(docID, 2);
+      await notifier.updateIsolatedPages(docID);
+      expect(doc().pages.firstWhere((p) => p.pageID == pages[2].pageID).pageHeight, 300);
+      await settle(docID);
+    });
+  });
+
+  testWidgets('moving a selection does not change the undo history', (tester) async {
+    await tester.runAsync(() async {
+      final docID = await open();
+      final notifier = container.read(documentsProvider.notifier);
+      final stroke = Stroke(color: Colors.black, width: 1, strokeType: StrokeType.dotted,
+          points: [PointModel(pos: const Offset(1, 1), width: 1), PointModel(pos: const Offset(2, 2), width: 1)]);
+      await notifier.modifyElements(docID, pages[0].pageID, [stroke], [], [], []);
+
+      // What page_widget does when a selection is moved: a moved copy with the same ID replaces it.
+      final original = doc().pages.first.strokes.single;
+      final moved = original.copyWith(points: [for (final p in original.points) p.copyWith(pos: p.pos + const Offset(10, 0))]);
+      await notifier.modifyElements(docID, pages[0].pageID, [moved], [], [original.strokeID], []);
+      expect(doc().pages.first.strokes.single.points.first.pos, const Offset(11, 1));
+      expect(doc().pages.first.strokes.single.strokeType, StrokeType.dotted);
+
+      await notifier.undo(docID);
+      expect(doc().pages.first.strokes.single.points.first.pos, const Offset(1, 1));
+      await notifier.undo(docID);
+      expect(doc().pages.first.strokes, isEmpty);
+      await notifier.redo(docID);
+      expect(doc().pages.first.strokes.single.points.first.pos, const Offset(1, 1));
+      await notifier.redo(docID);
+      expect(doc().pages.first.strokes.single.points.first.pos, const Offset(11, 1));
+      await settle(docID);
+    });
+  });
+
+  testWidgets('history is capped and undone commands are dropped by a new one', (tester) async {
+    await tester.runAsync(() async {
+      final docID = await open();
+      final notifier = container.read(documentsProvider.notifier);
+      Stroke dot(double x) => Stroke(color: Colors.black, width: 1, points: [PointModel(pos: Offset(x, 1), width: 1)]);
+
+      for (var i = 0; i < 12; i++) {
+        await notifier.modifyElements(docID, pages[0].pageID, [dot(i.toDouble())], [], [], []);
+      }
+      expect(doc().commands.length, doc().maxAmountCommands);
+      expect(doc().commandIndex, doc().maxAmountCommands);
+
+      await notifier.undo(docID);
+      await notifier.undo(docID);
+      await notifier.modifyElements(docID, pages[0].pageID, [dot(50)], [], [], []);
+      expect(doc().commandIndex, doc().commands.length);
+      expect(doc().commands.length, doc().maxAmountCommands - 1);
+      expect(doc().pages.first.strokes.length, 11);
+      await settle(docID);
+    });
+  });
 }

@@ -13,6 +13,7 @@ import '../../../core/providers/global_providers.dart';
 import '../models/page/image_model.dart';
 import '../models/page/page_model.dart';
 import '../models/page/tile.dart';
+import '../rendering/page_tiles.dart';
 import 'package:betternotes/core/utils/color_channels.dart';
 
 
@@ -116,7 +117,7 @@ class DrawerWidgetState extends ConsumerState<DrawerWidget> {
 
 
 
-      final tiles = page.tiles;
+      final tiles = ref.watch(pageTilesProvider.select((m) => m[pageID]))?.grid ?? const <List<Tile>>[];
 
 
     return ClipRect(

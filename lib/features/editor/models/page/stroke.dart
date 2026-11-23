@@ -17,9 +17,14 @@ extension StrokeTypeExtension on StrokeType {
   static StrokeType fromJson(String value) => StrokeType.values.firstWhere((e) => e.name == value);
 }
 
+/// A stroke. Immutable (D1): all fields are final, changes produce a new stroke.
+///
+/// [points] is stored as given, without copying, so the stroke being drawn can grow its own list
+/// cheaply. Once a stroke goes into a document it must not change any more: the document stores
+/// [frozen] strokes, whose point list is unmodifiable.
 class Stroke {
-  Color color;
-  double width;
+  final Color color;
+  final double width;
   final List<PointModel> points;
   final int strokeID;
 
@@ -31,9 +36,14 @@ class Stroke {
     required this.points,
     int? strokeID,
     StrokeType? strokeType,
+    bool frozen = false,
   }) : strokeID = strokeID ?? IdGenerator.next(),
-      strokeType = strokeType ?? StrokeType.normal
+      strokeType = strokeType ?? StrokeType.normal,
+      _isFrozen = frozen
   ;
+
+  /// Whether [points] is known to be unmodifiable (set by [frozen]).
+  final bool _isFrozen;
 
   Stroke copyWith({
     Color? color,
@@ -48,6 +58,7 @@ class Stroke {
       points: points ?? this.points,
       strokeID : strokeID ?? this.strokeID,
       strokeType: strokeType ?? this.strokeType,
+      frozen: points == null && _isFrozen,
     );
   }
 
@@ -89,23 +100,20 @@ class Stroke {
     return Rect.fromLTRB(minX, minY, maxX, maxY);
   }
 
-  Stroke copy() {
-    return Stroke(
-      points: points.map((p) => p.copy()).toList(),
-      color: color,
-      width: width,
-      strokeID: IdGenerator.next(),
-    );
-  }
+  /// Same stroke with a new ID. Points are immutable, so the point list can be shared.
+  Stroke copy() => copyWith(strokeID: IdGenerator.next());
 
-  Stroke copyWithID() {
-    return Stroke(
-      points: points.map((p) => p.copy()).toList(),
-      color: color,
-      width: width,
-      strokeID: strokeID,
-    );
-  }
+  /// This stroke with an unmodifiable point list (for storing in a document).
+  /// A single point is doubled, so every stored stroke has at least one segment (the renderer
+  /// needs that for dots).
+  Stroke frozen() => _isFrozen ? this : Stroke(
+        color: color,
+        width: width,
+        points: List.unmodifiable(points.length == 1 ? [points.first, points.first] : points),
+        strokeID: strokeID,
+        strokeType: strokeType,
+        frozen: true,
+      );
 
 
 
@@ -210,7 +218,7 @@ class Stroke {
       points.add(PointModel(pos: Offset(x, y), width: pointWidth));
     }
 
-    return Stroke(color: color, width: width, points: points, strokeID: strokeID, strokeType: strokeType,);
+    return Stroke(color: color, width: width, points: points, strokeID: strokeID, strokeType: strokeType).frozen();
   }
 
 

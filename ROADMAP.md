@@ -257,12 +257,12 @@ Mechanical work that makes the rest easier. **Prints stay** (see Ground rules).
 
 ## Phase 4: Immutable models, undo/redo, per-document state
 
-- [ ] **P4-01** Make `DocumentModel`, `PageModel`, `Stroke`, `PointModel`, `ImageModel` immutable
+- [x] **P4-01** Make `DocumentModel`, `PageModel`, `Stroke`, `PointModel`, `ImageModel` immutable
   (D1). All fields `final`, lists copied on change, `copyWith` copies every field. Remove all
   in-place mutation in `DocumentsNotifier` (`doc.pages = ...`, `doc.pageList.insert(...)`,
   `doc.commands.removeRange(...)`, `doc.placeholderHeight = ...`, `stroke.width = ...` in
   selection scaling, etc.). Render state (`tiles`, `erasedIDs`) moves out of `PageModel`.
-- [ ] **P4-02** Rework undo/redo. Known issue: "undo after deleting a page works, redo then breaks
+- [x] **P4-02** Rework undo/redo. Known issue: "undo after deleting a page works, redo then breaks
   everything". Causes found:
   - `modifyPages` records `removePageIndexes` as positions in `doc.pages` (the loaded window of
     ~3 pages); undo uses them as positions in the full `pageList`/`pageHeights`
@@ -287,6 +287,33 @@ Mechanical work that makes the rest easier. **Prints stay** (see Ground rules).
   routes, `Navigator.push` elsewhere; `RouteSaver` relies on route names GoRouter may not set).
 - [x] **P4-06** Reload the file manager after importing files / PDFs (from TODO.txt).
   (Files import already reloaded; PDF import now does too and shows a progress bar.)
+
+**Phase 4 notes (P4-01, P4-02 done):**
+- P4-01: `PointModel`, `Stroke`, `ImageModel`, `PageModel`, `DocumentModel` have only final fields;
+  page/document lists are unmodifiable. Strokes are `Stroke.frozen()` (unmodifiable point list)
+  when they enter a page; the stroke being drawn keeps a growable list owned by `page_widget`.
+  `frozen()` doubles single-point strokes (the tile code used to append to the stroke itself).
+  Selection move/rotate/scale, recolor and the laser fade now build new strokes/images.
+  `PageModel.setBackgroundStrokesBySpacing` -> `withBackgroundSpacing` (returns a new page).
+- Tiles moved out of `PageModel` into `pageTilesProvider` (`lib/features/editor/rendering/page_tiles.dart`,
+  keyed by pageID, with a version counter because grids are updated in place). Tiles are dropped
+  when a page leaves the loaded window. `erasedIDs` and `PageModel.rect` removed.
+- Bugs found on the way: moving/scaling a selected **image** changed the `ImageModel` in the page and
+  the undo history in place; `Stroke.copy()/copyWithID()` dropped `strokeType` (dotted strokes became
+  solid when selected); `editor_setup_notifier.setDefaultPage` changed the shared default page.
+- Removed dead notifier methods: `setPageHeight`, `addPageExecute`, `addPagesWithID`, `setPage`,
+  `setAllPages`, `setNewImage`; `EmptyCommand`.
+- P4-02: `addCommands` is immutable (drops undone commands, caps at `maxAmountCommands`).
+  `modifyElements`/`modifyElementsExecute` work on pages outside the loaded window (read from the
+  file, changed, saved back; a page that is still loading is awaited first). The change is
+  idempotent (remove by ID, added elements replace same IDs), so it is also applied to the window if
+  the page got loaded meanwhile. Deleting a page that is not loaded reads it from the file so undo
+  can restore it. Undo/redo no longer stop at "page not loaded".
+- Tests: 30 (undo on an unloaded page, deleting an unloaded page, selection move + undo/redo keeps
+  `strokeType`, history cap, model immutability, single-point strokes). Tested on the tablet:
+  draw, dot, lasso + move + undo/redo, eraser, shape, line.
+- Still open (not command-based): the page setup menu (`setAllPageColors`, `setAllBackgroundStrokesExecute`,
+  `setAllHeights/Widths`) only changes loaded pages and isn't undoable.
 
 ---
 
