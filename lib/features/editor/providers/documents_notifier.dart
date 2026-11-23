@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
-import 'dart:typed_data';
 
+import 'package:betternotes/core/bnf/bnf_repository.dart';
+import 'package:betternotes/features/editor/data/document_file.dart';
 import 'package:betternotes/features/editor/models/commands/modify_elements_command.dart';
 import 'package:betternotes/features/editor/models/commands/modify_pages_command.dart';
 import 'package:flutter/material.dart';
@@ -478,7 +478,7 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
     }
 
 
-    loadedPages.addAll(await loadPages(doc.pathToFile, pagesToLoad, false));
+    loadedPages.addAll(await loadPages(docID, pagesToLoad));
 
     // The state may have changed while the pages were loading (undo/redo, pages added or removed,
     // window moved, document closed). Writing back the snapshot taken above would revert those
@@ -1007,1439 +1007,162 @@ class DocumentsNotifier extends Notifier<List<DocumentModel>> {
   }
 
 
+  /// Open `.bnf` files, per docID. Added by [loadDoc], removed by [closeDoc].
+  final Map<int, BnfRepository> _repositories = {};
+
+  /// Per document: the last save in the chain. Saves run in call order, and each one writes the
+  /// metadata that is current when it runs (not when it was requested).
+  final Map<int, Future<void>> _saveChains = {};
+
   Future<void> saveAsBnf(int docID) async {
     final docIndex = _docIndexOf(docID);
     if (docIndex == -1) return;
-    DocumentModel doc = state[docIndex];
-    await saveDoc(doc.docID, doc.pages);
+    await saveDoc(docID, state[docIndex].pages);
   }
 
-  Future<List<PageModel>> loadPages(String pathToFile, List<int> pageIDs, bool generateFirstPage,) async {
+  /// Reads the pages with [pageIDs] from the file of document [docID].
+  /// Pages missing from the file are left out; returns [] if the document is closed.
+  Future<List<PageModel>> loadPages(int docID, List<int> pageIDs) async {
     if (pageIDs.isEmpty) return [];
-
-    final file = File(pathToFile);
-
-    final List<PageModel> pages = [];
-
-    if (await file.exists()) {
-      final bytes = await file.readAsBytes();
-
-      if (bytes.length < 16) {
-        throw Exception(
-          'Invalid document: file too small',
-        );
-      }
-
-      final data = ByteData.sublistView(bytes);
-
-      // ============================================================
-      // HEADER
-      //
-      // 0..7   = Version
-      // 8..15  = Root Offset
-      // ============================================================
-
-      final version = data.getUint64(
-        0,
-        Endian.little,
-      );
-
-      if (version != 1) {
-        throw Exception(
-          'Unsupported document version: $version',
-        );
-      }
-
-      final rootOffset = data.getUint64(
-        8,
-        Endian.little,
-      );
-
-      if (rootOffset + 32 > bytes.length) {
-        throw Exception(
-          'Invalid root offset: $rootOffset '
-              '(file length: ${bytes.length})',
-        );
-      }
-
-      // ============================================================
-      // ROOT
-      //
-      // Root:
-      //
-      // 0..7   = Metadata Offset
-      // 8..15  = Metadata Length
-      // 16..23 = Index Offset
-      // 24..31 = Index Length
-      // ============================================================
-
-      final root = ByteData.sublistView(
-        bytes,
-        rootOffset,
-        rootOffset + 32,
-      );
-
-      final indexOffset = root.getUint64(
-        16,
-        Endian.little,
-      );
-
-      final indexLength = root.getUint64(
-        24,
-        Endian.little,
-      );
-
-      if (indexOffset + indexLength > bytes.length) {
-        throw Exception(
-          'Invalid index range: '
-              'offset=$indexOffset, '
-              'length=$indexLength, '
-              'file length=${bytes.length}',
-        );
-      }
-
-      if (indexLength < 4) {
-        throw Exception(
-          'Invalid index length: $indexLength',
-        );
-      }
-
-      // ============================================================
-      // INDEX
-      //
-      // [4 Bytes Index Count]
-      //
-      // Danach pro Eintrag:
-      //
-      // [8 Bytes PageID]
-      // [8 Bytes Page Offset]
-      // [8 Bytes Page Length]
-      // ============================================================
-
-      final indexCount = data.getUint32(
-        indexOffset,
-        Endian.little,
-      );
-
-      final expectedIndexLength =
-          4 + indexCount * 24;
-
-      if (indexLength != expectedIndexLength) {
-        throw Exception(
-          'Invalid index length: '
-              'expected=$expectedIndexLength, '
-              'actual=$indexLength',
-        );
-      }
-
-      final pageOffsets = <int, int>{};
-      final pageLengths = <int, int>{};
-
-      var indexEntryOffset = indexOffset + 4;
-
-      for (var i = 0; i < indexCount; i++) {
-        final pageID = data.getUint64(
-          indexEntryOffset,
-          Endian.little,
-        );
-
-        final pageOffset = data.getUint64(
-          indexEntryOffset + 8,
-          Endian.little,
-        );
-
-        final pageLength = data.getUint64(
-          indexEntryOffset + 16,
-          Endian.little,
-        );
-
-        pageOffsets[pageID] = pageOffset;
-        pageLengths[pageID] = pageLength;
-
-        indexEntryOffset += 24;
-      }
-
-      // ============================================================
-      // LOAD THE REQUESTED PAGES
-      // ============================================================
-
-      for (final pageID in pageIDs) {
-        final pageOffset = pageOffsets[pageID];
-        final pageLength = pageLengths[pageID];
-
-        if (pageOffset == null || pageLength == null) {
-          continue;
-        }
-
-        // pageOffset points to:
-        //
-        // [8 Bytes Page Length]
-        // [page data]
-        //
-        // Hence +8.
-
-        if (pageOffset + 8 + pageLength >
-            bytes.length) {
-          throw Exception(
-            'Invalid page range: '
-                'pageID=$pageID, '
-                'offset=$pageOffset, '
-                'length=$pageLength',
-          );
-        }
-
-        final storedPageLength = data.getUint64(
-          pageOffset,
-          Endian.little,
-        );
-
-        if (storedPageLength != pageLength) {
-          throw Exception(
-            'Page length mismatch: '
-                'pageID=$pageID, '
-                'index=$pageLength, '
-                'stored=$storedPageLength',
-          );
-        }
-
-        final pageBytes = bytes.sublist(
-          pageOffset + 8,
-          pageOffset + 8 + pageLength,
-        );
-
-        final page = await PageModel.fromBytes(
-          pageBytes,
-        );
-
-        pages.add(page);
-      }
-    } else if (generateFirstPage) {
-      pages.add(
-        PageModel(
-          strokes: [],
-          backgroundStrokes: [],
-          images: [],
-          pageWidth: 210,
-          pageHeight: 297,
-          pageColor: Colors.white,
-          tiles: [[]],
-        ),
-      );
+    final repository = _repositories[docID];
+    if (repository == null) return [];
+    try {
+      final records = await repository.readPages(pageIDs);
+      return await decodePages(repository, [
+        for (final id in pageIDs)
+          if (records[id] != null) records[id]!,
+      ]);
+    } on StateError {
+      print('documents_notifier: loadPages: document $docID was closed while loading');
+      return [];
     }
-
-    return pages;
   }
-
-
 
   /// Loads the document at [pathToFile] into the editor slot and returns its new docID,
-  /// or null if the file does not exist.
+  /// or null if the file does not exist. Throws a [BnfFormatException] for invalid files.
+  ///
+  /// Only the first pages are read here; the rest is loaded on demand with [loadPages].
   Future<int?> loadDoc(String pathToFile) async {
-    final file = File(pathToFile);
+    if (!await File(pathToFile).exists()) return null;
 
-    if (!await file.exists()) return null;
+    print('documents_notifier: loadDoc: $pathToFile');
 
-    print(
-      'documents_notifier: loadDoc: $pathToFile',
-    );
+    final repository = await BnfRepository.open(pathToFile);
+    final metadata = repository.metadata;
 
-    // ============================================================
-    // Read the file
-    //
-    // The whole file is read here, but NOT all pages
-    // are turned into PageModels.
-    //
-    // The pages themselves are loaded later, as needed,
-    // with loadPages().
-    // ============================================================
-
-    final bytes = await file.readAsBytes();
-
-    if (bytes.length < 16) {
-      throw Exception(
-        'Invalid document: file too small',
-      );
-    }
-
-    final data = ByteData.sublistView(bytes);
-
-    // ============================================================
-    // HEADER
-    //
-    // 0..7   = Version
-    // 8..15  = Root Offset
-    // ============================================================
-
-    final version = data.getUint64(
-      0,
-      Endian.little,
-    );
-
-    if (version != 1) {
-      throw Exception(
-        'Unsupported document version: $version',
-      );
-    }
-
-    final rootOffset = data.getUint64(
-      8,
-      Endian.little,
-    );
-
-    print(
-      'documents_notifier: loadDoc: '
-          'rootOffset=$rootOffset',
-    );
-
-    if (rootOffset + 32 > bytes.length) {
-      throw Exception(
-        'Invalid root offset: $rootOffset '
-            '(file length: ${bytes.length})',
-      );
-    }
-
-    // ============================================================
-    // ROOT
-    //
-    // 0..7   = Metadata Offset
-    // 8..15  = Metadata Length
-    // 16..23 = Index Offset
-    // 24..31 = Index Length
-    // ============================================================
-
-    final root = ByteData.sublistView(
-      bytes,
-      rootOffset,
-      rootOffset + 32,
-    );
-
-    final metadataOffset = root.getUint64(
-      0,
-      Endian.little,
-    );
-
-    final metadataLength = root.getUint64(
-      8,
-      Endian.little,
-    );
-
-    if (metadataOffset + 8 + metadataLength >
-        bytes.length) {
-      throw Exception(
-        'Invalid metadata range: '
-            'offset=$metadataOffset '
-            'length=$metadataLength '
-            'file length=${bytes.length}',
-      );
-    }
-
-    // ============================================================
-    // METADATA
-    //
-    // Stored by the save:
-    //
-    // [8 Bytes Metadata Length]
-    // [JSON Metadata]
-    // ============================================================
-
-    final storedMetadataLength = data.getUint64(
-      metadataOffset,
-      Endian.little,
-    );
-
-    if (storedMetadataLength != metadataLength) {
-      throw Exception(
-        'Metadata length mismatch: '
-            'root=$metadataLength '
-            'stored=$storedMetadataLength',
-      );
-    }
-
-    final metadataBytes = bytes.sublist(
-      metadataOffset + 8,
-      metadataOffset + 8 + metadataLength,
-    );
-
-    final metadata = jsonDecode(
-      utf8.decode(metadataBytes),
-    ) as Map<String, dynamic>;
-
-    // ============================================================
-    // DOCUMENT METADATA
-    // ============================================================
-
-    final defaultPageJson =
-    metadata['defaultPage'] as Map<String, dynamic>?;
-
+    final defaultPageJson = metadata['defaultPage'] as Map<String, dynamic>?;
     final defaultPage = defaultPageJson != null
-        ? await PageModel.fromJson(
-      defaultPageJson,
-    )
-        : PageModel(
-      strokes: [],
-      backgroundStrokes: [],
-      images: [],
-      pageWidth: 297,
-      pageHeight: 210,
-      pageColor: Colors.white70,
-      tiles: [[]],
-    );
+        ? await PageModel.fromJson(defaultPageJson)
+        : PageModel(strokes: [], backgroundStrokes: [], images: [], pageWidth: 297, pageHeight: 210, pageColor: Colors.white70, tiles: [[]]);
 
-    final title =
-        metadata['title'] as String? ?? '?';
+    final created = metadata['created'] != null ? DateTime.parse(metadata['created'] as String) : DateTime.now();
 
-    final author =
-        metadata['author'] as String? ?? '?';
+    var pageHeights = ((metadata['pageHeights'] as List?) ?? [0.0]).map((e) => (e as num).toDouble()).toList();
+    var pageList = ((metadata['pageList'] as List?) ?? []).map((e) => (e as num).toInt()).toList();
 
-    final created = metadata['created'] != null
-        ? DateTime.parse(
-      metadata['created'] as String,
-    )
-        : DateTime.now();
-
-    final pageHeights =
-    ((metadata['pageHeights'] as List?) ?? [0.0])
-        .map(
-          (e) => (e as num).toDouble(),
-    )
-        .toList();
-
-    final pageList =
-    ((metadata['pageList'] as List?) ?? [])
-        .map(
-          (e) => (e as num).toInt(),
-    )
-        .toList();
-
-    print(
-      'documents_notifier: loadDoc: '
-          'pageList=$pageList',
-    );
-
-    print(
-      'documents_notifier: loadDoc: '
-          'pageHeights=${pageHeights.length}',
-    );
-
-    // ============================================================
-    // LOAD ONLY THE FIRST PAGES
-    //
-    // Same as the old first version of loadDoc().
-    // ============================================================
-
-    final loadIDs = <int>[];
-
-    for (
-    var i = 0;
-    i < lazyLoadRange + 1;
-    i++
-    ) {
-      if (i < pageList.length) {
-        loadIDs.add(
-          pageList[i],
-        );
+    // Drop pages that are listed but not stored (e.g. added, then the app died before saving).
+    final missing = pageList.where((id) => !repository.hasPage(id)).toSet();
+    if (missing.isNotEmpty) {
+      print('documents_notifier: loadDoc: missing pages $missing');
+      if (pageHeights.length == pageList.length) {
+        pageHeights = [
+          for (var i = 0; i < pageList.length; i++)
+            if (!missing.contains(pageList[i])) pageHeights[i],
+        ];
       }
+      pageList = pageList.where((id) => !missing.contains(id)).toList();
     }
 
-    print(
-      'documents_notifier: loadDoc: '
-          'loading IDs=$loadIDs',
-    );
+    print('documents_notifier: loadDoc: pageList=$pageList');
 
-    final pages = await loadPages(
-      pathToFile,
-      loadIDs,
-      true,
-    );
-
-    print(
-      'documents_notifier: loadDoc: '
-          'loaded pages=${pages.length}',
-    );
-
-    // ============================================================
-    // Remove IDs that no longer have a page
-    //
-    // Same behavior as the old first version of loadDoc().
-    // ============================================================
-
-    final actualIDs = pages
-        .map(
-          (page) => page.pageID,
-    )
-        .toList();
-
-    final missing = loadIDs
-        .where(
-          (id) => !actualIDs.contains(id),
-    )
-        .toList();
-
-    print(
-      'documents_notifier: loadDoc: '
-          'missing IDs=$missing',
-    );
-
-    final cleanedPageList =
-    List<int>.from(pageList);
-
-    cleanedPageList.removeWhere(
-          (id) => missing.contains(id),
-    );
-
-    // ============================================================
-    // DOCUMENT MODEL
-    // ============================================================
-
-    final newDocuments = [...state];
-    final docIndex = currentDocIndex;
-
-    newDocuments[docIndex] = DocumentModel(
+    final doc = DocumentModel(
       pathToFile: pathToFile,
-      pages: List.unmodifiable(
-        pages,
-      ),
+      pages: const [],
       docBackgroundColor: Colors.purpleAccent,
       defaultPage: defaultPage,
-      author: author,
-      title: title,
+      author: metadata['author'] as String? ?? '?',
+      title: metadata['title'] as String? ?? '?',
       created: created,
       pageHeights: pageHeights,
-      pageList: cleanedPageList,
+      pageList: pageList,
     );
 
+    // The editor slot holds one document for now (P4-03): close whatever file was there.
+    final docIndex = currentDocIndex;
+    final previous = _repositories.remove(state[docIndex].docID);
+    if (previous != null) unawaited(previous.close());
+    _repositories[doc.docID] = repository;
 
-    newDocuments[docIndex].currentPageIndex = 0;
+    final pages = await loadPages(doc.docID, pageList.take(lazyLoadRange + 1).toList());
+    print('documents_notifier: loadDoc: loaded pages=${pages.length}');
 
+    final newDocuments = [...state];
+    newDocuments[docIndex] = doc.copyWith(pages: List.unmodifiable(pages), currentPageIndex: 0);
     state = newDocuments;
 
-    return newDocuments[docIndex].docID;
+    return doc.docID;
   }
 
-
-
-
-  bool _isSaving = false;
-
-  /// Pages queued while a save is running, per docID.
-  final Map<int, List<PageModel>> _saveQueue = {};
-
-  Future<void> saveDoc(
-      int docID,
-      List<PageModel> pagesToSave,
-      ) async {
-    if (pagesToSave.isEmpty) return;
-
-    if (_isSaving) {
-      _saveQueue.putIfAbsent(docID, () => []).addAll(pagesToSave);
-      return;
-    }
-
-    _isSaving = true;
-
-    try {
-      await _saveDocInternal(docID, pagesToSave);
-    } finally {
-      _isSaving = false;
-    }
-
-    if (_saveQueue.isNotEmpty) {
-      final queuedDocID = _saveQueue.keys.first;
-      final queuedPages = _saveQueue.remove(queuedDocID)!;
-      await saveDoc(queuedDocID, queuedPages);
-    }
+  /// Saves [pagesToSave] (unchanged ones are skipped) and the document metadata.
+  /// Compacts the file when enough garbage has piled up.
+  Future<void> saveDoc(int docID, List<PageModel> pagesToSave) {
+    final previous = _saveChains[docID] ?? Future<void>.value();
+    final save = previous.then((_) => _saveDocInternal(docID, pagesToSave));
+    _saveChains[docID] = save.then((_) {}, onError: (_) {});
+    return save;
   }
-
 
   Future<void> _saveDocInternal(int docID, List<PageModel> pagesToSave) async {
-    if (pagesToSave.isEmpty) return;
-
-    final documents = [...state];
-
-    final docIndex = documents.indexWhere(
-          (d) => d.docID == docID,
-    );
-
-    if (docIndex == -1) {
+    final repository = _repositories[docID];
+    if (repository == null || _docIndexOf(docID) == -1) {
       print("documents_notifier: _saveDocInternal: document $docID is no longer open, ${pagesToSave.length} page(s) not saved");
       return;
     }
 
-    final doc = documents[docIndex];
+    final encoded = await encodePages(pagesToSave);
 
-    final file = File(doc.pathToFile);
-
-    if (!await file.exists()) {
-      return;
-    }
-
-    final raf = await file.open(
-      mode: FileMode.append,
+    final docIndex = _docIndexOf(docID);        //state may have changed while encoding
+    if (docIndex == -1) return;
+    final written = await repository.write(
+      pages: encoded.pages,
+      images: encoded.images,
+      metadata: state[docIndex].toMetadata(),
     );
 
-    try {
-      // ============================================================
-      // 1. File length
-      // ============================================================
+    if (written && repository.shouldCompact) {
+      print('documents_notifier: compacting ${repository.path} (${repository.garbageBytes} of ${repository.fileLength} bytes garbage)');
+      await repository.compact();         //keeps deleted pages: the undo history may need them
+    }
+  }
 
-      final fileLength = await raf.length();
+  /// Saves the loaded pages, compacts the file if that frees enough space, closes the file and
+  /// clears the document. Pages no longer in the document are dropped from the file here,
+  /// since the undo history that could bring them back ends with the document.
+  Future<void> closeDoc(int docID) async {
+    await saveAsBnf(docID);
+    await (_saveChains.remove(docID) ?? Future<void>.value());
 
-      if (fileLength < 16) {
-        throw Exception('Invalid document: file too small');
-      }
-
-      // ============================================================
-      // 2. Read the header
-      //
-      // 0..7   = Version
-      // 8..15  = Root Offset
-      // ============================================================
-
-      await raf.setPosition(0);
-
-      final headerBytes = await raf.read(16);
-
-      if (headerBytes.length != 16) {
-        throw Exception('Could not read document header');
-      }
-
-      final header = ByteData.sublistView(headerBytes);
-
-      final version = header.getUint64(
-        0,
-        Endian.little,
-      );
-
-      if (version != 1) {
-        throw Exception(
-          'Unsupported document version: $version',
-        );
-      }
-
-      final oldRootOffset = header.getUint64(
-        8,
-        Endian.little,
-      );
-
-      if (oldRootOffset + 32 > fileLength) {
-        throw Exception(
-          'Invalid root offset: $oldRootOffset',
-        );
-      }
-
-      // ============================================================
-      // 3. Read the root
-      // ============================================================
-
-      await raf.setPosition(oldRootOffset);
-
-      final rootBytes = await raf.read(32);
-
-      if (rootBytes.length != 32) {
-        throw Exception('Could not read root');
-      }
-
-      final oldRoot = ByteData.sublistView(rootBytes);
-
-      final oldIndexOffset = oldRoot.getUint64(
-        16,
-        Endian.little,
-      );
-
-      final oldIndexLength = oldRoot.getUint64(
-        24,
-        Endian.little,
-      );
-
-      // ============================================================
-      // 4. Read the index
-      //
-      // Only the index is read completely.
-      // ============================================================
-
-      if (oldIndexOffset + oldIndexLength > fileLength) {
-        throw Exception('Invalid old index range');
-      }
-
-      if (oldIndexLength < 4) {
-        throw Exception('Invalid old index length');
-      }
-
-      await raf.setPosition(oldIndexOffset);
-
-      final oldIndexBytes = await raf.read(
-        oldIndexLength,
-      );
-
-      if (oldIndexBytes.length != oldIndexLength) {
-        throw Exception('Could not read old index');
-      }
-
-      final oldIndexData = ByteData.sublistView(
-        oldIndexBytes,
-      );
-
-      final indexCount = oldIndexData.getUint32(
-        0,
-        Endian.little,
-      );
-
-      final expectedIndexLength =
-          4 + indexCount * 24;
-
-      if (oldIndexLength != expectedIndexLength) {
-        throw Exception(
-          'Invalid old index length: '
-              'expected=$expectedIndexLength, '
-              'actual=$oldIndexLength',
-        );
-      }
-
-      final index = <int, ({int offset, int length})>{};
-
-      var indexPosition = 4;
-
-      for (var i = 0; i < indexCount; i++) {
-        final pageID = oldIndexData.getUint64(
-          indexPosition,
-          Endian.little,
-        );
-
-        final pageOffset = oldIndexData.getUint64(
-          indexPosition + 8,
-          Endian.little,
-        );
-
-        final pageLength = oldIndexData.getUint64(
-          indexPosition + 16,
-          Endian.little,
-        );
-
-        index[pageID] = (
-        offset: pageOffset,
-        length: pageLength,
-        );
-
-        indexPosition += 24;
-      }
-
-      // ============================================================
-      // 5. Position am Dateiende
-      // ============================================================
-
-      var currentOffset = fileLength;
-
-      bool anythingChanged = false;
-
-      // ============================================================
-      // 6. Check pages and append them if changed
-      // ============================================================
-
-      for (final page in pagesToSave) {
-        if (page.isTemp) {
-          continue;
-        }
-
-        final pageBytes = await page.toBytes();
-
-        final oldPageInfo = index[page.pageID];
-
-        bool pageChanged = true;
-
-        if (oldPageInfo != null) {
-          final oldDataOffset =
-              oldPageInfo.offset + 8;
-
-          final oldDataLength =
-              oldPageInfo.length;
-
-          if (oldDataOffset + oldDataLength <= fileLength) {
-            // Read only this page.
-            await raf.setPosition(oldDataOffset);
-
-            final oldPageBytes = await raf.read(
-              oldDataLength,
-            );
-
-            if (oldPageBytes.length == oldDataLength) {
-              pageChanged = !_bytesEqual(
-                oldPageBytes,
-                pageBytes,
-              );
-            }
+    final repository = _repositories.remove(docID);
+    final docIndex = _docIndexOf(docID);
+    if (repository != null) {
+      try {
+        if (docIndex != -1) {
+          final keep = state[docIndex].pageList.toSet();
+          final reclaimable = await repository.reclaimableBytes(keep);
+          if (reclaimable > 0 && reclaimable >= repository.fileLength * closeCompactRatio) {
+            await repository.compact(keepPages: keep);
           }
         }
-
-        // page unchanged
-        if (!pageChanged) {
-          continue;
-        }
-
-        anythingChanged = true;
-
-        // ----------------------------------------------------------
-        // Append the new page
-        // ----------------------------------------------------------
-
-        final pageOffset = currentOffset;
-
-        final pageLengthBytes = ByteData(8)
-          ..setUint64(
-            0,
-            pageBytes.length,
-            Endian.little,
-          );
-
-        await raf.setPosition(currentOffset);
-
-        await raf.writeFrom(
-          pageLengthBytes.buffer.asUint8List(),
-        );
-
-        currentOffset += 8;
-
-        await raf.writeFrom(pageBytes);
-
-        currentOffset += pageBytes.length;
-
-        // new index entry
-        index[page.pageID] = (
-        offset: pageOffset,
-        length: pageBytes.length,
-        );
+      } finally {
+        await repository.close();
       }
-
-      if (!anythingChanged) {
-        return;
-      }
-
-      // ============================================================
-      // 7. Metadata
-      // ============================================================
-
-      final metadata = {
-        'title': doc.title,
-        'author': doc.author,
-        'created': doc.created.toIso8601String(),
-        'modified': DateTime.now().toIso8601String(),
-        'defaultPage': doc.defaultPage.toJson(),
-        'pageHeights': doc.pageHeights,
-        'pageList': doc.pageList,
-      };
-
-      final metadataBytes = utf8.encode(
-        jsonEncode(metadata),
-      );
-
-      final metadataOffset = currentOffset;
-
-      final metadataLengthBytes = ByteData(8)
-        ..setUint64(
-          0,
-          metadataBytes.length,
-          Endian.little,
-        );
-
-      await raf.setPosition(currentOffset);
-
-      await raf.writeFrom(
-        metadataLengthBytes.buffer.asUint8List(),
-      );
-
-      currentOffset += 8;
-
-      await raf.writeFrom(metadataBytes);
-
-      currentOffset += metadataBytes.length;
-
-      // ============================================================
-      // 8. New index
-      // ============================================================
-
-      final indexOffset = currentOffset;
-
-      final indexCountBytes = ByteData(4)
-        ..setUint32(
-          0,
-          index.length,
-          Endian.little,
-        );
-
-      await raf.writeFrom(
-        indexCountBytes.buffer.asUint8List(),
-      );
-
-      currentOffset += 4;
-
-      for (final entry in index.entries) {
-        final entryBytes = ByteData(24)
-          ..setUint64(
-            0,
-            entry.key,
-            Endian.little,
-          )
-          ..setUint64(
-            8,
-            entry.value.offset,
-            Endian.little,
-          )
-          ..setUint64(
-            16,
-            entry.value.length,
-            Endian.little,
-          );
-
-        await raf.writeFrom(
-          entryBytes.buffer.asUint8List(),
-        );
-
-        currentOffset += 24;
-      }
-
-      final indexLength =
-          currentOffset - indexOffset;
-
-      // ============================================================
-      // 9. New root
-      // ============================================================
-
-      final newRootOffset = currentOffset;
-
-      final newRoot = ByteData(32)
-        ..setUint64(
-          0,
-          metadataOffset,
-          Endian.little,
-        )
-        ..setUint64(
-          8,
-          metadataBytes.length,
-          Endian.little,
-        )
-        ..setUint64(
-          16,
-          indexOffset,
-          Endian.little,
-        )
-        ..setUint64(
-          24,
-          indexLength,
-          Endian.little,
-        );
-
-      await raf.writeFrom(
-        newRoot.buffer.asUint8List(),
-      );
-
-      currentOffset += 32;
-
-      // ============================================================
-      // 10. Update the root pointer in the header
-      //
-      // Only 8 bytes at the start are changed.
-      // ============================================================
-
-      await raf.setPosition(8);
-
-      final rootPointer = ByteData(8)
-        ..setUint64(
-          0,
-          newRootOffset,
-          Endian.little,
-        );
-
-      await raf.writeFrom(
-        rootPointer.buffer.asUint8List(),
-      );
-
-      // ============================================================
-      // 11. Flush
-      // ============================================================
-
-      await raf.flush();
-    } finally {
-      await raf.close();
     }
 
+    clearDoc(docID);
   }
 
-
-
-
-
-
-  bool _bytesEqual(List<int> a, List<int> b,) {
-    if (a.length != b.length) {
-      return false;
-    }
-
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-
-
-  Future<void> compactDoc(int docID) async {
-
-
-    final documents = [...state];
-
-    final docIndex = documents.indexWhere(
-          (d) => d.docID == docID,
-    );
-
-    if (docIndex == -1) {
-      throw Exception('Document not found: $docID');
-    }
-
-    final doc = documents[docIndex];
-    final file = File(doc.pathToFile);
-
-    if (!await file.exists()) {
-      throw Exception('Document file does not exist');
-    }
-
-    // ============================================================
-    // 1. Read the whole file
-    // ============================================================
-
-    final oldBytes = await file.readAsBytes();
-
-    if (oldBytes.length < 16) {
-      throw Exception('Invalid document');
-    }
-
-    print('========================================');
-    print('COMPACTION START');
-    print('file: ${file.path}');
-    print('old file size: ${oldBytes.length}');
-    print('========================================');
-
-    final oldData = ByteData.sublistView(oldBytes);
-
-    final version = oldData.getUint64(
-      0,
-      Endian.little,
-    );
-
-    if (version != 1) {
-      throw Exception(
-        'Unsupported document version: $version',
-      );
-    }
-
-    final oldRootOffset = oldData.getUint64(
-      8,
-      Endian.little,
-    );
-
-    if (oldRootOffset + 32 > oldBytes.length) {
-      throw Exception('Invalid root offset');
-    }
-
-    // ============================================================
-    // 2. Read the current root
-    // ============================================================
-
-    final root = ByteData.sublistView(
-      oldBytes,
-      oldRootOffset,
-      oldRootOffset + 32,
-    );
-
-    final metadataOffset = root.getUint64(
-      0,
-      Endian.little,
-    );
-
-    final metadataLength = root.getUint64(
-      8,
-      Endian.little,
-    );
-
-    final indexOffset = root.getUint64(
-      16,
-      Endian.little,
-    );
-
-    final indexLength = root.getUint64(
-      24,
-      Endian.little,
-    );
-
-    // ============================================================
-    // 3. Read the current index
-    // ============================================================
-
-    if (indexOffset + indexLength > oldBytes.length) {
-      throw Exception('Invalid index range');
-    }
-
-    final indexData = ByteData.sublistView(
-      oldBytes,
-      indexOffset,
-      indexOffset + indexLength,
-    );
-
-    if (indexLength < 4) {
-      throw Exception('Invalid index length');
-    }
-
-    final indexCount = indexData.getUint32(
-      0,
-      Endian.little,
-    );
-
-    if (indexLength != 4 + indexCount * 24) {
-      throw Exception('Invalid index length');
-    }
-
-    final oldIndex =
-    <int, ({int offset, int length})>{};
-
-    var position = 4;
-
-    for (var i = 0; i < indexCount; i++) {
-      final pageID = indexData.getUint64(
-        position,
-        Endian.little,
-      );
-
-      final pageOffset = indexData.getUint64(
-        position + 8,
-        Endian.little,
-      );
-
-      final pageLength = indexData.getUint64(
-        position + 16,
-        Endian.little,
-      );
-
-      oldIndex[pageID] = (
-      offset: pageOffset,
-      length: pageLength,
-      );
-
-      position += 24;
-    }
-
-    // ============================================================
-    // 4. New file
-    // ============================================================
-
-    final builder = BytesBuilder();
-
-    // Header reservieren
-    //
-    // 0..7   Version
-    // 8..15  Root Offset
-    //
-    final header = ByteData(16)
-      ..setUint64(
-        0,
-        1,
-        Endian.little,
-      )
-      ..setUint64(
-        8,
-        0,
-        Endian.little,
-      );
-
-    builder.add(
-      header.buffer.asUint8List(),
-    );
-
-    var currentOffset = 16;
-
-    // new index
-    final newIndex =
-    <int, ({int offset, int length})>{};
-
-    // ============================================================
-    // 5. Copy ONLY the pages currently in use
-    // ============================================================
-
-    for (final entry in oldIndex.entries) {
-      final pageID = entry.key;
-      final oldPageOffset = entry.value.offset;
-      final pageLength = entry.value.length;
-
-      // The offset points to the length field.
-      final pageDataOffset = oldPageOffset + 8;
-
-      final pageEnd =
-          pageDataOffset + pageLength;
-
-      if (oldPageOffset + 8 > oldBytes.length ||
-          pageEnd > oldBytes.length) {
-        throw Exception(
-          'Invalid page range for pageID=$pageID',
-        );
-      }
-
-      // Also check that the stored
-      // length field matches.
-      final storedLengthData =
-      ByteData.sublistView(
-        oldBytes,
-        oldPageOffset,
-        oldPageOffset + 8,
-      );
-
-      final storedLength =
-      storedLengthData.getUint64(
-        0,
-        Endian.little,
-      );
-
-      if (storedLength != pageLength) {
-        throw Exception(
-          'Page length mismatch for pageID=$pageID',
-        );
-      }
-
-      // new position of this page
-      final newPageOffset = currentOffset;
-
-      // Length
-      final lengthBytes = ByteData(8)
-        ..setUint64(
-          0,
-          pageLength,
-          Endian.little,
-        );
-
-      builder.add(
-        lengthBytes.buffer.asUint8List(),
-      );
-
-      // Page-Daten
-      builder.add(
-        Uint8List.sublistView(
-          oldBytes,
-          pageDataOffset,
-          pageEnd,
-        ),
-      );
-
-      currentOffset += 8 + pageLength;
-
-      // new offset for the new index
-      newIndex[pageID] = (
-      offset: newPageOffset,
-      length: pageLength,
-      );
-    }
-
-    // ============================================================
-    // 6. Copy the current metadata
-    // ============================================================
-
-    final metadataEnd =
-        metadataOffset +
-            8 +
-            metadataLength;
-
-    if (metadataOffset + 8 > oldBytes.length ||
-        metadataEnd > oldBytes.length) {
-      throw Exception(
-        'Invalid metadata range',
-      );
-    }
-
-    final newMetadataOffset = currentOffset;
-
-    final metadataLengthBytes = ByteData(8)
-      ..setUint64(
-        0,
-        metadataLength,
-        Endian.little,
-      );
-
-    builder.add(
-      metadataLengthBytes.buffer.asUint8List(),
-    );
-
-    builder.add(
-      Uint8List.sublistView(
-        oldBytes,
-        metadataOffset + 8,
-        metadataEnd,
-      ),
-    );
-
-    currentOffset += 8 + metadataLength;
-
-    // ============================================================
-    // 7. Write the new index
-    // ============================================================
-
-    final newIndexOffset = currentOffset;
-
-    final countBytes = ByteData(4)
-      ..setUint32(
-        0,
-        newIndex.length,
-        Endian.little,
-      );
-
-    builder.add(
-      countBytes.buffer.asUint8List(),
-    );
-
-    currentOffset += 4;
-
-    for (final entry in newIndex.entries) {
-      final bytes = ByteData(24)
-        ..setUint64(
-          0,
-          entry.key,
-          Endian.little,
-        )
-        ..setUint64(
-          8,
-          entry.value.offset,
-          Endian.little,
-        )
-        ..setUint64(
-          16,
-          entry.value.length,
-          Endian.little,
-        );
-
-      builder.add(
-        bytes.buffer.asUint8List(),
-      );
-
-      currentOffset += 24;
-    }
-
-    final newIndexLength =
-        currentOffset - newIndexOffset;
-
-    // ============================================================
-    // 8. Write the new root
-    // ============================================================
-
-    final newRootOffset = currentOffset;
-
-    final newRoot = ByteData(32)
-      ..setUint64(
-        0,
-        newMetadataOffset,
-        Endian.little,
-      )
-      ..setUint64(
-        8,
-        metadataLength,
-        Endian.little,
-      )
-      ..setUint64(
-        16,
-        newIndexOffset,
-        Endian.little,
-      )
-      ..setUint64(
-        24,
-        newIndexLength,
-        Endian.little,
-      );
-
-    builder.add(
-      newRoot.buffer.asUint8List(),
-    );
-
-    // ============================================================
-    // 9. Set the root pointer in the new header
-    // ============================================================
-
-    final newBytes = builder.takeBytes();
-
-    final newData =
-    ByteData.sublistView(newBytes);
-
-    newData.setUint64(
-      8,
-      newRootOffset,
-      Endian.little,
-    );
-
-    // ============================================================
-    // 10. Write the new file
-    // ============================================================
-
-    final tempFile = File(
-      '${file.path}.compact.tmp',
-    );
-
-    if (await tempFile.exists()) {
-      await tempFile.delete();
-    }
-
-    await tempFile.writeAsBytes(
-      newBytes,
-      flush: true,
-    );
-
-    // ============================================================
-    // 11. Replace the old file
-    // ============================================================
-
-    await file.delete();
-
-    await tempFile.rename(
-      file.path,
-    );
-
-    print(
-      'compactDoc: '
-          '${oldBytes.length} -> ${newBytes.length} Bytes '
-          '(saved: ${oldBytes.length - newBytes.length})',
-    );
-
-
-    var referencedPageBytes = 0;
-
-    for (final entry in oldIndex.entries) {
-      referencedPageBytes += 8 + entry.value.length;
-    }
-
-    final referencedMetadataBytes =
-        8 + metadataLength;
-
-    final referencedIndexBytes =
-        4 + oldIndex.length * 24;
-
-    final referencedRootBytes = 32;
-
-    final referencedBytes =
-        16 +
-            referencedPageBytes +
-            referencedMetadataBytes +
-            referencedIndexBytes +
-            referencedRootBytes;
-
-    final garbageBytes =
-        oldBytes.length - referencedBytes;
-
-    print('----------------------------------------');
-    print('index pages: $indexCount');
-    print('referenced pages: $referencedPageBytes bytes');
-    print('metadata: $referencedMetadataBytes bytes');
-    print('index: $referencedIndexBytes bytes');
-    print('root: $referencedRootBytes bytes');
-    print('minimum possible size: $referencedBytes');
-    print('actual old size: ${oldBytes.length}');
-    print('GARBAGE: $garbageBytes');
-    print('----------------------------------------');
-
-  }
+  /// [closeDoc] compacts when at least this share of the file can be freed.
+  static const double closeCompactRatio = 0.1;
 
 }
 

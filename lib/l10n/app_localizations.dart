@@ -1018,6 +1018,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Error while importing: {error}'**
   String import_error(String error);
+
+  /// No description provided for @open_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open note'**
+  String get open_failed;
+
+  /// No description provided for @open_failed_message.
+  ///
+  /// In en, this message translates to:
+  /// **'The note could not be opened. It may be damaged or saved by an older version of BetterNotes.\n\n{error}'**
+  String open_failed_message(String error);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

@@ -93,10 +93,8 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
                   IconButton(
                     onPressed: () async {
                       final docID = ref.read(documentsProvider.notifier).currentDocID;
-                      await ref.read(documentsProvider.notifier).saveAsBnf(docID);
-                      await ref.read(documentsProvider.notifier).compactDoc(docID);
+                      await ref.read(documentsProvider.notifier).closeDoc(docID);
                       await ref.read(editorSetupProvider.notifier).saveToJson();
-                      ref.read(documentsProvider.notifier).clearDoc(docID);
                       print("editor_top_bar: currnetDir= ${ref.read(platformProvider).currentDirectory}");
                       if (!context.mounted) return;
                       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const FileManager()),);
@@ -235,7 +233,7 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
           }
           final page = doc.pages[pageIndex];
           //imageDecoded.width.toDouble()/100
-          await ref.read(documentsProvider.notifier).modifyElements(doc.docID, pageID, [], [ImageModel(height: imageDecoded.height/imageDecoded.width*page.pageWidth*0.8, width: page.pageWidth*0.8, position: Offset(page.pageWidth*0.1,page.pageHeight*0.1), image: frame.image, rotation: 0)], [], []);
+          await ref.read(documentsProvider.notifier).modifyElements(doc.docID, pageID, [], [ImageModel(height: imageDecoded.height/imageDecoded.width*page.pageWidth*0.8, width: page.pageWidth*0.8, position: Offset(page.pageWidth*0.1,page.pageHeight*0.1), image: frame.image, rotation: 0, encodedBytes: bytes)], [], []);
 
 
         }

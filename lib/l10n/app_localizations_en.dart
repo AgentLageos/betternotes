@@ -481,4 +481,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String import_error(String error) {
     return 'Error while importing: $error';
   }
+
+  @override
+  String get open_failed => 'Could not open note';
+
+  @override
+  String open_failed_message(String error) {
+    return 'The note could not be opened. It may be damaged or saved by an older version of BetterNotes.\n\n$error';
+  }
 }

@@ -335,7 +335,9 @@ class PageModel {
   }
 
 
-  Future<Uint8List> toBytes() async {
+  /// Encodes the page for a `.bnf` page record.
+  /// Returns the record bytes and the image blocks (block ID -> encoded image) the page references.
+  Future<({Uint8List bytes, Map<int, Uint8List> images})> encode() async {
     final builder = BytesBuilder();
     final pageIdData = ByteData(8)..setUint64(0, pageID, Endian.little);
     builder.add(pageIdData.buffer.asUint8List());
@@ -382,27 +384,23 @@ class PageModel {
       builder.add(length.buffer.asUint8List());
       builder.add(strokeBytes);
     }
+    // Images are stored as separate image blocks; the page only holds placement + block ID.
+    final imageBlocks = <int, Uint8List>{};
     final imageCount = ByteData(4)..setUint32(0, images.length, Endian.little);
     builder.add(imageCount.buffer.asUint8List());
-
     for (final image in images) {
-      final imageBytes = await image.toBytes();
-      // length of the ImageModel block
-      final length = ByteData(8)..setUint64(0, imageBytes.length, Endian.little);
-      builder.add(length.buffer.asUint8List());
-      // ImageModel-Daten
-      builder.add(imageBytes);
+      final encoded = await image.encode();
+      builder.add(encoded.bytes);
+      imageBlocks[encoded.blockID] = encoded.image;
     }
     final backgroundImage = this.backgroundImage;
+    builder.addByte(backgroundImage == null ? 0 : 1);
     if (backgroundImage != null) {
-      final imageBytes = await backgroundImage.toBytes();
-      final length = ByteData(8)
-        ..setUint64(0, imageBytes.length, Endian.little);
-
-      builder.add(length.buffer.asUint8List()); // <-- fehlt
-      builder.add(imageBytes);
+      final encoded = await backgroundImage.encode();
+      builder.add(encoded.bytes);
+      imageBlocks[encoded.blockID] = encoded.image;
     }
-    return builder.takeBytes();
+    return (bytes: builder.takeBytes(), images: imageBlocks);
   }
 
 
@@ -411,7 +409,8 @@ class PageModel {
 
 
 
-  static Future<PageModel> fromBytes(Uint8List bytes) async {
+  /// Decodes bytes produced by [encode]. [readImage] returns the content of an image block.
+  static Future<PageModel> decode(Uint8List bytes, Future<Uint8List?> Function(int blockID) readImage) async {
     final data = ByteData.sublistView(bytes);
 
     int offset = 0;
@@ -476,36 +475,19 @@ class PageModel {
     final imageCount = data.getUint32(offset, Endian.little,);
     offset += 4;
     final images = <ImageModel>[];
-
     for (int i = 0; i < imageCount; i++) {
-      final imageLength = data.getUint64(offset, Endian.little,);
-      offset += 8;
-      // ImageModel Bytes
-      final imageBytes = bytes.sublist(offset, offset + imageLength,);
-      offset += imageLength;
-      final image = await ImageModel.fromBytes(imageBytes,);
-      images.add(image);
+      images.add(await ImageModel.decode(
+          Uint8List.sublistView(bytes, offset, offset + ImageModel.encodedLength), readImage));
+      offset += ImageModel.encodedLength;
     }
 
     ImageModel? backgroundImage;
-
-    if (offset < bytes.length) {
-      final backgroundImageLength = data.getUint64(
-        offset,
-        Endian.little,
-      );
-      offset += 8;
-
-      final backgroundImageBytes = bytes.sublist(
-        offset,
-        offset + backgroundImageLength,
-      );
-
-      offset += backgroundImageLength;
-
-      backgroundImage = await ImageModel.fromBytes(
-        backgroundImageBytes,
-      );
+    final hasBackgroundImage = data.getUint8(offset) == 1;
+    offset += 1;
+    if (hasBackgroundImage) {
+      backgroundImage = await ImageModel.decode(
+          Uint8List.sublistView(bytes, offset, offset + ImageModel.encodedLength), readImage);
+      offset += ImageModel.encodedLength;
     }
 
     return PageModel(

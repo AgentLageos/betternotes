@@ -189,14 +189,14 @@ Mechanical work that makes the rest easier. **Prints stay** (see Ground rules).
 
 ## Phase 3: Tests, file format v2, repository layer
 
-- [ ] **P3-01** Replace the default counter test in `test/widget_test.dart` (it fails against this app).
-- [ ] **P3-02** Pure-Dart tests for `.bnf`: save → load round trip, append → load, compaction,
+- [x] **P3-01** Replace the default counter test in `test/widget_test.dart` (it fails against this app).
+- [x] **P3-02** Pure-Dart tests for `.bnf`: save → load round trip, append → load, compaction,
   corrupted/truncated files.
-- [ ] **P3-03** Tests for undo/redo, especially page add/delete followed by undo and redo
+- [x] **P3-03** Tests for undo/redo, especially page add/delete followed by undo and redo
   (currently broken, see P4-02).
-- [ ] **P3-04** Extract all file I/O from `DocumentsNotifier` into a `BnfRepository`
+- [x] **P3-04** Extract all file I/O from `DocumentsNotifier` into a `BnfRepository`
   (open, read page, write pages, compact, close). The notifier only talks to the repository.
-- [ ] **P3-05** `.bnf` format v2 (no migration from v1 needed):
+- [x] **P3-05** `.bnf` format v2 (no migration from v1 needed):
   ```
   Header:  magic "BNF\0" | u32 version = 2 | u64 rootOffset
   Blocks:  [u64 length | data] ...   append-only, never modified
@@ -205,20 +205,53 @@ Mechanical work that makes the rest easier. **Prints stay** (see Ground rules).
   Root:    u64 metadataOffset | u64 metadataLength | u64 indexOffset | u64 indexLength
   ```
   The magic marker allows rejecting non-`.bnf` files cleanly.
-- [ ] **P3-06** Range reads with `RandomAccessFile` instead of `readAsBytes()` on the whole file
+- [x] **P3-06** Range reads with `RandomAccessFile` instead of `readAsBytes()` on the whole file
   (`documents_notifier.dart:1055,1284,2053`). Required before PDFs are embedded (R3), otherwise
   every page load reads the whole PDF into memory.
-- [ ] **P3-07** Crash-safe save order: write new blocks → flush → update the root pointer → flush.
+- [x] **P3-07** Crash-safe save order: write new blocks → flush → update the root pointer → flush.
   Currently the root pointer is written before anything is flushed.
-- [ ] **P3-08** Compaction writes a new file and atomically renames it over the old one;
+- [x] **P3-08** Compaction writes a new file and atomically renames it over the old one;
   copies large blocks in chunks; drops blocks no longer referenced by any page.
   Notify the renderer afterwards (block offsets change).
-- [ ] **P3-09** Automatic compaction when the garbage share exceeds a threshold (e.g. 50%) and
+- [x] **P3-09** Automatic compaction when the garbage share exceeds a threshold (e.g. 50%) and
   when a document is closed. Today it only runs on the save button and after PDF import.
-- [ ] **P3-10** Store user-inserted images as separate `image` blocks (deduplicated by content
+- [x] **P3-10** Store user-inserted images as separate `image` blocks (deduplicated by content
   hash) instead of PNG inside the page record. Today each save of a changed page re-encodes the
   PNG and appends a full copy.
-- [ ] **P3-11** Write `docs/bnf-format.md` describing format v2.
+- [x] **P3-11** Write `docs/bnf-format.md` describing format v2.
+
+**Phase 3 notes (done):**
+- `lib/core/bnf/bnf_repository.dart`: pure-Dart `BnfRepository` (one per open file) with
+  `create/open/readPages/readImage/write/compact/reclaimableBytes/close`. It works on bytes only;
+  `lib/features/editor/data/document_file.dart` converts models (`PageModel.encode/decode`,
+  `ImageModel.encode/decode`). All operations on one file run one after another (internal lock).
+  Format details in `docs/bnf-format.md`. v1 files show an "could not open note" dialog
+  (`BnfFormatException`); old test notes on devices have to be re-created / re-imported.
+- `DocumentsNotifier`: `_repositories[docID]`, `loadPages(docID, ids)`, `saveDoc` chains saves per
+  document (replaces `_isSaving`/`_saveQueue`; `saveAsBnf` now returns after its write is done, so
+  the P1-04 note about the back button is resolved). New `closeDoc(docID)` = save + compact if it
+  frees ≥10% + close + clear; used by the back button and PDF import. `compactDoc` is gone.
+  `DocumentModel.toBytes/fromBytes/fromBytesToJson` (v1) removed; `toMetadata()` added.
+- Metadata-only changes (page order, deleted pages) are now saved; before, a save without a
+  changed page wrote nothing.
+- P3-08/P3-09: compaction while open (after a save, ≥50% and ≥256 KiB garbage) keeps every
+  indexed page, because undo may still need deleted pages. Dropping unreferenced pages/images
+  only happens in `closeDoc`. There is no renderer to notify yet; offsets stay inside the
+  repository, so R1 must read blocks through it.
+- P3-10: page blocks start with the list of image block IDs they use, so compaction finds unused
+  images without decoding pages. Image block ID = 53-bit FNV-1a of the encoded bytes. `ImageModel`
+  keeps the encoded bytes (original file bytes for inserted images and PDF pages, otherwise a PNG
+  encoded once), so saving no longer re-encodes images.
+- P3-01/02/03: `test/bnf_repository_test.dart` (18 tests incl. corrupted/truncated files and an
+  interrupted save), `test/document_file_test.dart` (models through a real file),
+  `test/undo_redo_test.dart` (page add/delete undo/redo, stroke undo/redo, save on close;
+  "undo on an unloaded page" is a skipped test for P4-02). The counter test was deleted.
+- Tested on the tablet: v1 note shows the error dialog; 369-page PDF import ~24 s, file
+  32.0 MB -> 21.9 MB after the close compaction; open ~80 ms; stroke survives close/reopen;
+  scrolling through pages without errors.
+- Found, not fixed: a PDF import writes metadata + index once per page (quadratic garbage, cleaned
+  up by the final compaction). Could batch pages (e.g. save every 20 pages) — moot after R3-04.
+  PDF import also keeps every imported page in memory until it finishes (pre-existing).
 
 ---
 

@@ -11,6 +11,7 @@ import 'package:path/path.dart' as p;
 import 'package:betternotes/features/editor/editor_screen.dart';
 
 import '../../../core/providers/global_providers.dart';
+import '../../editor/data/document_file.dart';
 import '../../editor/models/page/document_model.dart';
 import '../../editor/models/page/page_model.dart';
 import '../../../l10n/app_localizations.dart';
@@ -83,7 +84,17 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
 
               Navigator.push(context, MaterialPageRoute(builder: (_) => const LoadingPage()),);
 
-              final docID = await ref.read(documentsProvider.notifier).loadDoc(stringFile);
+              final int? docID;
+              try {
+                docID = await ref.read(documentsProvider.notifier).loadDoc(stringFile);
+              } catch (e) {
+                print("file_manager_list: loadDoc failed: $e");
+                if (context.mounted) {
+                  Navigator.pop(context);       //close the loading page
+                  await _showOpenErrorDialog(context, e);
+                }
+                return;
+              }
               if (docID != null) {
                 unawaited(ref.read(documentsProvider.notifier).updateIsolatedPages(docID));    //pages load while the editor opens
               }
@@ -194,6 +205,25 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
 
 
 
+  Future<void> _showOpenErrorDialog(BuildContext context, Object error) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(AppLocalizations.of(context)!.open_failed),
+          content: Text(AppLocalizations.of(context)!.open_failed_message(error.toString())),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(AppLocalizations.of(context)!.ok),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
   Future<void> _importPdf(String path, WidgetRef ref, ValueNotifier<(int, int)?> progress) async {
 
     final newPath = await _freeBnfPath(path);
@@ -207,8 +237,7 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
     final file = File(newPath);
     final defaultPage = ref.read(editorSetupProvider)[editorIndex].defaultPage;
     DocumentModel newDoc = DocumentModel(pages: [], defaultPage: defaultPage, author: 'name', title: 'title', created: DateTime.now(), pageHeights: [], pageList: []);
-    final bytes = await newDoc.toBytes();
-    await file.writeAsBytes(bytes, flush: true,);
+    await (await createDocumentFile(file.path, newDoc)).close();
 
 
     final docID = await ref.read(documentsProvider.notifier).loadDoc(newPath);
@@ -243,7 +272,7 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
 
         final ui.Image uiImage = await bytesToUiImage(bytes);
 
-        final background = ImageModel(height: height, width: width, position: Offset(0,0), rotation: 0, image: uiImage);
+        final background = ImageModel(height: height, width: width, position: Offset(0,0), rotation: 0, image: uiImage, encodedBytes: bytes);
         print("file_manager_list: importpdf: $uiImage");
         newPage = newPage.copyWith(backgroundImage: background);
 
@@ -267,8 +296,7 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
     await document.close();
 
 
-    await ref.read(documentsProvider.notifier).compactDoc(docID);
-    ref.read(documentsProvider.notifier).clearDoc(docID);
+    await ref.read(documentsProvider.notifier).closeDoc(docID);
 
 
 

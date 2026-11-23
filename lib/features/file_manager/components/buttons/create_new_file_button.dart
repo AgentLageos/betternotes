@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:betternotes/features/editor/data/document_file.dart';
 import 'package:betternotes/features/editor/models/page/document_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -116,11 +117,6 @@ Future<void> createBnfFile(String name, dynamic currentDir, WidgetRef ref) async
 
   final defaultPage = ref.read(editorSetupProvider)[editorIndex].defaultPage;
   DocumentModel newDoc = DocumentModel(pages: [defaultPage], defaultPage: defaultPage, author: 'name', title: 'title', created: DateTime.now(), pageHeights: [defaultPage.pageHeight], pageList: [defaultPage.pageID]);
-  final bytes = await newDoc.toBytes();
-
-
-  await file.writeAsBytes(
-    bytes,
-    flush: true,
-  );
+  final repository = await createDocumentFile(file.path, newDoc);
+  await repository.close();
 }

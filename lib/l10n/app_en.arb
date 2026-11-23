@@ -201,5 +201,8 @@
   "import_finished": "Import finished.",
   "files_imported": "Files imported successfully.",
   "import_error": "Error while importing: {error}",
-  "@import_error": {"placeholders": {"error": {"type": "String"}}}
+  "@import_error": {"placeholders": {"error": {"type": "String"}}},
+  "open_failed": "Could not open note",
+  "open_failed_message": "The note could not be opened. It may be damaged or saved by an older version of BetterNotes.\n\n{error}",
+  "@open_failed_message": {"placeholders": {"error": {"type": "String"}}}
 }

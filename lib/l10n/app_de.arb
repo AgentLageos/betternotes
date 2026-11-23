@@ -186,5 +186,8 @@
   "importing_progress": "Importiere {done} von {total}",
   "import_finished": "Import abgeschlossen.",
   "files_imported": "Dateien erfolgreich importiert.",
-  "import_error": "Fehler beim Importieren: {error}"
+  "import_error": "Fehler beim Importieren: {error}",
+  "open_failed": "Notiz konnte nicht geöffnet werden",
+  "open_failed_message": "Die Notiz konnte nicht geöffnet werden. Sie ist möglicherweise beschädigt oder wurde mit einer älteren Version von BetterNotes gespeichert.\n\n{error}",
+  "@open_failed_message": {"placeholders": {"error": {"type": "String"}}}
 }
