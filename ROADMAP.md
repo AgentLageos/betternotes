@@ -388,7 +388,7 @@ Goal: fix the current renderer's problems:
 
 - [x] **R1-01** Define a `PageRenderer` interface in Dart and move the current renderer behind
   it without behavior changes.
-- [ ] **R1-02** Set up the Rust crate and `flutter_rust_bridge`; build for Android and Linux first
+- [x] **R1-02** Set up the Rust crate and `flutter_rust_bridge`; build for Android and Linux first
   (Rust toolchain, Android NDK targets, cargokit or equivalent).
 - [ ] **R1-03** Rust: page geometry mirror, tile grid, zoom levels, versioning, scheduler,
   cancellation, LRU cache. Unit tests and benchmarks independent of Flutter
@@ -451,6 +451,21 @@ seams, and without the async workarounds.
   longer know about tiles. Still reading `pageTilesProvider` directly: `DrawerWidget` (paints the
   tiles, eraser preview uses `Tile.aStrokes`) and `PageWidget` (placeholder until rendered); both
   go behind the `TileLayer` widget in R1-04.
+- R1-02: Rust crate `bn_renderer` in `rust/` (API in `rust/src/api/`), cargokit glue in
+  `rust_builder/` (a local Flutter plugin, path dependency in `pubspec.yaml`), generated Dart
+  bindings in `lib/src/rust/` (`flutter_rust_bridge.yaml`). `main()` calls `RustLib.init()` and prints
+  the crate version. For now the API only has `renderer_version()`.
+  - Toolchain: rustup in `~/.cargo` (stable), Android targets aarch64/armv7/x86_64/i686,
+    `flutter_rust_bridge_codegen` 2.13.0 (must match the `flutter_rust_bridge` versions in
+    `pubspec.yaml` and `rust/Cargo.toml`). `cargo` must be on PATH for `flutter build`/`run`
+    (also when started from Android Studio). cargokit builds the crate during the normal Flutter build.
+  - After changing `rust/src/api/`: `flutter_rust_bridge_codegen generate`. Rust tests: `cd rust && cargo test`.
+  - Set up with `flutter_rust_bridge_codegen integrate --no-dart-fix --no-dart-format
+    --no-integration-test --rust-crate-name bn_renderer --rust-crate-dir rust`. Without the
+    `--no-dart-*` flags it reformats the whole codebase; it also replaces `main.dart` with a demo
+    (restored by hand).
+  - Verified: Linux debug build runs, Android debug APK (arm64, armv7, x86_64 libs) runs on the tablet.
+    Not tried: release builds.
 
 ### Later / optional
 

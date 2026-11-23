@@ -54,6 +54,9 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   intl: ^0.20.2
+  bn_renderer:
+    path: rust_builder
+  flutter_rust_bridge: 2.13.0
 
 dev_dependencies:
   flutter_test:

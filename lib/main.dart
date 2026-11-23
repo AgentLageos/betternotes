@@ -10,6 +10,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
 import 'package:betternotes/core/utils/pref_keys.dart';
+import 'package:betternotes/src/rust/api/info.dart';
+import 'package:betternotes/src/rust/frb_generated.dart';
 
 import 'core/providers/global_providers.dart';
 
@@ -47,6 +49,8 @@ Future<StartupConfig> loadStartupConfig() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await RustLib.init();          //loads the Rust renderer library (bn_renderer, Phase 5)
+  print('main: Rust renderer ${rendererVersion()}');
   final config = await loadStartupConfig();
   runApp(
     ProviderScope(
