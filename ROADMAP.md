@@ -390,7 +390,7 @@ Goal: fix the current renderer's problems:
   it without behavior changes.
 - [x] **R1-02** Set up the Rust crate and `flutter_rust_bridge`; build for Android and Linux first
   (Rust toolchain, Android NDK targets, cargokit or equivalent).
-- [ ] **R1-03** Rust: page geometry mirror, tile grid, zoom levels, versioning, scheduler,
+- [x] **R1-03** Rust: page geometry mirror, tile grid, zoom levels, versioning, scheduler,
   cancellation, LRU cache. Unit tests and benchmarks independent of Flutter
   (render tiles to PNG and compare against reference images).
 - [ ] **R1-04** Integrate: `TileLayer` widget, tile events, image disposal.
@@ -466,6 +466,40 @@ seams, and without the async workarounds.
     (restored by hand).
   - Verified: Linux debug build runs, Android debug APK (arm64, armv7, x86_64 libs) runs on the tablet.
     Not tried: release builds.
+- R1-03: `rust/src/engine/` (no Flutter dependency, not exported to Dart yet):
+  - `page.rs`: `PageMirror` per `PageKey (doc, page)`, layers `Background` (page colour + line
+    pattern) and `Ink`. Changes are deltas (`add_strokes` replaces same IDs like
+    `modifyElementsExecute`, `remove_strokes`, `set_background`, `resize`). Versions: one global
+    counter; each change bumps the cells of an 8 mm `VersionGrid` that its area touches. A tile's
+    version = max of its cells, so versions are zoom-independent.
+  - `tiles.rs`: 256 px tiles; `Scale` = device px per mm (exact f32 as key); levels 2^n px/mm.
+  - `raster.rs`: tiny-skia, same stroke look as `draw_strokes.dart` with two fixes: constant-width
+    strokes are one path (no darker spots with transparency), and the varying-width outline reaches
+    the end points (the Dart outline stopped mid-segment, a visible gap before the end cap).
+    Tiles are rendered with **16 px padding** and cropped: tiny-skia anti-aliases clipped paths
+    differently, which gave seams (up to 55/255) at tile borders. Output: straight-alpha RGBA.
+  - `renderer.rs`: own worker threads (not rayon: the scheduler needs "pick the most important
+    wanted tile" with cancellation, simpler with a mutex + condvar). `set_viewport` replaces the
+    set of wanted tiles (visible, then a prefetch ring); dropping a tile from it is the
+    cancellation. Renders whose page changed meanwhile are dropped and redone. Delivered versions
+    are tracked; Dart calls `forget_tiles` when it evicts. Rust-side `LruCache` (64 MB default).
+    Events may arrive out of order: the receiver keeps the highest version.
+  - Tests (`cd rust && cargo test`): 29 (unit, renderer behaviour incl. cancellation with a
+    blocked sink, reference PNGs in `rust/tests/reference/`, seam test tiled vs. one pass).
+    Update references with `BN_UPDATE_REFERENCE=1 cargo test --test reference_images`, then look
+    at them.
+  - Benchmark: `cargo run --release --example bench`; on the tablet:
+    `cargo ndk -t arm64-v8a build --release --example bench`, push to `/data/local/tmp`.
+    Whole A4 page delivered / update after one new stroke:
+
+    | page, 8 px/mm (140 tiles) | Ryzen 5600X, 8 threads | Tablet (SM8250), 7 threads |
+    |---|---|---|
+    | sample page | 9.8 ms / 1.1 ms | 32.8 ms / 3.3 ms |
+    | dense (1000 strokes × 60 points) | 18.9 ms / 3.3 ms | 60.9 ms / 9.6 ms |
+
+    Single thread on the tablet: 0.35 ms per background tile, 0.6–4 ms per ink tile.
+  - Strokes are culled per tile by bounding box only (linear scan); a spatial index comes with R4-01.
+  - Not in the renderer yet: images (`ImageModel`, still painted by Flutter), eraser preview, laser.
 
 ### Later / optional
 
