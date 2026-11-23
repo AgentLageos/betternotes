@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+import 'package:betternotes/features/settings/settings.dart';
 
 
 import 'package:betternotes/features/file_manager/components/buttons/create_new_file_button.dart';
@@ -128,7 +128,7 @@ class FileManagerTopBar extends ConsumerWidget implements PreferredSizeWidget {
                       icon: const Icon(Icons.settings),
                       color: Theme.of(context).colorScheme.onPrimary,
                       onPressed: () {
-                        context.push('/settings');
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsPage()));
                       },
                     ),
                   ],

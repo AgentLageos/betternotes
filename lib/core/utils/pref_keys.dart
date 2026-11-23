@@ -4,5 +4,4 @@ class PrefKeys {
 
   static const homeDirectory = 'homeDirectory';
   static const currentDirectory = 'currentDirectory';
-  static const lastRoute = 'lastRoute';
 }

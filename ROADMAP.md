@@ -283,7 +283,7 @@ Mechanical work that makes the rest easier. **Prints stay** (see Ground rules).
   Goal: tabs become a UI-only change.
 - [ ] **P4-04** Split `documents_notifier.dart`: document state, undo/redo service, lazy loading,
   repository (P3-04). Rendering moves out entirely (Phase 5).
-- [ ] **P4-05** Unify navigation: GoRouter everywhere or drop it (currently GoRouter for two
+- [x] **P4-05** Unify navigation: GoRouter everywhere or drop it (currently GoRouter for two
   routes, `Navigator.push` elsewhere; `RouteSaver` relies on route names GoRouter may not set).
 - [x] **P4-06** Reload the file manager after importing files / PDFs (from TODO.txt).
   (Files import already reloaded; PDF import now does too and shows a progress bar.)
@@ -312,6 +312,15 @@ Mechanical work that makes the rest easier. **Prints stay** (see Ground rules).
 - Tests: 30 (undo on an unloaded page, deleting an unloaded page, selection move + undo/redo keeps
   `strokeType`, history cap, model immutability, single-point strokes). Tested on the tablet:
   draw, dot, lasso + move + undo/redo, eraser, shape, line.
+- P4-05: GoRouter removed; plain `Navigator` everywhere, `MaterialApp(home: FileManager())`.
+  GoRouter only existed to reopen the Settings page after `RestartWidget.restartApp`, which the
+  design settings called after every colour change. The restart was needed because
+  `design_settings.dart` (and `document_settings.dart`) declared their **own** `settingsProvider`,
+  shadowing the global one, so `MaterialApp` never saw the change until a restart reloaded
+  `config.json`. Fixed: duplicates removed, colour setters also update the state, theme changes
+  apply live. Removed `RestartWidget`, `RouteSaver`/`app_router.dart` and the `lastRoute` pref; the
+  app always starts in the file manager. Side effect: open documents no longer get thrown away by a
+  theme change.
 - Still open (not command-based): the page setup menu (`setAllPageColors`, `setAllBackgroundStrokesExecute`,
   `setAllHeights/Widths`) only changes loaded pages and isn't undoable.
 

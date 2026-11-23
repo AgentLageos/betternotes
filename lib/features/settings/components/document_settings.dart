@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:betternotes/core/utils/build_color_tile.dart';
 import '../../../core/providers/global_providers.dart';
-import '../models/settings.dart';
-import '../providers/settings_notifier.dart';
 import '../../../l10n/app_localizations.dart';
 
 final editorIndex = 0;
@@ -17,7 +15,6 @@ final editorIndex = 0;
 
 
 
-final settingsProvider = NotifierProvider<SettingsNotifier, Settings>(() => SettingsNotifier());
 
 class DocumentSettings extends ConsumerStatefulWidget {
   const DocumentSettings({super.key});

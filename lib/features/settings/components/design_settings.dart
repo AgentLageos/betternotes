@@ -1,16 +1,13 @@
 import 'package:betternotes/core/components/color_picker.dart';
-import 'package:betternotes/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/settings.dart';
-import '../providers/settings_notifier.dart';
+import '../../../core/providers/global_providers.dart';
 
 import '../../../l10n/app_localizations.dart';
 import 'package:betternotes/core/utils/color_channels.dart';
 
 
-final settingsProvider = NotifierProvider<SettingsNotifier, Settings>(() => SettingsNotifier());
 
 class DesignSettings extends ConsumerStatefulWidget {
   const DesignSettings({super.key});
@@ -38,8 +35,6 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
           value: settings.darkMode,
           onChanged: (value) async {
             await ref.read(settingsProvider.notifier).setDarkMode(value);
-            if (!context.mounted) return;
-            RestartWidget.restartApp(context);
 
             },
         ),
@@ -54,8 +49,6 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
           color: settings.primary,
           onColorPicked: (color) async {
             await ref.read(settingsProvider.notifier).setAccentColor(color);
-            if (!context.mounted) return;
-            RestartWidget.restartApp(context);
             },
         ),
 
@@ -74,24 +67,18 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
             title: Text(language.relaxing_blue, style: TextStyle(color: Theme.of(context).colorScheme.onSurface),),
             onTap: () async {
               await ref.read(settingsProvider.notifier).setColors(primary: Colors.blue, onPrimary: Colors.white, secondary: Colors.blue, onSecondary: Colors.white, surface: Colors.white, onSurface: Colors.black, error: Colors.red, onError: Colors.pinkAccent);
-              if (!context.mounted) return;
-              RestartWidget.restartApp(context);
             },
           ),
           ListTile(
             title: Text(language.retrowave, style: TextStyle(color: Theme.of(context).colorScheme.onSurface),),
             onTap: () async {
               await ref.read(settingsProvider.notifier).setColors(primary: Color(0xFFCD5672), onPrimary: Color(0xFF2D4DEF), secondary: Color(0xFFDE7C4B), onSecondary: Color(0xFFFFFF99), surface: Color(0xFF700052), onSurface: Colors.tealAccent, error: Colors.red, onError: Colors.pinkAccent);
-              if (!context.mounted) return;
-              RestartWidget.restartApp(context);
             },
           ),
           ListTile(
             title: Text(language.enter_matrix, style: TextStyle(color: Theme.of(context).colorScheme.onSurface),),
             onTap: () async {
               await ref.read(settingsProvider.notifier).setColors(primary: Colors.grey.shade800, onPrimary: Colors.green, secondary: Colors.grey.shade800, onSecondary: Colors.greenAccent, surface: Colors.black54, onSurface: Colors.lightGreen, error: Colors.red, onError: Colors.pinkAccent);
-              if (!context.mounted) return;
-              RestartWidget.restartApp(context);
             },
           )
         ]),
@@ -113,8 +100,6 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
               color: settings.primary,
               onColorPicked: (color) async {
                 await ref.read(settingsProvider.notifier).setPrimaryColor(color);
-                if (!context.mounted) return;
-                RestartWidget.restartApp(context);
               },
             ),
             buildColorTile(
@@ -123,8 +108,6 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
               color: settings.onPrimary,
               onColorPicked: (color) async {
                 await ref.read(settingsProvider.notifier).setOnPrimaryColor(color);
-                if (!context.mounted) return;
-                RestartWidget.restartApp(context);
               },
             ),
             buildColorTile(
@@ -133,8 +116,6 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
               color: settings.secondary,
               onColorPicked: (color) async {
                 await ref.read(settingsProvider.notifier).setSecondaryColor(color);
-                if (!context.mounted) return;
-                RestartWidget.restartApp(context);
               },
             ),
             buildColorTile(
@@ -143,8 +124,6 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
               color: settings.onSecondary,
               onColorPicked: (color) async {
                 await ref.read(settingsProvider.notifier).setOnSecondaryColor(color);
-                if (!context.mounted) return;
-                RestartWidget.restartApp(context);
               },
             ),
             buildColorTile(
@@ -153,8 +132,6 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
               color: settings.surface,
               onColorPicked: (color) async {
                 await ref.read(settingsProvider.notifier).setSurfaceColor(color);
-                if (!context.mounted) return;
-                RestartWidget.restartApp(context);
               },
             ),
             buildColorTile(
@@ -163,8 +140,6 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
               color: settings.onSurface,
               onColorPicked: (color) async {
                 await ref.read(settingsProvider.notifier).setOnSurfaceColor(color);
-                if (!context.mounted) return;
-                RestartWidget.restartApp(context);
               },
             ),
             buildColorTile(
@@ -173,8 +148,6 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
               color: settings.error,
               onColorPicked: (color) async {
                 await ref.read(settingsProvider.notifier).setErrorColor(color);
-                if (!context.mounted) return;
-                RestartWidget.restartApp(context);
               },
             ),
             buildColorTile(
@@ -183,8 +156,6 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
               color: settings.error,
               onColorPicked: (color) async {
                 await ref.read(settingsProvider.notifier).setOnErrorColor(color);
-                if (!context.mounted) return;
-                RestartWidget.restartApp(context);
               },
             ),
           ],

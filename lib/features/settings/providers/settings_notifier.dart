@@ -70,6 +70,7 @@ class SettingsNotifier extends Notifier<Settings> {
     config['onSecondary'] = colorScheme.onSecondary.toARGB32();
 
     await file.writeAsString(jsonEncode(config), flush: true,);
+    setStateFromConfig(config);         //MaterialApp watches the theme, so it changes without a restart
 
   }
 
@@ -286,6 +287,7 @@ class SettingsNotifier extends Notifier<Settings> {
     config['onError'] = colorScheme.onError.toARGB32();
 
     await file.writeAsString(jsonEncode(config), flush: true,);
+    setStateFromConfig(config);         //MaterialApp watches the theme, so it changes without a restart
 
   }
 
