@@ -15,6 +15,7 @@ import '../models/page/page_model.dart';
 import '../models/page/tile.dart';
 import '../rendering/page_tiles.dart';
 import '../rendering/rust_page_renderer.dart';
+import '../rendering/mesh_page_renderer.dart';
 import '../rendering/rust_tile_store.dart';
 import '../rendering/viewport_tracker.dart';
 import 'package:betternotes/core/utils/color_channels.dart';
@@ -63,6 +64,12 @@ class DrawerWidgetState extends ConsumerState<DrawerWidget> {
   };
   ViewportTracker? _tracker;
 
+  /// Set when the document uses the mesh renderer (R12-01).
+  late final MeshPageRenderer? meshRenderer = switch (ref.read(documentProvider(docID).notifier).renderer) {
+    MeshPageRenderer r => r,
+    _ => null,
+  };
+
   /// Hidden stroke IDs last sent to Rust.
   Set<int> _hidden = const {};
 
@@ -88,7 +95,8 @@ class DrawerWidgetState extends ConsumerState<DrawerWidget> {
     final ids = {for (final s in erasedStrokes) s.strokeID};
     if (ids.length == _hidden.length && ids.containsAll(_hidden)) return;
     _hidden = ids;
-    rustRenderer!.setHidden(pageKey, ids);
+    rustRenderer?.setHidden(pageKey, ids);
+    meshRenderer?.setHidden(pageKey, ids);
   }
 
   @override
@@ -107,8 +115,9 @@ class DrawerWidgetState extends ConsumerState<DrawerWidget> {
     // (PageRenderer.updateStrokes completes), so no extra frames of the old strokes are needed.
 
     final rustTiles = rustRenderer?.store.page(pageKey);
-    if (rustRenderer != null) _updateHidden(erasedStrokes);
-    final tiles = rustRenderer != null
+    if (rustRenderer != null || meshRenderer != null) _updateHidden(erasedStrokes);
+    final meshes = meshRenderer?.meshes(pageKey);
+    final tiles = rustRenderer != null || meshRenderer != null
         ? const <List<Tile>>[]
         : ref.watch(pageTilesProvider.select((m) => m[pageKey]))?.grid ?? const <List<Tile>>[];
 
@@ -118,6 +127,8 @@ class DrawerWidgetState extends ConsumerState<DrawerWidget> {
         painter: ActivePainter(
           tiles: tiles,
           rustTiles: rustTiles,
+          meshes: meshes,
+          meshRenderer: meshRenderer,
           activeStrokes: activeStrokes,
           erasedStrokes: erasedStrokes,
           page: page,
@@ -136,6 +147,10 @@ class ActivePainter extends CustomPainter {
   final List<List<Tile>> tiles;
   /// Tiles of the Rust renderer (null with the Dart renderer); repaints when tiles arrive.
   final PageTileImages? rustTiles;
+  /// Meshes of the mesh renderer (null otherwise); repaints when new ones arrive.
+  final PageMeshes? meshes;
+  /// Draws active strokes as meshes (same geometry as [meshes]) when set.
+  final MeshPageRenderer? meshRenderer;
   final List<Stroke> erasedStrokes;
   final List<Stroke> activeStrokes;
   final PageModel page;
@@ -144,13 +159,14 @@ class ActivePainter extends CustomPainter {
   final bool debugMode;
   final List<Stroke> laserStrokes;
 
-  ActivePainter({required this.tiles, this.rustTiles, //required this.erasedStrokes,
+  ActivePainter({required this.tiles, this.rustTiles, this.meshes, this.meshRenderer, //required this.erasedStrokes,
     required this.activeStrokes, required this.page, required this.images, required this.debugMode, required this.erasedStrokes, required this.laserStrokes, required this.backgroundImage //required this.erasedStrokeIDs
-  }) : super(repaint: rustTiles);
+  }) : super(repaint: Listenable.merge([rustTiles, meshes]));
 
   @override
   void paint(Canvas canvas, Size size) {
     rustTiles?.paintLayer(canvas, 0, size);       //background (line pattern)
+    meshes?.paintBackground(canvas);
 
     var drawnStrokesIDs = <int>[];
 
@@ -227,6 +243,7 @@ class ActivePainter extends CustomPainter {
     }
 
     rustTiles?.paintLayer(canvas, 1, size);       //ink
+    meshes?.paintInk(canvas);
 
 
 
@@ -284,7 +301,14 @@ class ActivePainter extends CustomPainter {
     strokes.addAll(activeStrokes);
 
 
-    drawStrokes(canvas, strokes, 1, 0);
+    final meshRenderer = this.meshRenderer;
+    if (meshRenderer != null) {
+      for (final stroke in strokes) {
+        meshRenderer.paintStroke(canvas, stroke);
+      }
+    } else {
+      drawStrokes(canvas, strokes, 1, 0);
+    }
 
 
     if (laserStrokes.isNotEmpty) {

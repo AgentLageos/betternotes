@@ -53,6 +53,15 @@ class _DeveloperSettingsState extends ConsumerState<DeveloperSettings> {
           },
         ),
 
+        SwitchListTile(
+          title: Text(language.mesh_renderer),
+          subtitle: Text(language.mesh_renderer_hint),
+          value: settings.meshRenderer,
+          onChanged: (value) async {
+            await ref.read(settingsProvider.notifier).setMeshRenderer(value);
+          },
+        ),
+
 
 
         const SizedBox(height: 20),

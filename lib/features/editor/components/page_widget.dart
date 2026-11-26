@@ -21,7 +21,7 @@ import 'package:betternotes/features/editor/components/selection_drawer.dart';
 
 import '../models/tools/line_tool.dart';
 import '../rendering/page_tiles.dart';
-import '../rendering/rust_page_renderer.dart';
+import '../rendering/dart_page_renderer.dart';
 
 
 
@@ -58,7 +58,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
   Set<int> activePointers = {};
 
-  late final bool usesDartRenderer = ref.read(documentProvider(widget.docID).notifier).renderer is! RustPageRenderer;
+  late final bool usesDartRenderer = ref.read(documentProvider(widget.docID).notifier).renderer is DartPageRenderer;
 
 
 

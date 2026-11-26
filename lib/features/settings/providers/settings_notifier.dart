@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/global_providers.dart';
 import '../../editor/rendering/page_renderer.dart' show rustRendererEnabledProvider;
+import '../../editor/rendering/mesh_page_renderer.dart' show meshRendererEnabledProvider;
 import 'package:path/path.dart' as p;
 
 
@@ -129,6 +130,14 @@ class SettingsNotifier extends Notifier<Settings> {
   }
 
 
+
+  Future<void> setMeshRenderer(bool value) async {
+    state = state.copyWith(meshRenderer: value);
+    ref.read(meshRendererEnabledProvider.notifier).set(value);
+    final config = await loadConfig();
+    config['meshRenderer'] = value;
+    await file.writeAsString(jsonEncode(config), flush: true,);
+  }
 
   Future<void> setRustRenderer(bool value) async {
     state = state.copyWith(rustRenderer: value);
@@ -265,6 +274,7 @@ class SettingsNotifier extends Notifier<Settings> {
       onError: Color(config['onError']),
       debugMode: config['debugMode'],
       rustRenderer: config['rustRenderer'] == true,
+      meshRenderer: config['meshRenderer'] == true,
       theme: ThemeData(colorScheme: ColorScheme(
         brightness: brightness,
         primary: Color(config['primary']),
@@ -282,6 +292,7 @@ class SettingsNotifier extends Notifier<Settings> {
       ),
     );
     ref.read(rustRendererEnabledProvider.notifier).set(state.rustRenderer);
+    ref.read(meshRendererEnabledProvider.notifier).set(state.meshRenderer);
   }
 
   Future<void> writeColorsToConfig(bool darkMode, ColorScheme colorScheme)async {

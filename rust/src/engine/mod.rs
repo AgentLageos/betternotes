@@ -11,6 +11,7 @@
 pub mod cache;
 pub mod geometry;
 pub mod mesh;
+pub mod mesh_page;
 pub mod page;
 pub mod raster;
 pub mod renderer;

@@ -4,6 +4,7 @@
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
 import 'api/info.dart';
+import 'api/mesh.dart';
 import 'api/renderer.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -67,7 +68,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 883450296;
+  int get rustContentHash => 761425157;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -80,6 +81,53 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 
 abstract class RustLibApi extends BaseApi {
   Future<void> crateApiInfoInitApp();
+
+  BigInt crateApiMeshMeshAddStrokes({
+    required PlatformInt64 doc,
+    required PlatformInt64 page,
+    required List<MeshStroke> strokes,
+  });
+
+  void crateApiMeshMeshCloseDocument({required PlatformInt64 doc});
+
+  void crateApiMeshMeshClosePage({
+    required PlatformInt64 doc,
+    required PlatformInt64 page,
+  });
+
+  Future<MeshPageData?> crateApiMeshMeshFetchPage({
+    required PlatformInt64 doc,
+    required PlatformInt64 page,
+  });
+
+  void crateApiMeshMeshOpenPage({
+    required PlatformInt64 doc,
+    required PlatformInt64 page,
+    required List<MeshStroke> background,
+    required List<MeshStroke> strokes,
+  });
+
+  BigInt crateApiMeshMeshRemoveStrokes({
+    required PlatformInt64 doc,
+    required PlatformInt64 page,
+    required Int64List ids,
+  });
+
+  void crateApiMeshMeshReset();
+
+  BigInt crateApiMeshMeshSetBackground({
+    required PlatformInt64 doc,
+    required PlatformInt64 page,
+    required List<MeshStroke> strokes,
+  });
+
+  BigInt crateApiMeshMeshSetHidden({
+    required PlatformInt64 doc,
+    required PlatformInt64 page,
+    required Int64List ids,
+  });
+
+  List<MeshChunk> crateApiMeshMeshStroke({required MeshStroke stroke});
 
   List<PendingTile> crateApiRendererRendererAddStrokes({
     required PlatformInt64 doc,
@@ -179,6 +227,296 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "init_app", argNames: []);
 
   @override
+  BigInt crateApiMeshMeshAddStrokes({
+    required PlatformInt64 doc,
+    required PlatformInt64 page,
+    required List<MeshStroke> strokes,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_i_64(doc, serializer);
+          sse_encode_i_64(page, serializer);
+          sse_encode_list_mesh_stroke(strokes, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 2)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_u_64,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiMeshMeshAddStrokesConstMeta,
+        argValues: [doc, page, strokes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMeshMeshAddStrokesConstMeta => const TaskConstMeta(
+    debugName: "mesh_add_strokes",
+    argNames: ["doc", "page", "strokes"],
+  );
+
+  @override
+  void crateApiMeshMeshCloseDocument({required PlatformInt64 doc}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_i_64(doc, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 3)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiMeshMeshCloseDocumentConstMeta,
+        argValues: [doc],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMeshMeshCloseDocumentConstMeta =>
+      const TaskConstMeta(debugName: "mesh_close_document", argNames: ["doc"]);
+
+  @override
+  void crateApiMeshMeshClosePage({
+    required PlatformInt64 doc,
+    required PlatformInt64 page,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_i_64(doc, serializer);
+          sse_encode_i_64(page, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 4)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiMeshMeshClosePageConstMeta,
+        argValues: [doc, page],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMeshMeshClosePageConstMeta => const TaskConstMeta(
+    debugName: "mesh_close_page",
+    argNames: ["doc", "page"],
+  );
+
+  @override
+  Future<MeshPageData?> crateApiMeshMeshFetchPage({
+    required PlatformInt64 doc,
+    required PlatformInt64 page,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_i_64(doc, serializer);
+          sse_encode_i_64(page, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 5,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_opt_box_autoadd_mesh_page_data,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiMeshMeshFetchPageConstMeta,
+        argValues: [doc, page],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMeshMeshFetchPageConstMeta => const TaskConstMeta(
+    debugName: "mesh_fetch_page",
+    argNames: ["doc", "page"],
+  );
+
+  @override
+  void crateApiMeshMeshOpenPage({
+    required PlatformInt64 doc,
+    required PlatformInt64 page,
+    required List<MeshStroke> background,
+    required List<MeshStroke> strokes,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_i_64(doc, serializer);
+          sse_encode_i_64(page, serializer);
+          sse_encode_list_mesh_stroke(background, serializer);
+          sse_encode_list_mesh_stroke(strokes, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 6)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiMeshMeshOpenPageConstMeta,
+        argValues: [doc, page, background, strokes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMeshMeshOpenPageConstMeta => const TaskConstMeta(
+    debugName: "mesh_open_page",
+    argNames: ["doc", "page", "background", "strokes"],
+  );
+
+  @override
+  BigInt crateApiMeshMeshRemoveStrokes({
+    required PlatformInt64 doc,
+    required PlatformInt64 page,
+    required Int64List ids,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_i_64(doc, serializer);
+          sse_encode_i_64(page, serializer);
+          sse_encode_list_prim_i_64_strict(ids, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_u_64,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiMeshMeshRemoveStrokesConstMeta,
+        argValues: [doc, page, ids],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMeshMeshRemoveStrokesConstMeta =>
+      const TaskConstMeta(
+        debugName: "mesh_remove_strokes",
+        argNames: ["doc", "page", "ids"],
+      );
+
+  @override
+  void crateApiMeshMeshReset() {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiMeshMeshResetConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMeshMeshResetConstMeta =>
+      const TaskConstMeta(debugName: "mesh_reset", argNames: []);
+
+  @override
+  BigInt crateApiMeshMeshSetBackground({
+    required PlatformInt64 doc,
+    required PlatformInt64 page,
+    required List<MeshStroke> strokes,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_i_64(doc, serializer);
+          sse_encode_i_64(page, serializer);
+          sse_encode_list_mesh_stroke(strokes, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_u_64,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiMeshMeshSetBackgroundConstMeta,
+        argValues: [doc, page, strokes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMeshMeshSetBackgroundConstMeta =>
+      const TaskConstMeta(
+        debugName: "mesh_set_background",
+        argNames: ["doc", "page", "strokes"],
+      );
+
+  @override
+  BigInt crateApiMeshMeshSetHidden({
+    required PlatformInt64 doc,
+    required PlatformInt64 page,
+    required Int64List ids,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_i_64(doc, serializer);
+          sse_encode_i_64(page, serializer);
+          sse_encode_list_prim_i_64_strict(ids, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_u_64,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiMeshMeshSetHiddenConstMeta,
+        argValues: [doc, page, ids],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMeshMeshSetHiddenConstMeta => const TaskConstMeta(
+    debugName: "mesh_set_hidden",
+    argNames: ["doc", "page", "ids"],
+  );
+
+  @override
+  List<MeshChunk> crateApiMeshMeshStroke({required MeshStroke stroke}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_box_autoadd_mesh_stroke(stroke, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_mesh_chunk,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiMeshMeshStrokeConstMeta,
+        argValues: [stroke],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMeshMeshStrokeConstMeta =>
+      const TaskConstMeta(debugName: "mesh_stroke", argNames: ["stroke"]);
+
+  @override
   List<PendingTile> crateApiRendererRendererAddStrokes({
     required PlatformInt64 doc,
     required PlatformInt64 page,
@@ -191,7 +529,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_i_64(doc, serializer);
           sse_encode_i_64(page, serializer);
           sse_encode_list_stroke_data(strokes, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 2)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_list_pending_tile,
@@ -217,7 +555,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_i_64(doc, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 3)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 13)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -247,7 +585,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_i_64(doc, serializer);
           sse_encode_i_64(page, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 4)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 14)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -273,7 +611,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_list_tile_id(keys, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 5)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 15)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -309,7 +647,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_f_32(width, serializer);
           sse_encode_f_32(height, serializer);
           sse_encode_u_32(color, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 6)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 16)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -341,7 +679,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_i_64(doc, serializer);
           sse_encode_i_64(page, serializer);
           sse_encode_list_prim_i_64_strict(ids, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 17)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_list_pending_tile,
@@ -366,7 +704,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 18)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -397,7 +735,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_i_64(page, serializer);
           sse_encode_f_32(width, serializer);
           sse_encode_f_32(height, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 19)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -431,7 +769,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_i_64(page, serializer);
           sse_encode_u_32(color, serializer);
           sse_encode_list_stroke_data(strokes, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 20)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -463,7 +801,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_i_64(doc, serializer);
           sse_encode_i_64(page, serializer);
           sse_encode_list_prim_i_64_strict(ids, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 21)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_list_pending_tile,
@@ -491,7 +829,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_list_page_viewport_data(viewports, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 22)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -516,7 +854,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 13)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 23)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_u_32,
@@ -544,7 +882,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 14,
+              funcId: 24,
               port: port_,
             );
           },
@@ -573,7 +911,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 15)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 25)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -610,6 +948,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  bool dco_decode_bool(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as bool;
+  }
+
+  @protected
+  MeshPageData dco_decode_box_autoadd_mesh_page_data(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_mesh_page_data(raw);
+  }
+
+  @protected
+  MeshStroke dco_decode_box_autoadd_mesh_stroke(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_mesh_stroke(raw);
+  }
+
+  @protected
   double dco_decode_f_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as double;
@@ -619,6 +975,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   PlatformInt64 dco_decode_i_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dcoDecodeI64(raw);
+  }
+
+  @protected
+  List<MeshChunk> dco_decode_list_mesh_chunk(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_mesh_chunk).toList();
+  }
+
+  @protected
+  List<MeshStroke> dco_decode_list_mesh_stroke(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_mesh_stroke).toList();
   }
 
   @protected
@@ -646,6 +1014,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  Uint16List dco_decode_list_prim_u_16_strict(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as Uint16List;
+  }
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
@@ -661,6 +1035,52 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   List<TileId> dco_decode_list_tile_id(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_tile_id).toList();
+  }
+
+  @protected
+  MeshChunk dco_decode_mesh_chunk(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return MeshChunk(
+      color: dco_decode_u_32(arr[0]),
+      positions: dco_decode_list_prim_f_32_strict(arr[1]),
+      indices: dco_decode_list_prim_u_16_strict(arr[2]),
+    );
+  }
+
+  @protected
+  MeshPageData dco_decode_mesh_page_data(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return MeshPageData(
+      version: dco_decode_u_64(arr[0]),
+      background: dco_decode_list_mesh_chunk(arr[1]),
+      ink: dco_decode_list_mesh_chunk(arr[2]),
+    );
+  }
+
+  @protected
+  MeshStroke dco_decode_mesh_stroke(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return MeshStroke(
+      id: dco_decode_i_64(arr[0]),
+      color: dco_decode_u_32(arr[1]),
+      smooth: dco_decode_bool(arr[2]),
+      points: dco_decode_list_prim_f_32_strict(arr[3]),
+    );
+  }
+
+  @protected
+  MeshPageData? dco_decode_opt_box_autoadd_mesh_page_data(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_mesh_page_data(raw);
   }
 
   @protected
@@ -735,9 +1155,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  int dco_decode_u_16(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
   int dco_decode_u_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
+  }
+
+  @protected
+  BigInt dco_decode_u_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dcoDecodeU64(raw);
   }
 
   @protected
@@ -775,6 +1207,26 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  bool sse_decode_bool(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint8() != 0;
+  }
+
+  @protected
+  MeshPageData sse_decode_box_autoadd_mesh_page_data(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_mesh_page_data(deserializer));
+  }
+
+  @protected
+  MeshStroke sse_decode_box_autoadd_mesh_stroke(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_mesh_stroke(deserializer));
+  }
+
+  @protected
   double sse_decode_f_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getFloat32();
@@ -784,6 +1236,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getPlatformInt64();
+  }
+
+  @protected
+  List<MeshChunk> sse_decode_list_mesh_chunk(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <MeshChunk>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_mesh_chunk(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<MeshStroke> sse_decode_list_mesh_stroke(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <MeshStroke>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_mesh_stroke(deserializer));
+    }
+    return ans_;
   }
 
   @protected
@@ -827,6 +1303,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  Uint16List sse_decode_list_prim_u_16_strict(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var len_ = sse_decode_i_32(deserializer);
+    return deserializer.buffer.getUint16List(len_);
+  }
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
@@ -855,6 +1338,60 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       ans_.add(sse_decode_tile_id(deserializer));
     }
     return ans_;
+  }
+
+  @protected
+  MeshChunk sse_decode_mesh_chunk(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_color = sse_decode_u_32(deserializer);
+    var var_positions = sse_decode_list_prim_f_32_strict(deserializer);
+    var var_indices = sse_decode_list_prim_u_16_strict(deserializer);
+    return MeshChunk(
+      color: var_color,
+      positions: var_positions,
+      indices: var_indices,
+    );
+  }
+
+  @protected
+  MeshPageData sse_decode_mesh_page_data(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_version = sse_decode_u_64(deserializer);
+    var var_background = sse_decode_list_mesh_chunk(deserializer);
+    var var_ink = sse_decode_list_mesh_chunk(deserializer);
+    return MeshPageData(
+      version: var_version,
+      background: var_background,
+      ink: var_ink,
+    );
+  }
+
+  @protected
+  MeshStroke sse_decode_mesh_stroke(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_i_64(deserializer);
+    var var_color = sse_decode_u_32(deserializer);
+    var var_smooth = sse_decode_bool(deserializer);
+    var var_points = sse_decode_list_prim_f_32_strict(deserializer);
+    return MeshStroke(
+      id: var_id,
+      color: var_color,
+      smooth: var_smooth,
+      points: var_points,
+    );
+  }
+
+  @protected
+  MeshPageData? sse_decode_opt_box_autoadd_mesh_page_data(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_mesh_page_data(deserializer));
+    } else {
+      return null;
+    }
   }
 
   @protected
@@ -924,9 +1461,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  int sse_decode_u_16(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint16();
+  }
+
+  @protected
   int sse_decode_u_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getUint32();
+  }
+
+  @protected
+  BigInt sse_decode_u_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getBigUint64();
   }
 
   @protected
@@ -944,12 +1493,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   int sse_decode_i_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getInt32();
-  }
-
-  @protected
-  bool sse_decode_bool(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getUint8() != 0;
   }
 
   @protected
@@ -985,6 +1528,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_bool(bool self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint8(self ? 1 : 0);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_mesh_page_data(
+    MeshPageData self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_mesh_page_data(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_mesh_stroke(
+    MeshStroke self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_mesh_stroke(self, serializer);
+  }
+
+  @protected
   void sse_encode_f_32(double self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putFloat32(self);
@@ -994,6 +1561,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putPlatformInt64(self);
+  }
+
+  @protected
+  void sse_encode_list_mesh_chunk(
+    List<MeshChunk> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_mesh_chunk(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_mesh_stroke(
+    List<MeshStroke> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_mesh_stroke(item, serializer);
+    }
   }
 
   @protected
@@ -1041,6 +1632,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_prim_u_16_strict(
+    Uint16List self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    serializer.buffer.putUint16List(self);
+  }
+
+  @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
     SseSerializer serializer,
@@ -1068,6 +1669,44 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_tile_id(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_mesh_chunk(MeshChunk self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self.color, serializer);
+    sse_encode_list_prim_f_32_strict(self.positions, serializer);
+    sse_encode_list_prim_u_16_strict(self.indices, serializer);
+  }
+
+  @protected
+  void sse_encode_mesh_page_data(MeshPageData self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_64(self.version, serializer);
+    sse_encode_list_mesh_chunk(self.background, serializer);
+    sse_encode_list_mesh_chunk(self.ink, serializer);
+  }
+
+  @protected
+  void sse_encode_mesh_stroke(MeshStroke self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_64(self.id, serializer);
+    sse_encode_u_32(self.color, serializer);
+    sse_encode_bool(self.smooth, serializer);
+    sse_encode_list_prim_f_32_strict(self.points, serializer);
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_mesh_page_data(
+    MeshPageData? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_mesh_page_data(self, serializer);
     }
   }
 
@@ -1121,9 +1760,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_u_16(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint16(self);
+  }
+
+  @protected
   void sse_encode_u_32(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putUint32(self);
+  }
+
+  @protected
+  void sse_encode_u_64(BigInt self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putBigUint64(self);
   }
 
   @protected
@@ -1141,11 +1792,5 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_i_32(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putInt32(self);
-  }
-
-  @protected
-  void sse_encode_bool(bool self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putUint8(self ? 1 : 0);
   }
 }

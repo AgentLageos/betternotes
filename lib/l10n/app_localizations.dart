@@ -413,6 +413,18 @@ abstract class AppLocalizations {
   /// **'Applies to documents opened afterwards'**
   String get rust_renderer_hint;
 
+  /// No description provided for @mesh_renderer.
+  ///
+  /// In en, this message translates to:
+  /// **'Mesh renderer (experimental)'**
+  String get mesh_renderer;
+
+  /// No description provided for @mesh_renderer_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'New renderer in development; applies to documents opened afterwards, overrides the Rust renderer'**
+  String get mesh_renderer_hint;
+
   /// No description provided for @manage_app_permissions.
   ///
   /// In en, this message translates to:

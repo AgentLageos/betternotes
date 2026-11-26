@@ -168,6 +168,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rust_renderer_hint => 'Applies to documents opened afterwards';
 
   @override
+  String get mesh_renderer => 'Mesh renderer (experimental)';
+
+  @override
+  String get mesh_renderer_hint => 'New renderer in development; applies to documents opened afterwards, overrides the Rust renderer';
+
+  @override
   String get manage_app_permissions => 'Manage App Permissions';
 
   @override
