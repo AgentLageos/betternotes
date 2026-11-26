@@ -10,6 +10,7 @@
 //! Units: page coordinates are millimetres (like the Dart models), scales are device pixels per mm.
 pub mod cache;
 pub mod geometry;
+pub mod mesh;
 pub mod page;
 pub mod raster;
 pub mod renderer;

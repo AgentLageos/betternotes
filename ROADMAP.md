@@ -422,7 +422,9 @@ thread; R7-05 passes with **~8k-vertex chunks**.
 
 ### M2: Rust geometry
 
-- [ ] **R8-01** Stroke geometry in Rust: Catmull-Rom smoothing (fine enough for max zoom), round
+- [~] **R8-01** Stroke geometry in Rust (`rust/src/engine/mesh.rs`, tests, preview
+  `cargo run --release --example mesh_preview -- out.png`; open: how the freehand/shape flag reaches
+  Rust): Catmull-Rom smoothing (fine enough for max zoom), round
   joins and caps, per-point width, dotted strokes; must not rule out a later highlighter technique.
 - [ ] **R8-03** Detail levels by zoom (R7-02): per page and level, tolerance 0.4 device px at the
   level's smallest zoom; coarse levels with point reduction and fewer joins; built lazily off the UI
