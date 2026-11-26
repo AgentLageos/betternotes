@@ -422,13 +422,34 @@ thread; R7-05 passes with **~8k-vertex chunks**.
 
 ### M1.5: First version in the app (2026-11-26, project owner: "it should be in the app to test it")
 
-- [ ] **R12-01** Vertical slice behind a new developer switch "Mesh renderer" (old renderer stays the
+- [x] **R12-01** Vertical slice behind a new developer switch "Mesh renderer" (old renderer stays the
   default): pages draw finished strokes and line patterns as Rust meshes (one detail level, simple
   chunks, pages outside the screen skipped); active strokes (pen, shapes, lines) drawn as Rust meshes
   with the same geometry; pen-up without a visible change; undo/redo/erase/other changes re-send the
   page's meshes. **Known gaps at first:** no detail levels (zooming out over many dense pages may
   stutter), no prediction, eraser/selection previews may not hide strokes while dragging, laser and
   images as today. The remaining M2–M4 items then improve this step by step.
+
+> **State 2026-11-26: important baseline.** First test by the project owner on the tablet: "runs
+> remarkably well". Keep this state working; every later change is measured against it.
+> Code: `rust/src/engine/mesh_page.rs` (page mirror, chunks by colour, ≤ 8k vertices),
+> `rust/src/api/mesh.rs` (bridge), `lib/features/editor/rendering/mesh_page_renderer.dart`,
+> `DrawerWidget` paints the meshes; switch **Settings → Developer → Mesh renderer**.
+> `.bnf` files from before commit `5f270c8` no longer open (stroke kind byte; intended, no migration).
+> Test document: `flutter test tool/generate_perf_document_test.dart` writes `build/perf_test.bnf`
+> (5 pages × 3000 strokes; `BN_PAGES`, `BN_STROKES`, `BN_OUT` change it); import it in the app's file
+> manager (e.g. after `adb push build/perf_test.bnf /sdcard/Download/`).
+
+- [ ] **R12-02** **Next: clean up, document, remove leftovers from the testing phase** before new
+  features. Candidates (check each before deleting):
+  - Rust tile renderer (`engine/{page,tiles,raster,cache,renderer}.rs`, `api/renderer.rs`,
+    `tests/reference*`, `examples/bench.rs`) and its Dart side (`rust_page_renderer.dart`,
+    `rust_tile_store.dart`, `viewport_tracker.dart`, the "Rust renderer" switch).
+    **Open:** design doc §4.13 keeps old renderers until all platforms run the new one; that was
+    about the Dart renderer as the fallback, the Rust tile renderer is no fallback for anything.
+  - `DrawerWidget`/`ActivePainter`: tile and erase-preview code paths that only the old renderers
+    use; comments that still describe tiles.
+  - Design doc and roadmap: mark what is history, describe the mesh renderer as it is now.
 
 ### M2: Rust geometry
 
