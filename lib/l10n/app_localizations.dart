@@ -401,18 +401,6 @@ abstract class AppLocalizations {
   /// **'Debug Mode'**
   String get debug_mode;
 
-  /// No description provided for @rust_renderer.
-  ///
-  /// In en, this message translates to:
-  /// **'Rust renderer (experimental)'**
-  String get rust_renderer;
-
-  /// No description provided for @rust_renderer_hint.
-  ///
-  /// In en, this message translates to:
-  /// **'Applies to documents opened afterwards'**
-  String get rust_renderer_hint;
-
   /// No description provided for @mesh_renderer.
   ///
   /// In en, this message translates to:
@@ -422,7 +410,7 @@ abstract class AppLocalizations {
   /// No description provided for @mesh_renderer_hint.
   ///
   /// In en, this message translates to:
-  /// **'New renderer in development; applies to documents opened afterwards, overrides the Rust renderer'**
+  /// **'New renderer in development; applies to documents opened afterwards'**
   String get mesh_renderer_hint;
 
   /// No description provided for @manage_app_permissions.

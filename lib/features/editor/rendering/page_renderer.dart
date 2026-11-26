@@ -40,16 +40,5 @@ abstract class PageRenderer {
   Future<void> resizePage(PageKey key, PageModel page);
 }
 
-/// The current Dart renderer.
+/// The Dart renderer (default; the fallback on platforms the mesh renderer isn't tested on).
 final dartPageRendererProvider = Provider<PageRenderer>((ref) => DartPageRenderer(ref));
-
-/// Whether newly opened documents use the Rust renderer (developer setting, R1-04). Set by the
-/// settings notifier; a separate provider so documents don't depend on the settings file (tests).
-final rustRendererEnabledProvider = NotifierProvider<RustRendererEnabledNotifier, bool>(RustRendererEnabledNotifier.new);
-
-class RustRendererEnabledNotifier extends Notifier<bool> {
-  @override
-  bool build() => false;
-
-  void set(bool value) => state = value;
-}

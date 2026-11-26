@@ -14,10 +14,7 @@ import '../models/page/image_model.dart';
 import '../models/page/page_model.dart';
 import '../models/page/tile.dart';
 import '../rendering/page_tiles.dart';
-import '../rendering/rust_page_renderer.dart';
 import '../rendering/mesh_page_renderer.dart';
-import '../rendering/rust_tile_store.dart';
-import '../rendering/viewport_tracker.dart';
 import 'package:betternotes/core/utils/color_channels.dart';
 
 
@@ -56,14 +53,6 @@ class DrawerWidgetState extends ConsumerState<DrawerWidget> {
 
   late final debugMode = ref.read(settingsProvider).debugMode;
 
-  /// Set when the document uses the Rust renderer: tiles come from the [RustTileStore], and this
-  /// page reports its on-screen position to the [ViewportTracker].
-  late final RustPageRenderer? rustRenderer = switch (ref.read(documentProvider(docID).notifier).renderer) {
-    RustPageRenderer r => r,
-    _ => null,
-  };
-  ViewportTracker? _tracker;
-
   /// Set when the document uses the mesh renderer (R12-01).
   late final MeshPageRenderer? meshRenderer = switch (ref.read(documentProvider(docID).notifier).renderer) {
     MeshPageRenderer r => r,
@@ -73,29 +62,12 @@ class DrawerWidgetState extends ConsumerState<DrawerWidget> {
   /// Hidden stroke IDs last sent to Rust.
   Set<int> _hidden = const {};
 
-  @override
-  void initState() {
-    super.initState();
-    if (rustRenderer != null) {
-      final tracker = ref.read(viewportTrackerProvider);
-      _tracker = tracker;
-      tracker.attach(pageKey, context);
-    }
-  }
-
-  @override
-  void dispose() {
-    _tracker?.detach(pageKey, context);
-    super.dispose();
-  }
-
-  /// Strokes being erased or moved by a selection are drawn by Flutter (or not at all), so the
-  /// Rust tiles must not contain them.
+  /// Strokes being erased or moved by a selection are drawn as active strokes (or not at all), so
+  /// the page meshes must not contain them.
   void _updateHidden(List<Stroke> erasedStrokes) {
     final ids = {for (final s in erasedStrokes) s.strokeID};
     if (ids.length == _hidden.length && ids.containsAll(_hidden)) return;
     _hidden = ids;
-    rustRenderer?.setHidden(pageKey, ids);
     meshRenderer?.setHidden(pageKey, ids);
   }
 
@@ -114,10 +86,9 @@ class DrawerWidgetState extends ConsumerState<DrawerWidget> {
     // The page widget keeps committed strokes in activeStrokes until the renderer shows them
     // (PageRenderer.updateStrokes completes), so no extra frames of the old strokes are needed.
 
-    final rustTiles = rustRenderer?.store.page(pageKey);
-    if (rustRenderer != null || meshRenderer != null) _updateHidden(erasedStrokes);
+    if (meshRenderer != null) _updateHidden(erasedStrokes);
     final meshes = meshRenderer?.meshes(pageKey);
-    final tiles = rustRenderer != null || meshRenderer != null
+    final tiles = meshRenderer != null
         ? const <List<Tile>>[]
         : ref.watch(pageTilesProvider.select((m) => m[pageKey]))?.grid ?? const <List<Tile>>[];
 
@@ -126,7 +97,6 @@ class DrawerWidgetState extends ConsumerState<DrawerWidget> {
         size: Size(page.pageWidth, page.pageHeight),
         painter: ActivePainter(
           tiles: tiles,
-          rustTiles: rustTiles,
           meshes: meshes,
           meshRenderer: meshRenderer,
           activeStrokes: activeStrokes,
@@ -145,8 +115,6 @@ class DrawerWidgetState extends ConsumerState<DrawerWidget> {
 
 class ActivePainter extends CustomPainter {
   final List<List<Tile>> tiles;
-  /// Tiles of the Rust renderer (null with the Dart renderer); repaints when tiles arrive.
-  final PageTileImages? rustTiles;
   /// Meshes of the mesh renderer (null otherwise); repaints when new ones arrive.
   final PageMeshes? meshes;
   /// Draws active strokes as meshes (same geometry as [meshes]) when set.
@@ -159,14 +127,13 @@ class ActivePainter extends CustomPainter {
   final bool debugMode;
   final List<Stroke> laserStrokes;
 
-  ActivePainter({required this.tiles, this.rustTiles, this.meshes, this.meshRenderer, //required this.erasedStrokes,
+  ActivePainter({required this.tiles, this.meshes, this.meshRenderer, //required this.erasedStrokes,
     required this.activeStrokes, required this.page, required this.images, required this.debugMode, required this.erasedStrokes, required this.laserStrokes, required this.backgroundImage //required this.erasedStrokeIDs
-  }) : super(repaint: Listenable.merge([rustTiles, meshes]));
+  }) : super(repaint: meshes);
 
   @override
   void paint(Canvas canvas, Size size) {
-    rustTiles?.paintLayer(canvas, 0, size);       //background (line pattern)
-    meshes?.paintBackground(canvas);
+    meshes?.paintBackground(canvas);              //background (line pattern)
 
     var drawnStrokesIDs = <int>[];
 
@@ -242,8 +209,7 @@ class ActivePainter extends CustomPainter {
       canvas.restore();
     }
 
-    rustTiles?.paintLayer(canvas, 1, size);       //ink
-    meshes?.paintInk(canvas);
+    meshes?.paintInk(canvas);                     //ink
 
 
 

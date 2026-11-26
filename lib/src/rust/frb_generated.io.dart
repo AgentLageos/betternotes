@@ -5,7 +5,6 @@
 
 import 'api/info.dart';
 import 'api/mesh.dart';
-import 'api/renderer.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' as ffi;
@@ -19,12 +18,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     required super.generalizedFrbRustBinding,
     required super.portManager,
   });
-
-  @protected
-  AnyhowException dco_decode_AnyhowException(dynamic raw);
-
-  @protected
-  RustStreamSink<TileUpdate> dco_decode_StreamSink_tile_update_Sse(dynamic raw);
 
   @protected
   String dco_decode_String(dynamic raw);
@@ -51,12 +44,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<MeshStroke> dco_decode_list_mesh_stroke(dynamic raw);
 
   @protected
-  List<PageViewportData> dco_decode_list_page_viewport_data(dynamic raw);
-
-  @protected
-  List<PendingTile> dco_decode_list_pending_tile(dynamic raw);
-
-  @protected
   Float32List dco_decode_list_prim_f_32_strict(dynamic raw);
 
   @protected
@@ -69,12 +56,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
-  List<StrokeData> dco_decode_list_stroke_data(dynamic raw);
-
-  @protected
-  List<TileId> dco_decode_list_tile_id(dynamic raw);
-
-  @protected
   MeshChunk dco_decode_mesh_chunk(dynamic raw);
 
   @protected
@@ -85,21 +66,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MeshPageData? dco_decode_opt_box_autoadd_mesh_page_data(dynamic raw);
-
-  @protected
-  PageViewportData dco_decode_page_viewport_data(dynamic raw);
-
-  @protected
-  PendingTile dco_decode_pending_tile(dynamic raw);
-
-  @protected
-  StrokeData dco_decode_stroke_data(dynamic raw);
-
-  @protected
-  TileId dco_decode_tile_id(dynamic raw);
-
-  @protected
-  TileUpdate dco_decode_tile_update(dynamic raw);
 
   @protected
   int dco_decode_u_16(dynamic raw);
@@ -115,14 +81,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void dco_decode_unit(dynamic raw);
-
-  @protected
-  AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
-
-  @protected
-  RustStreamSink<TileUpdate> sse_decode_StreamSink_tile_update_Sse(
-    SseDeserializer deserializer,
-  );
 
   @protected
   String sse_decode_String(SseDeserializer deserializer);
@@ -151,14 +109,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<MeshStroke> sse_decode_list_mesh_stroke(SseDeserializer deserializer);
 
   @protected
-  List<PageViewportData> sse_decode_list_page_viewport_data(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  List<PendingTile> sse_decode_list_pending_tile(SseDeserializer deserializer);
-
-  @protected
   Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer);
 
   @protected
@@ -169,12 +119,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
-
-  @protected
-  List<StrokeData> sse_decode_list_stroke_data(SseDeserializer deserializer);
-
-  @protected
-  List<TileId> sse_decode_list_tile_id(SseDeserializer deserializer);
 
   @protected
   MeshChunk sse_decode_mesh_chunk(SseDeserializer deserializer);
@@ -189,21 +133,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MeshPageData? sse_decode_opt_box_autoadd_mesh_page_data(
     SseDeserializer deserializer,
   );
-
-  @protected
-  PageViewportData sse_decode_page_viewport_data(SseDeserializer deserializer);
-
-  @protected
-  PendingTile sse_decode_pending_tile(SseDeserializer deserializer);
-
-  @protected
-  StrokeData sse_decode_stroke_data(SseDeserializer deserializer);
-
-  @protected
-  TileId sse_decode_tile_id(SseDeserializer deserializer);
-
-  @protected
-  TileUpdate sse_decode_tile_update(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_16(SseDeserializer deserializer);
@@ -222,18 +151,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   int sse_decode_i_32(SseDeserializer deserializer);
-
-  @protected
-  void sse_encode_AnyhowException(
-    AnyhowException self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_StreamSink_tile_update_Sse(
-    RustStreamSink<TileUpdate> self,
-    SseSerializer serializer,
-  );
 
   @protected
   void sse_encode_String(String self, SseSerializer serializer);
@@ -272,18 +189,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_list_page_viewport_data(
-    List<PageViewportData> self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_list_pending_tile(
-    List<PendingTile> self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_list_prim_f_32_strict(
     Float32List self,
     SseSerializer serializer,
@@ -308,15 +213,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_list_stroke_data(
-    List<StrokeData> self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_list_tile_id(List<TileId> self, SseSerializer serializer);
-
-  @protected
   void sse_encode_mesh_chunk(MeshChunk self, SseSerializer serializer);
 
   @protected
@@ -330,24 +226,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     MeshPageData? self,
     SseSerializer serializer,
   );
-
-  @protected
-  void sse_encode_page_viewport_data(
-    PageViewportData self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_pending_tile(PendingTile self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_stroke_data(StrokeData self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_tile_id(TileId self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_tile_update(TileUpdate self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_16(int self, SseSerializer serializer);

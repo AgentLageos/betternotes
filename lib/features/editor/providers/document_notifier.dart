@@ -14,7 +14,6 @@ import '../models/page/image_model.dart';
 import '../models/page/page_model.dart';
 import '../models/page/stroke.dart';
 import '../rendering/page_renderer.dart';
-import '../rendering/rust_page_renderer.dart';
 import '../rendering/mesh_page_renderer.dart';
 import 'open_documents_notifier.dart';
 
@@ -42,7 +41,7 @@ class DocumentNotifier extends Notifier<DocumentModel> {
   DocumentModel build() {
     final opened = ref.read(openDocumentsProvider.notifier).takeOpened(docID);
     _store = opened.store;
-    print("document_notifier: doc $docID uses the ${switch (renderer) { MeshPageRenderer() => 'mesh', RustPageRenderer() => 'Rust tile', _ => 'Dart' }} renderer");
+    print("document_notifier: doc $docID uses the ${switch (renderer) { MeshPageRenderer() => 'mesh', _ => 'Dart' }} renderer");
     return opened.document;
   }
 
@@ -51,9 +50,7 @@ class DocumentNotifier extends Notifier<DocumentModel> {
   /// The renderer of this document, chosen when it is opened (switching needs a reopen).
   late final PageRenderer renderer = ref.read(meshRendererEnabledProvider)
       ? ref.read(meshPageRendererProvider)
-      : ref.read(rustRendererEnabledProvider)
-          ? ref.read(rustPageRendererProvider)
-          : ref.read(dartPageRendererProvider);
+      : ref.read(dartPageRendererProvider);
 
   PageRenderer get _renderer => renderer;
 

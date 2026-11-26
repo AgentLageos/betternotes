@@ -5,7 +5,6 @@
 
 import 'api/info.dart';
 import 'api/mesh.dart';
-import 'api/renderer.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
@@ -68,7 +67,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 761425157;
+  int get rustContentHash => -2006293083;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -128,65 +127,6 @@ abstract class RustLibApi extends BaseApi {
   });
 
   List<MeshChunk> crateApiMeshMeshStroke({required MeshStroke stroke});
-
-  List<PendingTile> crateApiRendererRendererAddStrokes({
-    required PlatformInt64 doc,
-    required PlatformInt64 page,
-    required List<StrokeData> strokes,
-  });
-
-  void crateApiRendererRendererCloseDocument({required PlatformInt64 doc});
-
-  void crateApiRendererRendererClosePage({
-    required PlatformInt64 doc,
-    required PlatformInt64 page,
-  });
-
-  void crateApiRendererRendererForgetTiles({required List<TileId> keys});
-
-  void crateApiRendererRendererOpenPage({
-    required PlatformInt64 doc,
-    required PlatformInt64 page,
-    required double width,
-    required double height,
-    required int color,
-  });
-
-  List<PendingTile> crateApiRendererRendererRemoveStrokes({
-    required PlatformInt64 doc,
-    required PlatformInt64 page,
-    required Int64List ids,
-  });
-
-  void crateApiRendererRendererReset();
-
-  void crateApiRendererRendererResizePage({
-    required PlatformInt64 doc,
-    required PlatformInt64 page,
-    required double width,
-    required double height,
-  });
-
-  void crateApiRendererRendererSetBackground({
-    required PlatformInt64 doc,
-    required PlatformInt64 page,
-    required int color,
-    required List<StrokeData> strokes,
-  });
-
-  List<PendingTile> crateApiRendererRendererSetHidden({
-    required PlatformInt64 doc,
-    required PlatformInt64 page,
-    required Int64List ids,
-  });
-
-  void crateApiRendererRendererSetViewport({
-    required List<PageViewportData> viewports,
-  });
-
-  int crateApiRendererRendererTileSize();
-
-  Stream<TileUpdate> crateApiRendererRendererTileStream();
 
   String crateApiInfoRendererVersion();
 }
@@ -517,401 +457,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "mesh_stroke", argNames: ["stroke"]);
 
   @override
-  List<PendingTile> crateApiRendererRendererAddStrokes({
-    required PlatformInt64 doc,
-    required PlatformInt64 page,
-    required List<StrokeData> strokes,
-  }) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_i_64(doc, serializer);
-          sse_encode_i_64(page, serializer);
-          sse_encode_list_stroke_data(strokes, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_list_pending_tile,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiRendererRendererAddStrokesConstMeta,
-        argValues: [doc, page, strokes],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiRendererRendererAddStrokesConstMeta =>
-      const TaskConstMeta(
-        debugName: "renderer_add_strokes",
-        argNames: ["doc", "page", "strokes"],
-      );
-
-  @override
-  void crateApiRendererRendererCloseDocument({required PlatformInt64 doc}) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_i_64(doc, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 13)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiRendererRendererCloseDocumentConstMeta,
-        argValues: [doc],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiRendererRendererCloseDocumentConstMeta =>
-      const TaskConstMeta(
-        debugName: "renderer_close_document",
-        argNames: ["doc"],
-      );
-
-  @override
-  void crateApiRendererRendererClosePage({
-    required PlatformInt64 doc,
-    required PlatformInt64 page,
-  }) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_i_64(doc, serializer);
-          sse_encode_i_64(page, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 14)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiRendererRendererClosePageConstMeta,
-        argValues: [doc, page],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiRendererRendererClosePageConstMeta =>
-      const TaskConstMeta(
-        debugName: "renderer_close_page",
-        argNames: ["doc", "page"],
-      );
-
-  @override
-  void crateApiRendererRendererForgetTiles({required List<TileId> keys}) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_list_tile_id(keys, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 15)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiRendererRendererForgetTilesConstMeta,
-        argValues: [keys],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiRendererRendererForgetTilesConstMeta =>
-      const TaskConstMeta(
-        debugName: "renderer_forget_tiles",
-        argNames: ["keys"],
-      );
-
-  @override
-  void crateApiRendererRendererOpenPage({
-    required PlatformInt64 doc,
-    required PlatformInt64 page,
-    required double width,
-    required double height,
-    required int color,
-  }) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_i_64(doc, serializer);
-          sse_encode_i_64(page, serializer);
-          sse_encode_f_32(width, serializer);
-          sse_encode_f_32(height, serializer);
-          sse_encode_u_32(color, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 16)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiRendererRendererOpenPageConstMeta,
-        argValues: [doc, page, width, height, color],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiRendererRendererOpenPageConstMeta =>
-      const TaskConstMeta(
-        debugName: "renderer_open_page",
-        argNames: ["doc", "page", "width", "height", "color"],
-      );
-
-  @override
-  List<PendingTile> crateApiRendererRendererRemoveStrokes({
-    required PlatformInt64 doc,
-    required PlatformInt64 page,
-    required Int64List ids,
-  }) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_i_64(doc, serializer);
-          sse_encode_i_64(page, serializer);
-          sse_encode_list_prim_i_64_strict(ids, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 17)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_list_pending_tile,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiRendererRendererRemoveStrokesConstMeta,
-        argValues: [doc, page, ids],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiRendererRendererRemoveStrokesConstMeta =>
-      const TaskConstMeta(
-        debugName: "renderer_remove_strokes",
-        argNames: ["doc", "page", "ids"],
-      );
-
-  @override
-  void crateApiRendererRendererReset() {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 18)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiRendererRendererResetConstMeta,
-        argValues: [],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiRendererRendererResetConstMeta =>
-      const TaskConstMeta(debugName: "renderer_reset", argNames: []);
-
-  @override
-  void crateApiRendererRendererResizePage({
-    required PlatformInt64 doc,
-    required PlatformInt64 page,
-    required double width,
-    required double height,
-  }) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_i_64(doc, serializer);
-          sse_encode_i_64(page, serializer);
-          sse_encode_f_32(width, serializer);
-          sse_encode_f_32(height, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 19)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiRendererRendererResizePageConstMeta,
-        argValues: [doc, page, width, height],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiRendererRendererResizePageConstMeta =>
-      const TaskConstMeta(
-        debugName: "renderer_resize_page",
-        argNames: ["doc", "page", "width", "height"],
-      );
-
-  @override
-  void crateApiRendererRendererSetBackground({
-    required PlatformInt64 doc,
-    required PlatformInt64 page,
-    required int color,
-    required List<StrokeData> strokes,
-  }) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_i_64(doc, serializer);
-          sse_encode_i_64(page, serializer);
-          sse_encode_u_32(color, serializer);
-          sse_encode_list_stroke_data(strokes, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 20)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiRendererRendererSetBackgroundConstMeta,
-        argValues: [doc, page, color, strokes],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiRendererRendererSetBackgroundConstMeta =>
-      const TaskConstMeta(
-        debugName: "renderer_set_background",
-        argNames: ["doc", "page", "color", "strokes"],
-      );
-
-  @override
-  List<PendingTile> crateApiRendererRendererSetHidden({
-    required PlatformInt64 doc,
-    required PlatformInt64 page,
-    required Int64List ids,
-  }) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_i_64(doc, serializer);
-          sse_encode_i_64(page, serializer);
-          sse_encode_list_prim_i_64_strict(ids, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 21)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_list_pending_tile,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiRendererRendererSetHiddenConstMeta,
-        argValues: [doc, page, ids],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiRendererRendererSetHiddenConstMeta =>
-      const TaskConstMeta(
-        debugName: "renderer_set_hidden",
-        argNames: ["doc", "page", "ids"],
-      );
-
-  @override
-  void crateApiRendererRendererSetViewport({
-    required List<PageViewportData> viewports,
-  }) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_list_page_viewport_data(viewports, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 22)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiRendererRendererSetViewportConstMeta,
-        argValues: [viewports],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiRendererRendererSetViewportConstMeta =>
-      const TaskConstMeta(
-        debugName: "renderer_set_viewport",
-        argNames: ["viewports"],
-      );
-
-  @override
-  int crateApiRendererRendererTileSize() {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 23)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_u_32,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiRendererRendererTileSizeConstMeta,
-        argValues: [],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiRendererRendererTileSizeConstMeta =>
-      const TaskConstMeta(debugName: "renderer_tile_size", argNames: []);
-
-  @override
-  Stream<TileUpdate> crateApiRendererRendererTileStream() {
-    final sink = RustStreamSink<TileUpdate>();
-    unawaited(
-      handler.executeNormal(
-        NormalTask(
-          callFfi: (port_) {
-            final serializer = SseSerializer(generalizedFrbRustBinding);
-            sse_encode_StreamSink_tile_update_Sse(sink, serializer);
-            pdeCallFfi(
-              generalizedFrbRustBinding,
-              serializer,
-              funcId: 24,
-              port: port_,
-            );
-          },
-          codec: SseCodec(
-            decodeSuccessData: sse_decode_unit,
-            decodeErrorData: null,
-          ),
-          constMeta: kCrateApiRendererRendererTileStreamConstMeta,
-          argValues: [sink],
-          apiImpl: this,
-        ),
-      ),
-    );
-    return sink.stream;
-  }
-
-  TaskConstMeta get kCrateApiRendererRendererTileStreamConstMeta =>
-      const TaskConstMeta(
-        debugName: "renderer_tile_stream",
-        argNames: ["sink"],
-      );
-
-  @override
   String crateApiInfoRendererVersion() {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 25)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -926,20 +477,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiInfoRendererVersionConstMeta =>
       const TaskConstMeta(debugName: "renderer_version", argNames: []);
-
-  @protected
-  AnyhowException dco_decode_AnyhowException(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return AnyhowException(raw as String);
-  }
-
-  @protected
-  RustStreamSink<TileUpdate> dco_decode_StreamSink_tile_update_Sse(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    throw UnimplementedError();
-  }
 
   @protected
   String dco_decode_String(dynamic raw) {
@@ -990,18 +527,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<PageViewportData> dco_decode_list_page_viewport_data(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return (raw as List<dynamic>).map(dco_decode_page_viewport_data).toList();
-  }
-
-  @protected
-  List<PendingTile> dco_decode_list_pending_tile(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return (raw as List<dynamic>).map(dco_decode_pending_tile).toList();
-  }
-
-  @protected
   Float32List dco_decode_list_prim_f_32_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Float32List;
@@ -1023,18 +548,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
-  }
-
-  @protected
-  List<StrokeData> dco_decode_list_stroke_data(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return (raw as List<dynamic>).map(dco_decode_stroke_data).toList();
-  }
-
-  @protected
-  List<TileId> dco_decode_list_tile_id(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return (raw as List<dynamic>).map(dco_decode_tile_id).toList();
   }
 
   @protected
@@ -1084,77 +597,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  PageViewportData dco_decode_page_viewport_data(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 7)
-      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
-    return PageViewportData(
-      doc: dco_decode_i_64(arr[0]),
-      page: dco_decode_i_64(arr[1]),
-      scale: dco_decode_f_32(arr[2]),
-      left: dco_decode_f_32(arr[3]),
-      top: dco_decode_f_32(arr[4]),
-      right: dco_decode_f_32(arr[5]),
-      bottom: dco_decode_f_32(arr[6]),
-    );
-  }
-
-  @protected
-  PendingTile dco_decode_pending_tile(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 2)
-      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
-    return PendingTile(
-      key: dco_decode_tile_id(arr[0]),
-      version: dco_decode_i_64(arr[1]),
-    );
-  }
-
-  @protected
-  StrokeData dco_decode_stroke_data(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 3)
-      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
-    return StrokeData(
-      id: dco_decode_i_64(arr[0]),
-      color: dco_decode_u_32(arr[1]),
-      points: dco_decode_list_prim_f_32_strict(arr[2]),
-    );
-  }
-
-  @protected
-  TileId dco_decode_tile_id(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 6)
-      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
-    return TileId(
-      doc: dco_decode_i_64(arr[0]),
-      page: dco_decode_i_64(arr[1]),
-      layer: dco_decode_u_8(arr[2]),
-      scale: dco_decode_f_32(arr[3]),
-      x: dco_decode_u_32(arr[4]),
-      y: dco_decode_u_32(arr[5]),
-    );
-  }
-
-  @protected
-  TileUpdate dco_decode_tile_update(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 3)
-      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
-    return TileUpdate(
-      key: dco_decode_tile_id(arr[0]),
-      version: dco_decode_i_64(arr[1]),
-      pixels: dco_decode_list_prim_u_8_strict(arr[2]),
-    );
-  }
-
-  @protected
   int dco_decode_u_16(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
@@ -1182,21 +624,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void dco_decode_unit(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return;
-  }
-
-  @protected
-  AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var inner = sse_decode_String(deserializer);
-    return AnyhowException(inner);
-  }
-
-  @protected
-  RustStreamSink<TileUpdate> sse_decode_StreamSink_tile_update_Sse(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    throw UnimplementedError('Unreachable ()');
   }
 
   @protected
@@ -1263,32 +690,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<PageViewportData> sse_decode_list_page_viewport_data(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <PageViewportData>[];
-    for (var idx_ = 0; idx_ < len_; ++idx_) {
-      ans_.add(sse_decode_page_viewport_data(deserializer));
-    }
-    return ans_;
-  }
-
-  @protected
-  List<PendingTile> sse_decode_list_pending_tile(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <PendingTile>[];
-    for (var idx_ = 0; idx_ < len_; ++idx_) {
-      ans_.add(sse_decode_pending_tile(deserializer));
-    }
-    return ans_;
-  }
-
-  @protected
   Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
@@ -1314,30 +715,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
-  }
-
-  @protected
-  List<StrokeData> sse_decode_list_stroke_data(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <StrokeData>[];
-    for (var idx_ = 0; idx_ < len_; ++idx_) {
-      ans_.add(sse_decode_stroke_data(deserializer));
-    }
-    return ans_;
-  }
-
-  @protected
-  List<TileId> sse_decode_list_tile_id(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <TileId>[];
-    for (var idx_ = 0; idx_ < len_; ++idx_) {
-      ans_.add(sse_decode_tile_id(deserializer));
-    }
-    return ans_;
   }
 
   @protected
@@ -1395,72 +772,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  PageViewportData sse_decode_page_viewport_data(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_doc = sse_decode_i_64(deserializer);
-    var var_page = sse_decode_i_64(deserializer);
-    var var_scale = sse_decode_f_32(deserializer);
-    var var_left = sse_decode_f_32(deserializer);
-    var var_top = sse_decode_f_32(deserializer);
-    var var_right = sse_decode_f_32(deserializer);
-    var var_bottom = sse_decode_f_32(deserializer);
-    return PageViewportData(
-      doc: var_doc,
-      page: var_page,
-      scale: var_scale,
-      left: var_left,
-      top: var_top,
-      right: var_right,
-      bottom: var_bottom,
-    );
-  }
-
-  @protected
-  PendingTile sse_decode_pending_tile(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_key = sse_decode_tile_id(deserializer);
-    var var_version = sse_decode_i_64(deserializer);
-    return PendingTile(key: var_key, version: var_version);
-  }
-
-  @protected
-  StrokeData sse_decode_stroke_data(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_id = sse_decode_i_64(deserializer);
-    var var_color = sse_decode_u_32(deserializer);
-    var var_points = sse_decode_list_prim_f_32_strict(deserializer);
-    return StrokeData(id: var_id, color: var_color, points: var_points);
-  }
-
-  @protected
-  TileId sse_decode_tile_id(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_doc = sse_decode_i_64(deserializer);
-    var var_page = sse_decode_i_64(deserializer);
-    var var_layer = sse_decode_u_8(deserializer);
-    var var_scale = sse_decode_f_32(deserializer);
-    var var_x = sse_decode_u_32(deserializer);
-    var var_y = sse_decode_u_32(deserializer);
-    return TileId(
-      doc: var_doc,
-      page: var_page,
-      layer: var_layer,
-      scale: var_scale,
-      x: var_x,
-      y: var_y,
-    );
-  }
-
-  @protected
-  TileUpdate sse_decode_tile_update(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_key = sse_decode_tile_id(deserializer);
-    var var_version = sse_decode_i_64(deserializer);
-    var var_pixels = sse_decode_list_prim_u_8_strict(deserializer);
-    return TileUpdate(key: var_key, version: var_version, pixels: var_pixels);
-  }
-
-  @protected
   int sse_decode_u_16(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getUint16();
@@ -1493,32 +804,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   int sse_decode_i_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getInt32();
-  }
-
-  @protected
-  void sse_encode_AnyhowException(
-    AnyhowException self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_String(self.message, serializer);
-  }
-
-  @protected
-  void sse_encode_StreamSink_tile_update_Sse(
-    RustStreamSink<TileUpdate> self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_String(
-      self.setupAndSerialize(
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_tile_update,
-          decodeErrorData: sse_decode_AnyhowException,
-        ),
-      ),
-      serializer,
-    );
   }
 
   @protected
@@ -1588,30 +873,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_list_page_viewport_data(
-    List<PageViewportData> self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.length, serializer);
-    for (final item in self) {
-      sse_encode_page_viewport_data(item, serializer);
-    }
-  }
-
-  @protected
-  void sse_encode_list_pending_tile(
-    List<PendingTile> self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.length, serializer);
-    for (final item in self) {
-      sse_encode_pending_tile(item, serializer);
-    }
-  }
-
-  @protected
   void sse_encode_list_prim_f_32_strict(
     Float32List self,
     SseSerializer serializer,
@@ -1652,27 +913,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_list_stroke_data(
-    List<StrokeData> self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.length, serializer);
-    for (final item in self) {
-      sse_encode_stroke_data(item, serializer);
-    }
-  }
-
-  @protected
-  void sse_encode_list_tile_id(List<TileId> self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.length, serializer);
-    for (final item in self) {
-      sse_encode_tile_id(item, serializer);
-    }
-  }
-
-  @protected
   void sse_encode_mesh_chunk(MeshChunk self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_u_32(self.color, serializer);
@@ -1708,55 +948,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (self != null) {
       sse_encode_box_autoadd_mesh_page_data(self, serializer);
     }
-  }
-
-  @protected
-  void sse_encode_page_viewport_data(
-    PageViewportData self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_64(self.doc, serializer);
-    sse_encode_i_64(self.page, serializer);
-    sse_encode_f_32(self.scale, serializer);
-    sse_encode_f_32(self.left, serializer);
-    sse_encode_f_32(self.top, serializer);
-    sse_encode_f_32(self.right, serializer);
-    sse_encode_f_32(self.bottom, serializer);
-  }
-
-  @protected
-  void sse_encode_pending_tile(PendingTile self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_tile_id(self.key, serializer);
-    sse_encode_i_64(self.version, serializer);
-  }
-
-  @protected
-  void sse_encode_stroke_data(StrokeData self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_64(self.id, serializer);
-    sse_encode_u_32(self.color, serializer);
-    sse_encode_list_prim_f_32_strict(self.points, serializer);
-  }
-
-  @protected
-  void sse_encode_tile_id(TileId self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_64(self.doc, serializer);
-    sse_encode_i_64(self.page, serializer);
-    sse_encode_u_8(self.layer, serializer);
-    sse_encode_f_32(self.scale, serializer);
-    sse_encode_u_32(self.x, serializer);
-    sse_encode_u_32(self.y, serializer);
-  }
-
-  @protected
-  void sse_encode_tile_update(TileUpdate self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_tile_id(self.key, serializer);
-    sse_encode_i_64(self.version, serializer);
-    sse_encode_list_prim_u_8_strict(self.pixels, serializer);
   }
 
   @protected

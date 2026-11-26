@@ -64,10 +64,8 @@
 
  "danger_zone": "Erweitert",
  "debug_mode": "Entwicklermodus",
- "rust_renderer": "Rust-Renderer (experimentell)",
- "rust_renderer_hint": "Gilt für danach geöffnete Dokumente",
  "mesh_renderer": "Mesh-Renderer (experimentell)",
- "mesh_renderer_hint": "Neuer Renderer in Entwicklung; gilt für danach geöffnete Dokumente, hat Vorrang vor dem Rust-Renderer",
+ "mesh_renderer_hint": "Neuer Renderer in Entwicklung; gilt für danach geöffnete Dokumente",
  "manage_app_permissions":"App Berechtigungen Verwalten",
 
 

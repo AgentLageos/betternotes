@@ -4,10 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type = ["cdylib", "staticlib", "rlib"]   # rlib: for tests, examples and benchmarks
+crate-type = ["cdylib", "staticlib", "rlib"]   # rlib: for tests and examples
 
 [dependencies]
 flutter_rust_bridge = "=2.13.0"
+
+[dev-dependencies]
+# Only for examples/mesh_preview.rs (renders meshes to a PNG).
 tiny-skia = "0.11"
 
 [lints.rust]

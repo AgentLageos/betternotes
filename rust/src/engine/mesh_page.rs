@@ -167,7 +167,7 @@ impl MeshPages {
             todo.into_iter().map(|s| (s.id, Arc::new(stroke_mesh(&s.points, s.smooth, &params)))).collect();
         // 3) Store them (entries replaced meanwhile keep needing a mesh) and pack.
         let mut p = page.lock().unwrap();
-        let mut store = |list: &mut Vec<StrokeEntry>| {
+        let store = |list: &mut Vec<StrokeEntry>| {
             for e in list.iter_mut() {
                 if e.mesh.is_none() {
                     e.mesh = match built.get(&e.input.id) {

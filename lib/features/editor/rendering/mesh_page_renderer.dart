@@ -276,6 +276,13 @@ class _StrokeMeshCache {
 /// setting is on (the Rust library must be loaded).
 final meshPageRendererProvider = Provider<MeshPageRenderer>((ref) => MeshPageRenderer());
 
-/// Whether newly opened documents use the mesh renderer (developer setting, R12-01). Takes
-/// precedence over the Rust tile renderer setting.
-final meshRendererEnabledProvider = NotifierProvider<RustRendererEnabledNotifier, bool>(RustRendererEnabledNotifier.new);
+/// Whether newly opened documents use the mesh renderer (developer setting, R12-01). Set by the
+/// settings notifier; a separate provider so documents don't depend on the settings file (tests).
+final meshRendererEnabledProvider = NotifierProvider<MeshRendererEnabledNotifier, bool>(MeshRendererEnabledNotifier.new);
+
+class MeshRendererEnabledNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}

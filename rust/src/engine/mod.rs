@@ -1,18 +1,11 @@
-//! The tile renderer, independent of Flutter.
+//! The mesh renderer's engine, independent of Flutter (roadmap D15).
 //!
-//! Data flow (roadmap D4): Dart owns the documents and sends changes (open/close page, add/remove
-//! strokes, set background) to a [`renderer::Renderer`], which keeps a geometry mirror per page
-//! ([`page::PageMirror`]). Dart also sets the viewport: which part of which page is visible at
-//! which scale. The renderer then rasterizes the needed tiles ([`tiles::TileKey`]) on worker threads
-//! with tiny-skia ([`raster`]) and reports finished tiles through a callback, each with a version so
-//! Dart can drop stale results.
+//! Data flow (D4): Dart owns the documents and sends changes per page (open/close, strokes
+//! added/removed/hidden, background replaced) to [`mesh_page::MeshPages`], which keeps a mirror of
+//! each open page. Meshes are built from it on request ([`mesh`] for the geometry of one stroke)
+//! and handed to Flutter as triangle chunks for `Canvas.drawVertices`.
 //!
-//! Units: page coordinates are millimetres (like the Dart models), scales are device pixels per mm.
-pub mod cache;
+//! Units: page coordinates are millimetres (like the Dart models).
 pub mod geometry;
 pub mod mesh;
 pub mod mesh_page;
-pub mod page;
-pub mod raster;
-pub mod renderer;
-pub mod tiles;

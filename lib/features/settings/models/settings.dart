@@ -28,10 +28,7 @@ class Settings {
 
   //danger zone
   final bool debugMode; //when enabled shows additional information like grid of page-tiles and pageID
-  /// Use the Rust renderer (Phase 5) for documents opened afterwards.
-  final bool rustRenderer;
-  /// Use the mesh renderer (R12-01) for documents opened afterwards; takes precedence over
-  /// [rustRenderer].
+  /// Use the mesh renderer (R12-01) for documents opened afterwards.
   final bool meshRenderer;
 
 
@@ -53,7 +50,6 @@ class Settings {
     Locale? language,
     bool? showPageNumbers,
     bool? debugMode,
-    bool? rustRenderer,
     bool? meshRenderer,
     ThemeData? theme,
     bool? restartRequest,
@@ -71,7 +67,6 @@ class Settings {
         language = language ?? const Locale('en'),
         showPageNumbers = showPageNumbers ?? true,
         debugMode = debugMode ?? false,
-        rustRenderer = rustRenderer ?? false,
         meshRenderer = meshRenderer ?? false,
         theme = theme ?? ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue ,brightness: Brightness.light,)),
         restartRequest = restartRequest ?? false
@@ -94,7 +89,6 @@ class Settings {
     Locale? language,
     bool? showPageNumbers,
     bool? debugMode,
-    bool? rustRenderer,
     bool? meshRenderer,
     ThemeData? theme,
     bool? restartRequest,
@@ -116,7 +110,6 @@ class Settings {
       language: language ?? this.language,
       showPageNumbers: showPageNumbers ?? this.showPageNumbers,
       debugMode: debugMode ?? this.debugMode,
-      rustRenderer: rustRenderer ?? this.rustRenderer,
       meshRenderer: meshRenderer ?? this.meshRenderer,
       theme: theme ?? this.theme,
       restartRequest: restartRequest ?? this.restartRequest,

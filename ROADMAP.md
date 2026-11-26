@@ -390,7 +390,7 @@ around Flutter's async timing.
 - **Rollout:** behind a developer switch until every tool works; Android first (D16), Linux built and
   run at every step; old renderers deleted only when all platforms run the new one.
 
-### Done before the rewrite (tile renderer, still in the code)
+### Done before the rewrite (Rust tile renderer, removed in R12-02 on 2026-11-26)
 
 - [x] **R0-01** Dispose old `ui.Image`s and `Picture`s in `Tile` (GPU memory leak stopgap).
 - [x] **R1-01** `PageRenderer` interface in Dart; old renderer moved behind it.
@@ -442,11 +442,12 @@ thread; R7-05 passes with **~8k-vertex chunks**.
 
 - [ ] **R12-02** **Next: clean up, document, remove leftovers from the testing phase** before new
   features. Candidates (check each before deleting):
-  - Rust tile renderer (`engine/{page,tiles,raster,cache,renderer}.rs`, `api/renderer.rs`,
-    `tests/reference*`, `examples/bench.rs`) and its Dart side (`rust_page_renderer.dart`,
-    `rust_tile_store.dart`, `viewport_tracker.dart`, the "Rust renderer" switch).
-    **Open:** design doc §4.13 keeps old renderers until all platforms run the new one; that was
-    about the Dart renderer as the fallback, the Rust tile renderer is no fallback for anything.
+  - [x] Rust tile renderer removed (2026-11-26, decided by the project owner): `engine/{page,tiles,
+    raster,cache,renderer}.rs`, `api/renderer.rs`, its tests and reference images,
+    `examples/bench.rs`, and the Dart side (`rust_page_renderer.dart`, `rust_tile_store.dart`,
+    `viewport_tracker.dart`, the "Rust renderer" switch). §4.13 still holds for the **Dart**
+    renderer (fallback on the other platforms). `tiny-skia` is only a dev dependency now (for
+    `examples/mesh_preview.rs`). The R0/R1 notes below describe the removed code (history).
   - `DrawerWidget`/`ActivePainter`: tile and erase-preview code paths that only the old renderers
     use; comments that still describe tiles.
   - Design doc and roadmap: mark what is history, describe the mesh renderer as it is now.
@@ -518,8 +519,8 @@ thread; R7-05 passes with **~8k-vertex chunks**.
 - [ ] **R5-01** Build and test on Windows, macOS, iOS, incl. whether mesh edges are smoothed. **(low)**
 - [ ] **R5-02** Web via WASM (threads need cross-origin isolation headers). **(low)**
 - [ ] **R5-03** Delete the old Dart renderer (`tile.dart`, `initialize_tiles.dart`,
-  `rendering/tile_renderer.dart`, `rendering/page_tiles.dart`, `draw_strokes.dart`) and the Rust
-  tile renderer, **only when every platform runs the mesh renderer**.
+  `rendering/tile_renderer.dart`, `rendering/page_tiles.dart`, `draw_strokes.dart`), **only when
+  every platform runs the mesh renderer** (the Rust tile renderer is already gone, R12-02).
 
 ### Later / optional
 
