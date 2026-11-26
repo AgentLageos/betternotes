@@ -17,6 +17,17 @@ extension StrokeTypeExtension on StrokeType {
   static StrokeType fromJson(String value) => StrokeType.values.firstWhere((e) => e.name == value);
 }
 
+/// How the renderer builds a stroke's shape (R8-01): freehand strokes are smoothed through their
+/// points, shapes and lines keep their straight segments and sharp corners.
+enum StrokeKind {
+  freehand,
+  shape,
+}
+extension StrokeKindExtension on StrokeKind {
+  String toJson() => name;
+  static StrokeKind fromJson(String value) => StrokeKind.values.firstWhere((e) => e.name == value);
+}
+
 /// A stroke. Immutable (D1): all fields are final, changes produce a new stroke.
 ///
 /// [points] is stored as given, without copying, so the stroke being drawn can grow its own list
@@ -30,15 +41,20 @@ class Stroke {
 
   final StrokeType strokeType;
 
+  /// Freehand (smoothed) or shape (straight segments). Defaults to freehand.
+  final StrokeKind kind;
+
   Stroke({
     required this.color,
     required this.width,
     required this.points,
     int? strokeID,
     StrokeType? strokeType,
+    StrokeKind? kind,
     bool frozen = false,
   }) : strokeID = strokeID ?? IdGenerator.next(),
       strokeType = strokeType ?? StrokeType.normal,
+      kind = kind ?? StrokeKind.freehand,
       _isFrozen = frozen
   ;
 
@@ -51,6 +67,7 @@ class Stroke {
     List<PointModel>? points,
     int? strokeID,
     StrokeType? strokeType,
+    StrokeKind? kind,
   }) {
     return Stroke(
       color: color ?? this.color,
@@ -58,6 +75,7 @@ class Stroke {
       points: points ?? this.points,
       strokeID : strokeID ?? this.strokeID,
       strokeType: strokeType ?? this.strokeType,
+      kind: kind ?? this.kind,
       frozen: points == null && _isFrozen,
     );
   }
@@ -112,6 +130,7 @@ class Stroke {
         points: List.unmodifiable(points.length == 1 ? [points.first, points.first] : points),
         strokeID: strokeID,
         strokeType: strokeType,
+        kind: kind,
         frozen: true,
       );
 
@@ -123,6 +142,7 @@ class Stroke {
       'width': width,
       'points': points.map((point) => point.toJson()).toList(),
       'strokeType': strokeType.toJson(),
+      'kind': kind.toJson(),
       //'strokeID': strokeID,
     };
   }
@@ -133,6 +153,7 @@ class Stroke {
       width: json['width']?.toDouble() ?? 0.0,
       points: (json['points'] as List).map((pointJson) => PointModel.fromJson(Map<String, dynamic>.from(pointJson))).toList(), //reconstruct  point from json
       strokeType: StrokeTypeExtension.fromJson(json['strokeType'] ?? 'normal'),
+      kind: StrokeKindExtension.fromJson(json['kind'] ?? 'freehand'),
       //strokeID: json['strokeID'] ?? IdGenerator.next(), // strokeID from the JSON or a newly generated ID
     );
   }
@@ -157,6 +178,8 @@ class Stroke {
     final strokeType = ByteData(1)..setUint8(0, this.strokeType.index);
 
     builder.add(strokeType.buffer.asUint8List());
+
+    builder.addByte(kind.index);
 
     final pointCount = ByteData(4)..setUint32(0, points.length, Endian.little);
 
@@ -196,6 +219,8 @@ class Stroke {
     final strokeTypeIndex = data.getUint8(offset);
     offset += 1;
     final strokeType = StrokeType.values[strokeTypeIndex];
+    final kind = StrokeKind.values[data.getUint8(offset)];
+    offset += 1;
 
     final pointCount = data.getUint32(offset, Endian.little,);
     offset += 4;
@@ -218,7 +243,7 @@ class Stroke {
       points.add(PointModel(pos: Offset(x, y), width: pointWidth));
     }
 
-    return Stroke(color: color, width: width, points: points, strokeID: strokeID, strokeType: strokeType).frozen();
+    return Stroke(color: color, width: width, points: points, strokeID: strokeID, strokeType: strokeType, kind: kind).frozen();
   }
 
 

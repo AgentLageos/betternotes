@@ -974,7 +974,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     if(activeStrokes.isEmpty) {
       activeStrokes = [];
       initialPosition = point.pos;
-      activeStrokes.add(Stroke(color: color, width: -1, points: [point]));
+      activeStrokes.add(Stroke(color: color, width: -1, points: [point], kind: StrokeKind.shape));       //straight segments, sharp corners
 
       if(tool.shape == ShapeShape.line) activeStrokes.last.points.addAll([point, point]);
       if(tool.shape == ShapeShape.arrow) activeStrokes.last.points.addAll([point, point, point, point, point]);
@@ -1191,7 +1191,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     if(activeStrokes.isEmpty) {
       activeStrokes = [];
       initialPosition = point.pos;
-      activeStrokes.add(Stroke(color: color, width: -1, points: [point]));
+      activeStrokes.add(Stroke(color: color, width: -1, points: [point], kind: StrokeKind.shape));       //straight segments, sharp corners
 
       if(tool.line == LineType.line) activeStrokes.last.points.addAll([point, point]);
       if(tool.line == LineType.arrow) activeStrokes.last.points.addAll([point, point, point, point, point]);

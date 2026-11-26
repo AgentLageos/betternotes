@@ -21,10 +21,11 @@ Future<ui.Image> solidImage(int width, int height, Color color) {
   return recorder.endRecording().toImage(width, height);
 }
 
-Stroke stroke(double x, {StrokeType type = StrokeType.normal}) => Stroke(
+Stroke stroke(double x, {StrokeType type = StrokeType.normal, StrokeKind kind = StrokeKind.freehand}) => Stroke(
       color: const Color(0xFF112233),
       width: 1.5,
       strokeType: type,
+      kind: kind,
       points: [
         PointModel(pos: Offset(x, 1), width: 1),
         PointModel(pos: Offset(x + 2, 3), width: 1.2),
@@ -38,6 +39,7 @@ void expectSameStrokes(List<Stroke> actual, List<Stroke> expected) {
     expect(actual[i].color.toARGB32(), expected[i].color.toARGB32());
     expect(actual[i].width, expected[i].width);
     expect(actual[i].strokeType, expected[i].strokeType);
+    expect(actual[i].kind, expected[i].kind);
     expect([for (final pt in actual[i].points) (pt.pos, pt.width)],
         [for (final pt in expected[i].points) (pt.pos, pt.width)]);
   }
@@ -60,7 +62,7 @@ void main() {
         pageWidth: 210,
         pageHeight: 297,
         pageColor: const Color(0xFFFAFAFA),
-        strokes: [stroke(1), stroke(10, type: StrokeType.dotted)],
+        strokes: [stroke(1), stroke(10, type: StrokeType.dotted), stroke(20, kind: StrokeKind.shape)],
         backgroundStrokes: [stroke(50)],
         images: [image, copy],
         backgroundImage: background,

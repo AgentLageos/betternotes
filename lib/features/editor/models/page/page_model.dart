@@ -91,7 +91,7 @@ class PageModel {
       while (i < pageWidth) {
         for (int j = 0; j < verticalSpaces.length; j++) {
           i += verticalSpaces[j];
-          result.add(Stroke(color: strokeColor, width: strokeWidth, points: [PointModel(pos: Offset(i, 0), width: strokeWidth), PointModel(pos: Offset(i, pageHeight), width: strokeWidth)]).frozen());
+          result.add(Stroke(color: strokeColor, width: strokeWidth, points: [PointModel(pos: Offset(i, 0), width: strokeWidth), PointModel(pos: Offset(i, pageHeight), width: strokeWidth)], kind: StrokeKind.shape).frozen());
         }
       }
     }
@@ -101,7 +101,7 @@ class PageModel {
       while (i<pageHeight){
         for (int j = 0; j<horizontalSpaces.length; j++){
           i+=horizontalSpaces[j];
-          result.add(Stroke(color: strokeColor, width: strokeWidth, points: [PointModel(pos: Offset(0, i), width: strokeWidth), PointModel(pos: Offset(pageWidth, i), width: strokeWidth)]).frozen());
+          result.add(Stroke(color: strokeColor, width: strokeWidth, points: [PointModel(pos: Offset(0, i), width: strokeWidth), PointModel(pos: Offset(pageWidth, i), width: strokeWidth)], kind: StrokeKind.shape).frozen());
         }
       }
     }

@@ -420,11 +420,24 @@ additions to the plan: R7-01 needs detail levels when zoomed out; R7-02 smoothed
 p99 0.14 ms in Rust; R7-04 Rust builds a page 4–8× faster than Dart, builds must run off the UI
 thread; R7-05 passes with **~8k-vertex chunks**.
 
+### M1.5: First version in the app (2026-11-26, project owner: "it should be in the app to test it")
+
+- [ ] **R12-01** Vertical slice behind a new developer switch "Mesh renderer" (old renderer stays the
+  default): pages draw finished strokes and line patterns as Rust meshes (one detail level, simple
+  chunks, pages outside the screen skipped); active strokes (pen, shapes, lines) drawn as Rust meshes
+  with the same geometry; pen-up without a visible change; undo/redo/erase/other changes re-send the
+  page's meshes. **Known gaps at first:** no detail levels (zooming out over many dense pages may
+  stutter), no prediction, eraser/selection previews may not hide strokes while dragging, laser and
+  images as today. The remaining M2–M4 items then improve this step by step.
+
 ### M2: Rust geometry
 
-- [~] **R8-01** Stroke geometry in Rust (`rust/src/engine/mesh.rs`, tests, preview
-  `cargo run --release --example mesh_preview -- out.png`; open: how the freehand/shape flag reaches
-  Rust): Catmull-Rom smoothing (fine enough for max zoom), round
+- [x] **R8-01** Stroke geometry in Rust (`rust/src/engine/mesh.rs`, tests, preview
+  `cargo run --release --example mesh_preview -- out.png`). Smoothing only for freehand strokes:
+  `Stroke.kind` (`StrokeKind.freehand` / `shape`, saved in the `.bnf`; shape and line tools and
+  line patterns set `shape`); it reaches Rust with the mesh API (R9-02). Dotted lines: the line
+  tool's dotted branch is empty today, so there is nothing to render yet.
+  Original scope: Catmull-Rom smoothing (fine enough for max zoom), round
   joins and caps, per-point width, dotted strokes; must not rule out a later highlighter technique.
 - [ ] **R8-03** Detail levels by zoom (R7-02): per page and level, tolerance 0.4 device px at the
   level's smallest zoom; coarse levels with point reduction and fewer joins; built lazily off the UI
