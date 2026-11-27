@@ -1,5 +1,4 @@
 import 'package:betternotes/core/providers/global_providers.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,7 +7,6 @@ import '../../../l10n/app_localizations.dart';
 class GeneralSettings extends ConsumerWidget {
   GeneralSettings({super.key});
 
-  String selectedLanguage = 'en';
 
   final languages = [
     'en',
@@ -24,7 +22,7 @@ class GeneralSettings extends ConsumerWidget {
 
     final language = AppLocalizations.of(context)!;
 
-    selectedLanguage = ref.read(settingsProvider).language.toString();
+    final selectedLanguage = ref.watch(settingsProvider).language.toString();
 
 
     return ListView(
@@ -47,8 +45,6 @@ class GeneralSettings extends ConsumerWidget {
             onSelected: (value) {
 
               ref.read(settingsProvider.notifier).setLanguage(value);
-
-                selectedLanguage = value;
 
             },
             itemBuilder: (context) {

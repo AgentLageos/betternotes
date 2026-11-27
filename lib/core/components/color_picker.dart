@@ -1,9 +1,9 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../l10n/app_localizations.dart';
+import 'package:betternotes/core/utils/color_channels.dart';
 
 Future<Color?> pickColor(BuildContext context, Color current) async {
   return showDialog<Color>(
@@ -14,7 +14,7 @@ Future<Color?> pickColor(BuildContext context, Color current) async {
 
 class _ColorPickerBaseDialog extends StatefulWidget {
   final Color initialColor;
-  const _ColorPickerBaseDialog({super.key, required this.initialColor});
+  const _ColorPickerBaseDialog({required this.initialColor});
 
   @override
   State<_ColorPickerBaseDialog> createState() => _ColorPickerBaseDialogState();
@@ -128,19 +128,19 @@ class _ColorPickerBaseDialogState extends State<_ColorPickerBaseDialog>
 
     List<Color> paletteColors = [];
 
-    // Wir reservieren die ersten 2 Spalten für einen sauberen Graustufen-Verlauf.
-    // Die restlichen 22 Spalten nutzen wir für das gesamte Farbspektrum.
+    // The first 2 columns are reserved for a clean grayscale gradient.
+    // The remaining 22 columns hold the full color spectrum.
     int grayScaleColumns = 2;
     int colorColumns = columns - grayScaleColumns;
 
     for (int row = 0; row < rows; row++) {
       for (int col = 0; col < columns; col++) {
         if (col < grayScaleColumns) {
-          // --- GRAUSTUFEN-BEREICH (Links) ---
-          // Erzeugt einen weichen Verlauf von reinem Weiß (oben links) zu reinem Schwarz (unten links)
+          // --- GRAYSCALE AREA (left) ---
+          // Smooth gradient from pure white (top left) to pure black (bottom left)
           double value = 1.0 - (row / (rows - 1));
 
-          // Wenn wir 2 Spalten für Grau nutzen, machen wir die zweite Spalte minimal dunkler für mehr Nuancen
+          // With 2 gray columns, the second one is slightly darker for more nuances
           if (col == 1 && row < rows - 1) {
             value = (value - 0.05).clamp(0.0, 1.0);
           }
@@ -155,22 +155,22 @@ class _ColorPickerBaseDialogState extends State<_ColorPickerBaseDialog>
           // --- FARB-BEREICH (Rechts) ---
           int adjustedCol = col - grayScaleColumns;
 
-          // 1. Farbton (Hue): Läuft von 0 bis 360 Grad über die verbleibenden Spalten
+          // 1. Hue: runs from 0 to 360 degrees across the remaining columns
           double hue = (adjustedCol / colorColumns) * 360;
 
-          // 2. Sättigung (Saturation) & Helligkeit (Value)
+          // 2. Saturation & value (brightness)
           double saturation;
           double value;
 
-          // Obere Hälfte: Von Pastell/Weißlich zu voller Farbe
+          // Upper half: from pastel/whitish to full color
           if (row < rows / 2) {
-            saturation = row / (rows / 2 - 1); // 0.0 bis 1.0
+            saturation = row / (rows / 2 - 1); // 0.0 to 1.0
             value = 1.0; // Volle Helligkeit
           }
-          // Untere Hälfte: Von voller Farbe zu Schwarz
+          // Lower half: from full color to black
           else {
-            saturation = 1.0; // Volle Sättigung
-            value = 1.0 - ((row - (rows / 2) + 1) / (rows / 2)); // 1.0 bis 0.0
+            saturation = 1.0; // full saturation
+            value = 1.0 - ((row - (rows / 2) + 1) / (rows / 2)); // 1.0 to 0.0
           }
 
           paletteColors.add(HSVColor.fromAHSV(1.0, hue, saturation, value).toColor());
@@ -183,8 +183,8 @@ class _ColorPickerBaseDialogState extends State<_ColorPickerBaseDialog>
         double tileWidth = constraints.maxWidth / columns;
         double tileHeight = constraints.maxHeight / rows;
 
-        // Sichere Suche nach der ausgewählten Farbe
-        int selectedIndex = paletteColors.indexWhere((c) => c.value == selectedColor?.value);
+        // Safe lookup of the selected color
+        int selectedIndex = paletteColors.indexWhere((c) => c.toARGB32() == selectedColor.toARGB32());
 
         return GestureDetector(
           onTapDown: (details) => _updateColorFromGrid(details.localPosition, tileWidth, tileHeight, columns, rows, paletteColors),
@@ -215,7 +215,7 @@ class _ColorPickerBaseDialogState extends State<_ColorPickerBaseDialog>
                     child: Container(
                       decoration: BoxDecoration(
                         border: Border.all(
-                          // Dynamischer Rahmen (weiß auf dunklen Farben, schwarz auf hellen)
+                          // Dynamic border (white on dark colors, black on light ones)
                           color: ThemeData.estimateBrightnessForColor(paletteColors[selectedIndex]) == Brightness.light
                               ? Colors.black
                               : Colors.white,
@@ -237,11 +237,11 @@ class _ColorPickerBaseDialogState extends State<_ColorPickerBaseDialog>
       children: [
         // R-Slider
         Slider(
-          value: selectedColor.red.toDouble(),
+          value: selectedColor.red8.toDouble(),
           min: 0,
           max: 255,
           activeColor: Colors.red,
-          inactiveColor: Colors.red.withOpacity(0.3),
+          inactiveColor: Colors.red.withValues(alpha: 0.3),
           onChanged: (v) {
             setState(() {
               selectedColor = selectedColor.withRed(v.toInt());
@@ -250,11 +250,11 @@ class _ColorPickerBaseDialogState extends State<_ColorPickerBaseDialog>
         ),
         // G-Slider
         Slider(
-          value: selectedColor.green.toDouble(),
+          value: selectedColor.green8.toDouble(),
           min: 0,
           max: 255,
           activeColor: Colors.green,
-          inactiveColor: Colors.green.withOpacity(0.3),
+          inactiveColor: Colors.green.withValues(alpha: 0.3),
           onChanged: (v) {
             setState(() {
               selectedColor = selectedColor.withGreen(v.toInt());
@@ -263,11 +263,11 @@ class _ColorPickerBaseDialogState extends State<_ColorPickerBaseDialog>
         ),
         // B-Slider
         Slider(
-          value: selectedColor.blue.toDouble(),
+          value: selectedColor.blue8.toDouble(),
           min: 0,
           max: 255,
           activeColor: Colors.blue,
-          inactiveColor: Colors.blue.withOpacity(0.3),
+          inactiveColor: Colors.blue.withValues(alpha: 0.3),
           onChanged: (v) {
             setState(() {
               selectedColor = selectedColor.withBlue(v.toInt());
@@ -276,14 +276,14 @@ class _ColorPickerBaseDialogState extends State<_ColorPickerBaseDialog>
         ),
         // A-Slider
         Slider(
-          value: selectedColor.opacity,
+          value: selectedColor.a,
           min: 0,
           max: 1,
           activeColor: Colors.grey,
-          inactiveColor: Colors.grey.withOpacity(0.3),
+          inactiveColor: Colors.grey.withValues(alpha: 0.3),
           onChanged: (v) {
             setState(() {
-              selectedColor = selectedColor.withOpacity(v);
+              selectedColor = selectedColor.withValues(alpha: v);
             });
           },
         ),
@@ -339,12 +339,10 @@ class _ColorPickerBaseDialogState extends State<_ColorPickerBaseDialog>
   }
 
 
-  String? _activeZone; // "ring" oder "box"
   void _handleMove(Offset pos, Offset center, Size size) {
     final dx = pos.dx - center.dx;
     final dy = pos.dy - center.dy;
 
-    final distance = sqrt(dx * dx + dy * dy);
 
     final radius = min(size.width, size.height) / 2;
     final ringWidth = radius * 0.18;

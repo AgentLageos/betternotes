@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:betternotes/core/utils/id_generator.dart';
@@ -18,13 +17,32 @@ extension StrokeTypeExtension on StrokeType {
   static StrokeType fromJson(String value) => StrokeType.values.firstWhere((e) => e.name == value);
 }
 
+/// How the renderer builds a stroke's shape (R8-01): freehand strokes are smoothed through their
+/// points, shapes and lines keep their straight segments and sharp corners.
+enum StrokeKind {
+  freehand,
+  shape,
+}
+extension StrokeKindExtension on StrokeKind {
+  String toJson() => name;
+  static StrokeKind fromJson(String value) => StrokeKind.values.firstWhere((e) => e.name == value);
+}
+
+/// A stroke. Immutable (D1): all fields are final, changes produce a new stroke.
+///
+/// [points] is stored as given, without copying, so the stroke being drawn can grow its own list
+/// cheaply. Once a stroke goes into a document it must not change any more: the document stores
+/// [frozen] strokes, whose point list is unmodifiable.
 class Stroke {
-  Color color;
-  double width;
+  final Color color;
+  final double width;
   final List<PointModel> points;
   final int strokeID;
 
   final StrokeType strokeType;
+
+  /// Freehand (smoothed) or shape (straight segments). Defaults to freehand.
+  final StrokeKind kind;
 
   Stroke({
     required this.color,
@@ -32,9 +50,16 @@ class Stroke {
     required this.points,
     int? strokeID,
     StrokeType? strokeType,
+    StrokeKind? kind,
+    bool frozen = false,
   }) : strokeID = strokeID ?? IdGenerator.next(),
-      strokeType = strokeType ?? StrokeType.normal
+      strokeType = strokeType ?? StrokeType.normal,
+      kind = kind ?? StrokeKind.freehand,
+      _isFrozen = frozen
   ;
+
+  /// Whether [points] is known to be unmodifiable (set by [frozen]).
+  final bool _isFrozen;
 
   Stroke copyWith({
     Color? color,
@@ -42,6 +67,7 @@ class Stroke {
     List<PointModel>? points,
     int? strokeID,
     StrokeType? strokeType,
+    StrokeKind? kind,
   }) {
     return Stroke(
       color: color ?? this.color,
@@ -49,6 +75,8 @@ class Stroke {
       points: points ?? this.points,
       strokeID : strokeID ?? this.strokeID,
       strokeType: strokeType ?? this.strokeType,
+      kind: kind ?? this.kind,
+      frozen: points == null && _isFrozen,
     );
   }
 
@@ -90,32 +118,31 @@ class Stroke {
     return Rect.fromLTRB(minX, minY, maxX, maxY);
   }
 
-  Stroke copy() {
-    return Stroke(
-      points: points.map((p) => p.copy()).toList(),
-      color: color,
-      width: width,
-      strokeID: IdGenerator.next(),
-    );
-  }
+  /// Same stroke with a new ID. Points are immutable, so the point list can be shared.
+  Stroke copy() => copyWith(strokeID: IdGenerator.next());
 
-  Stroke copyWithID() {
-    return Stroke(
-      points: points.map((p) => p.copy()).toList(),
-      color: color,
-      width: width,
-      strokeID: strokeID,
-    );
-  }
+  /// This stroke with an unmodifiable point list (for storing in a document).
+  /// A single point is doubled, so every stored stroke has at least one segment (the renderer
+  /// needs that for dots).
+  Stroke frozen() => _isFrozen ? this : Stroke(
+        color: color,
+        width: width,
+        points: List.unmodifiable(points.length == 1 ? [points.first, points.first] : points),
+        strokeID: strokeID,
+        strokeType: strokeType,
+        kind: kind,
+        frozen: true,
+      );
 
 
 
   Map<String, dynamic> toJson() {
     return {
-      'color': color.value,
+      'color': color.toARGB32(),
       'width': width,
       'points': points.map((point) => point.toJson()).toList(),
       'strokeType': strokeType.toJson(),
+      'kind': kind.toJson(),
       //'strokeID': strokeID,
     };
   }
@@ -126,7 +153,8 @@ class Stroke {
       width: json['width']?.toDouble() ?? 0.0,
       points: (json['points'] as List).map((pointJson) => PointModel.fromJson(Map<String, dynamic>.from(pointJson))).toList(), //reconstruct  point from json
       strokeType: StrokeTypeExtension.fromJson(json['strokeType'] ?? 'normal'),
-      //strokeID: json['strokeID'] ?? IdGenerator.next(), // strokeID aus dem JSON oder eine neue ID generieren
+      kind: StrokeKindExtension.fromJson(json['kind'] ?? 'freehand'),
+      //strokeID: json['strokeID'] ?? IdGenerator.next(), // strokeID from the JSON or a newly generated ID
     );
   }
 
@@ -139,7 +167,7 @@ class Stroke {
 
     builder.add(strokeId.buffer.asUint8List());
 
-    final colorData = ByteData(4)..setUint32(0, color.value, Endian.little);
+    final colorData = ByteData(4)..setUint32(0, color.toARGB32(), Endian.little);
 
     builder.add(colorData.buffer.asUint8List());
 
@@ -150,6 +178,8 @@ class Stroke {
     final strokeType = ByteData(1)..setUint8(0, this.strokeType.index);
 
     builder.add(strokeType.buffer.asUint8List());
+
+    builder.addByte(kind.index);
 
     final pointCount = ByteData(4)..setUint32(0, points.length, Endian.little);
 
@@ -189,6 +219,8 @@ class Stroke {
     final strokeTypeIndex = data.getUint8(offset);
     offset += 1;
     final strokeType = StrokeType.values[strokeTypeIndex];
+    final kind = StrokeKind.values[data.getUint8(offset)];
+    offset += 1;
 
     final pointCount = data.getUint32(offset, Endian.little,);
     offset += 4;
@@ -211,7 +243,7 @@ class Stroke {
       points.add(PointModel(pos: Offset(x, y), width: pointWidth));
     }
 
-    return Stroke(color: color, width: width, points: points, strokeID: strokeID, strokeType: strokeType,);
+    return Stroke(color: color, width: width, points: points, strokeID: strokeID, strokeType: strokeType, kind: kind).frozen();
   }
 
 

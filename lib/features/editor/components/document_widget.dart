@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'page_widget.dart';
@@ -9,9 +8,12 @@ import 'package:betternotes/core/providers/global_providers.dart';
 
 class DocumentWidget extends ConsumerStatefulWidget {
 
-  DocumentWidget({
-    Key? key,
-  }) : super(key: key);
+  const DocumentWidget({
+    super.key,
+    required this.docID,
+  });
+
+  final int docID;
 
   @override
   ConsumerState<DocumentWidget> createState() => DocumentWidgetState();
@@ -22,7 +24,6 @@ class DocumentWidgetState extends ConsumerState<DocumentWidget> {
   List<GlobalKey<PageWidgetState>> pageKeys = [];
   List<PageWidgetFrame> pages = [];
   List<int> pageIndexes = [];
-  final int docIndex=0;
 
 
   @override
@@ -33,10 +34,9 @@ class DocumentWidgetState extends ConsumerState<DocumentWidget> {
   @override
   Widget build(BuildContext context) {
 
-    final doc = ref.watch(documentsProvider.select((docs) => docs[docIndex]));
-    final pages = ref.watch(documentsProvider.select((docs) => docs[docIndex].pages),);
+    final doc = ref.watch(documentProvider(widget.docID));
+    final pages = doc.pages;
 
-    //print("documentwidget:  ${doc.placeholderHeight}");
 
     return Column(
         children: [
@@ -47,7 +47,7 @@ class DocumentWidgetState extends ConsumerState<DocumentWidget> {
           for (int i = 0; i < pages.length; i++)
             PageWidgetFrame(
               key: ValueKey(pages[i].pageID),
-              child: PageWidget(pageIndex: i, pageID: pages[i].pageID),
+              child: PageWidget(docID: widget.docID, pageIndex: i, pageID: pages[i].pageID),
             ),
         ],
     );

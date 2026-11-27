@@ -1,31 +1,6 @@
-import 'dart:ui';
 
 import 'package:betternotes/features/editor/models/tools/tool.dart';
 import 'package:flutter/material.dart';
-
-/*
-enum AutoLine {
-  disabled,
-  hold,
-  detectStraight,
-}
-extension AutoLineExtension on AutoLine {
-  String toJson() => name;
-  static AutoLine fromJson(String value) => AutoLine.values.firstWhere((e) => e.name == value);
-}
-
-enum PenType {
-  normal,
-  fountain,
-  pencil,
-  marker,
-}
-extension PenTypeExtension on PenType {
-  String toJson() => name;
-  static PenType fromJson(String value) => PenType.values.firstWhere((e) => e.name == value);
-}
-
- */
 
 
 class LaserTool extends Tool{
@@ -40,19 +15,18 @@ class LaserTool extends Tool{
     Color? color,
     Color? iconColor,
     double? width,
-    bool? finger,
+    super.finger,
     bool? leaveTrail,
     bool? fadeOut,
     double? fadeOutDuration,
-    int? toolID,
+    super.toolID,
   })
       : color = color ?? Colors.red,
         iconColor = iconColor ?? Colors.black,
         width = width ?? 0.4,
         leaveTrail = leaveTrail ?? true,
         fadeOut = fadeOut ?? true,
-        fadeOutDuration = fadeOutDuration ?? 4,
-        super(finger: finger, toolID: toolID)
+        fadeOutDuration = fadeOutDuration ?? 4
   ;
 
   LaserTool copyWith({
@@ -78,10 +52,11 @@ class LaserTool extends Tool{
     );
   }
 
+  @override
   Map<String, dynamic> toJson() => {
     'type': type,
-    'color': color.value,
-    'iconColor': iconColor.value,
+    'color': color.toARGB32(),
+    'iconColor': iconColor.toARGB32(),
     'width': width,
     'finger': finger,
     'leaveTrail': leaveTrail,

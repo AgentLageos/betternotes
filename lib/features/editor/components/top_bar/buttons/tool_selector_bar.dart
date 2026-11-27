@@ -72,7 +72,6 @@ class _ToolSelectorBarState extends ConsumerState<ToolSelectorBar> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       setState(() {
-        //selectedIndex = context.read<GlobalState>().selectedTool;       //overwrite colors and currently selected with global_state
         selectedIndex =ref.read(editorSetupProvider.select((editors) => editors[editorIndex].toolIndex));
       });
     });
@@ -87,20 +86,18 @@ class _ToolSelectorBarState extends ConsumerState<ToolSelectorBar> {
   Widget build(BuildContext context) {
 
 
-    final editorSetup = ref.watch(editorSetupProvider.notifier).state[editorIndex];
-    //final tools = editorSetup.toolsOld;
+    final editorSetup = ref.watch(editorSetupProvider)[editorIndex];
     final tools = editorSetup.tools;
 
 
     return Container(
       height: widget.height,
-      //color: widget.backgroundColor,
       alignment: Alignment.centerLeft,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 10),
         itemCount: tools.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           final toolType = tools[index];
           final isSelected = index == selectedIndex;
@@ -113,7 +110,6 @@ class _ToolSelectorBarState extends ConsumerState<ToolSelectorBar> {
               setState(() {
                 selectedIndex = index;
                 ref.read(editorSetupProvider.notifier).setToolIndex(editorIndex, index);
-                //Provider.of<GlobalState>(context, listen: false).setSelectedTool(toolType);
               });
             },
             onLongPress: () => _editTool(toolType, index, buttonKey),
@@ -128,7 +124,6 @@ class _ToolSelectorBarState extends ConsumerState<ToolSelectorBar> {
                   width: 3,
                 ),
               ),
-              //child: buildToolbox(toolType, index),
               child: ToolButton(toolIndex: index),
             ),
           );
@@ -258,7 +253,9 @@ class _ToolSelectorBarState extends ConsumerState<ToolSelectorBar> {
         ],
       );
     }
-    else return;
+    else {
+      return;
+    }
   }
 
 
@@ -271,7 +268,6 @@ class _ToolSelectorBarState extends ConsumerState<ToolSelectorBar> {
     if (tool is SelectionTool) {
 
       SelectionShape shape = tool.shape;
-      //bool selectionRule = tool.selectionRule;
       bool selectionRule = ref.watch(editorSetupProvider)[editorIndex].selectionMode;
       bool finger = tool.finger;
 
@@ -373,7 +369,9 @@ class _ToolSelectorBarState extends ConsumerState<ToolSelectorBar> {
         ],
       );
     }
-    else return;
+    else {
+      return;
+    }
   }
 
 
@@ -459,9 +457,7 @@ class _ToolSelectorBarState extends ConsumerState<ToolSelectorBar> {
                           onPressed: () {
 
                             ref.read(editorSetupProvider.notifier).setTool(editorIndex, toolIndex, PenTool(penType: penType, autoLine: autoline, straightLineXYAlign: straightLineXYAlign, finger: finger, ));
-                            //ref.read(editorSetupProvider.notifier).setSelectionShape(editorIndex, penType);
 
-                            //ref.read(editorSetupProvider.notifier).setSelectionMode(editorIndex, tempTouchMode);
 
                             Navigator.of(context).pop();
                           },
@@ -567,9 +563,7 @@ class _ToolSelectorBarState extends ConsumerState<ToolSelectorBar> {
                           onPressed: () {
 
                             ref.read(editorSetupProvider.notifier).setTool(editorIndex, toolIndex, ShapeTool(shape: shape, shapeOrigin: shapeOrigin, snapToGrid: snapToGrid,finger: finger, ));
-                            //ref.read(editorSetupProvider.notifier).setSelectionShape(editorIndex, penType);
 
-                            //ref.read(editorSetupProvider.notifier).setSelectionMode(editorIndex, tempTouchMode);
 
                             Navigator.of(context).pop();
                           },
@@ -674,9 +668,7 @@ class _ToolSelectorBarState extends ConsumerState<ToolSelectorBar> {
                           onPressed: () {
 
                             ref.read(editorSetupProvider.notifier).setTool(editorIndex, toolIndex, LineTool(line: line, lineOrigin: lineOrigin, snapToGrid: snapToGrid,finger: finger, ));
-                            //ref.read(editorSetupProvider.notifier).setSelectionShape(editorIndex, penType);
 
-                            //ref.read(editorSetupProvider.notifier).setSelectionMode(editorIndex, tempTouchMode);
 
                             Navigator.of(context).pop();
                           },
@@ -729,7 +721,7 @@ class _ToolSelectorBarState extends ConsumerState<ToolSelectorBar> {
         ),
         items: [
           PopupMenuItem(
-            enabled: false, // verhindert, dass es direkt ausgewählt wird
+            enabled: false, // prevents it from being selected directly
             child: StatefulBuilder(
               builder: (context, setState) {
                 return Column(
@@ -804,7 +796,9 @@ class _ToolSelectorBarState extends ConsumerState<ToolSelectorBar> {
         ],
       );
     }
-    else return;
+    else {
+      return;
+    }
   }
 
 

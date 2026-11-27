@@ -7,12 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:betternotes/features/file_manager/components/top_bar/file_manager_top_bar.dart';
 import 'package:betternotes/features/file_manager/components/top_bar/file_manager_top_bar_edit.dart';
 import 'package:betternotes/features/file_manager/components/top_bar/file_manager_move_bar.dart';
 import 'package:betternotes/features/file_manager/components/top_bar/file_manager_copy_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:betternotes/l10n/app_localizations.dart';
+import 'package:betternotes/core/utils/pref_keys.dart';
 
 
 class FileManager extends ConsumerStatefulWidget {
@@ -46,24 +47,13 @@ class _FileManagerState extends ConsumerState<FileManager> {
 
 
   Future<void> _init() async {
-    /*
-    if (Platform.isAndroid) {
-      permissionGranted = await _requestPermission();
-      if (!permissionGranted) return;
-    } else {
-      // Linux, Windows, macOS no permissions needed
-      permissionGranted = true;
-      print("permission");
-    }
-
-     */
 
     Directory dir;
     final platformSettings = ref.read(platformProvider);
     
 
     if (platformSettings.currentDirectory.isEmpty) {
-      debugPrint("FileManager: Pfad ist noch leer, warte...");
+      debugPrint("FileManager: path is still empty, waiting...");
       return;
     }
 
@@ -72,30 +62,13 @@ class _FileManagerState extends ConsumerState<FileManager> {
       dir = Directory(home);
     } else {
       final home = platformSettings.homeDirectory;
-      dir = Directory('$home/betternotes');
+      dir = Directory(path.join(home, 'betternotes'));
     }
 
     if (!(await dir.exists())) {
       await dir.create(recursive: true);
     }
-    _loadDir(dir);
-  }
-
-  Future<bool> _requestPermission() async {
-    if (Platform.isAndroid) {
-      if (await Permission.manageExternalStorage.isGranted) {
-        return true;
-      } else {
-        final status = await Permission.manageExternalStorage.request();
-        if (status.isGranted) return true;
-        if (status.isPermanentlyDenied) {
-          openAppSettings();
-          return false;
-        }
-      }
-    }
-    final status = await Permission.storage.request();
-    return status.isGranted;
+    await _loadDir(dir);
   }
 
   Future<void> _loadDir(Directory dir) async {
@@ -110,20 +83,20 @@ class _FileManagerState extends ConsumerState<FileManager> {
         files = list;
         selectedFiles.clear();
 
-        //mode = 0;
       });
-      setPref(dir);
+      await setPref(dir);
       ref.read(platformProvider.notifier).setCurrentDir(dir.path);
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Access Denied: ${dir.path}')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.access_denied(dir.path))),
       );
     }
   }
 
   Future<void> setPref(Directory dir) async {
     final prefs = await SharedPreferences.getInstance();
-    prefs.setString('currentDirectory', dir.path);
+    await prefs.setString(PrefKeys.currentDirectory, dir.path);
   }
 
   void _toggleSelection(FileSystemEntity file) {                                //adds the current file to the set of selected files
@@ -189,6 +162,7 @@ class _FileManagerState extends ConsumerState<FileManager> {
 
 
   Future<void> exportFilesWithPicker() async {
+    final text = AppLocalizations.of(context)!;
     try {
       final files = Set<FileSystemEntity>.from(selectedFiles);
 
@@ -197,8 +171,8 @@ class _FileManagerState extends ConsumerState<FileManager> {
         return;
       }
 
-      String? selectedDirectory = await FilePicker.platform.getDirectoryPath(
-        dialogTitle: 'Choose Destination',
+      String? selectedDirectory = await FilePicker.getDirectoryPath(
+        dialogTitle: text.choose_destination,
       );
 
       if (selectedDirectory == null) {
@@ -206,53 +180,42 @@ class _FileManagerState extends ConsumerState<FileManager> {
         return;
       }
 
-      // Interne Hilfsfunktion für die Rekursion
+      // internal helper for the recursion
       Future<void> copyRecursive(FileSystemEntity entity, String destinationPath) async {
         if (entity is File) {
-          // Datei einfach kopieren
+          // copy the file
           await entity.copy(destinationPath);
         } else if (entity is Directory) {
-          // Ziel-Ordner erstellen, falls er nicht existiert
+          // create the target folder if it doesn't exist
           final newDir = Directory(destinationPath);
           if (!await newDir.exists()) {
             await newDir.create(recursive: true);
           }
 
-          // Alle Inhalte des Ordners auflisten und rekursiv kopieren
+          // list everything in the folder and copy it recursively
           await for (final item in entity.list(recursive: false)) {
-            final itemName = item.uri.pathSegments.last.isEmpty
-                ? item.uri.pathSegments[item.uri.pathSegments.length - 2]
-                : item.uri.pathSegments.last;
-
-            await copyRecursive(item, '$destinationPath/$itemName');
+            await copyRecursive(item, path.join(destinationPath, path.basename(item.path)));
           }
         }
       }
 
       for (var entity in files) {
-        final entityName = entity.uri.pathSegments.last.isEmpty
-            ? entity.uri.pathSegments[entity.uri.pathSegments.length - 2]
-            : entity.uri.pathSegments.last;
-
-        final targetPath = '$selectedDirectory/$entityName';
+        final targetPath = path.join(selectedDirectory, path.basename(entity.path));
         await copyRecursive(entity, targetPath);
       }
 
       debugPrint('All files and folders exported to: $selectedDirectory');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('All files exported to: $selectedDirectory')),
+          SnackBar(content: Text(text.files_exported_to(selectedDirectory))),
         );
       }
     } catch (e, stack) {
       debugPrint('Error trying to export: $e');
       if (mounted) {
-        /*
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error trying to export: $e')),
+          SnackBar(content: Text(text.export_error(e.toString()))),
         );
-
-         */
       }
       debugPrint(stack.toString());
     }
@@ -262,53 +225,48 @@ class _FileManagerState extends ConsumerState<FileManager> {
   String importStatus = '';
 
   Future<void> importFilesWithPicker() async {
+    final text = AppLocalizations.of(context)!;
     try {
-      //final internalDir = await getApplicationDocumentsDirectory();
       final internalDir = currentDir!;
 
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        allowMultiple: true,
-      );
+      final pickedFiles = await FilePicker.pickFiles();
 
-      if (result == null || result.files.isEmpty) {
+      if (pickedFiles.isEmpty) {
         debugPrint('Import aborted or no files selected.');
         return;
       }
 
-      final totalFiles = result.files.length;
+      final totalFiles = pickedFiles.length;
       int processedFiles = 0;
 
       setState(() {
         importProgress = 0.0;
-        importStatus = 'Start Import...';
+        importStatus = text.import_starting;
       });
 
-      for (var pickedFile in result.files) {
-        final path = pickedFile.path;
-
-        if (path != null) {
-          final file = File(path);
-
-          String newPath = '${internalDir.path}/${pickedFile.name}';
+      for (var pickedFile in pickedFiles) {
+        {
+          String newPath = path.join(internalDir.path, pickedFile.name);
           File newFile = File(newPath);
 
           // 🔁 prevent override --> find new name
           if (await newFile.exists()) {
-            final baseName = pickedFile.name.split('.').first;
-            final extension = pickedFile.name.contains('.')
-                ? '.${pickedFile.name.split('.').last}'
-                : '';
+            final baseName = path.basenameWithoutExtension(pickedFile.name);
+            final extension = path.extension(pickedFile.name);
 
             int counter = 1;
             do {
-              newPath =
-              '${internalDir.path}/${baseName}_$counter$extension';
+              newPath = path.join(internalDir.path, '${baseName}_$counter$extension');
               newFile = File(newPath);
               counter++;
             } while (await newFile.exists());
           }
 
-          final copiedFile = await file.copy(newPath);
+          // Stream the data: on Android the picked file is a content:// URI without a file path.
+          final sink = newFile.openWrite();
+          await sink.addStream(pickedFile.readAsByteStream());
+          await sink.close();
+          final copiedFile = newFile;
 
           selectedFiles.add(copiedFile);
         }
@@ -317,32 +275,33 @@ class _FileManagerState extends ConsumerState<FileManager> {
         processedFiles++;
         setState(() {
           importProgress = processedFiles / totalFiles;
-          importStatus =
-          'Importing $processedFiles from $totalFiles';
+          importStatus = text.importing_progress(processedFiles, totalFiles);
         });
       }
 
+      if (!mounted) return;
       setState(() {
-        importStatus = 'Import finished.';
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Files imported successfully.'),
-        ),
-      );
-
-      _loadDir(currentDir!);
-
-      debugPrint('Finished Import: ${internalDir.path}');
-    } catch (e, stack) {
-      setState(() {
-        importStatus = 'Fehler beim Import';
+        importStatus = text.import_finished;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error trying to Import: $e'),
+          content: Text(text.files_imported),
+        ),
+      );
+
+      await _loadDir(currentDir!);
+
+      debugPrint('Finished Import: ${internalDir.path}');
+    } catch (e, stack) {
+      if (!mounted) return;
+      setState(() {
+        importStatus = text.import_failed;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(text.import_error(e.toString())),
         ),
       );
 
@@ -380,7 +339,6 @@ class _FileManagerState extends ConsumerState<FileManager> {
       if (entity is File) {
         try {
           await entity.rename(targetPath);
-          //print('Datei ${entity.path} verschoben nach $targetPath');
         } catch (e) {
           print('Error trying to move file: $e');
         }
@@ -388,14 +346,13 @@ class _FileManagerState extends ConsumerState<FileManager> {
         // Verzeichnis verschieben
         try {
           await entity.rename(targetPath);
-          //print('Verzeichnis ${entity.path} verschoben nach $targetPath');
         } catch (e) {
           print('Error trying to move directory: $e');
         }
       }
     }
     mode = 0;
-    _loadDir(currentDir!);
+    await _loadDir(currentDir!);
   }
 
   void _copySetup() {
@@ -416,43 +373,40 @@ class _FileManagerState extends ConsumerState<FileManager> {
 
         try {
           await entity.copy(targetPath);
-          //print('Datei ${entity.path} verschoben nach $targetPath');
         } catch (e) {
-          //print('Fehler beim Verschieben der Datei: $e');
+          print("file_manager_screen: copying $targetPath failed: $e");
         }
       } else if (entity is Directory) {
         Directory targetDir = Directory(targetPath);
 
         try {
-          // Erstelle das Zielverzeichnis, falls es nicht existiert
+          // create the target directory if it doesn't exist
           await targetDir.create(recursive: true);
 
-          // Rekursiv alle Dateien und Unterverzeichnisse kopieren
+          // copy all files and subdirectories recursively
           await _copyDirectoryContents(entity, targetDir);
-          //print('Verzeichnis ${entity.path} erfolgreich kopiert nach $targetPath');
         } catch (e) {
           print('Error trying to copy directory: $e');
         }
       }
     }
     mode = 0;
-    _loadDir(currentDir!);
+    await _loadDir(currentDir!);
   }
 
 
   Future<String> _checkAlreadyExists(FileSystemEntity entity) async {
-    String targetPath = '${currentDir!.path}/${entity.uri.pathSegments.last}';
+    String targetPath = path.join(currentDir!.path, path.basename(entity.path));
 
 
     if (entity is File) {
       if (await File(targetPath).exists()) {
-        final fileName = entity.uri.pathSegments.last;
-        final extension = fileName.split('.').last;
-        final baseName = fileName.substring(0, fileName.lastIndexOf('.'));
+        final extension = path.extension(entity.path);
+        final baseName = path.basenameWithoutExtension(entity.path);
 
         int counter = 1;
         while (await File(targetPath).exists()) {
-          targetPath = '${currentDir!.path}/$baseName($counter).$extension';
+          targetPath = path.join(currentDir!.path, '$baseName($counter)$extension');
           counter++;
         }
       }
@@ -463,7 +417,7 @@ class _FileManagerState extends ConsumerState<FileManager> {
         int counter = 1;
 
         while (await Directory(targetPath).exists()) {
-          targetPath = '${currentDir!.path}/$dirName($counter)';
+          targetPath = path.join(currentDir!.path, '$dirName($counter)');
           counter++;
         }
       }
@@ -481,7 +435,6 @@ class _FileManagerState extends ConsumerState<FileManager> {
       } else if (subEntity is Directory) {
         Directory newTargetSubDir = Directory(newTargetPath);
         await newTargetSubDir.create(recursive: true);
-        //print('Created new Dir: $newTargetSubDir');
         await _copyDirectoryContents(subEntity, newTargetSubDir);
       }
     }

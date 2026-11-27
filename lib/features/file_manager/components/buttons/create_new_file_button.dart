@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'package:betternotes/features/editor/data/document_file.dart';
 import 'package:betternotes/features/editor/models/page/document_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../../core/providers/global_providers.dart';
+import 'package:path/path.dart' as p;
 
 final editorIndex = 0;
 
@@ -24,27 +26,17 @@ class NewFileButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
 
-    final settings = ref.watch(settingsProvider);
 
-    final text = AppLocalizations.of(context)!;
     return IconButton(
       color: Theme.of(context).colorScheme.onPrimary,
       onPressed: () async {
 
         final existingNames = await _getExistingDocumentNames();
+        if (!context.mounted) return;
         _showNewFileDialog(context, existingNames, ref);
 
       },
-      /*
-      style: ElevatedButton.styleFrom(
-        minimumSize: const Size(0, 30),
-        tapTargetSize: size,
-        backgroundColor: Theme.of(context).colorScheme.secondary,
-      ),
-
-       */
       icon: Icon(Icons.note_add_outlined),
-      //child: Text(text.new_document, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSecondary)),
     );
   }
 
@@ -95,12 +87,10 @@ class NewFileButton extends ConsumerWidget {
 
                   if (name.isEmpty) {
                     setState(() => errorText = text.name_cannot_be_empty);
-                  } else if (existingNames.contains("$name") || existingNames.contains("$name.bnf")) {
-                    //print("$name already exists");
-                    setState(() => errorText = '\"$name\" '+text.already_exists);
+                  } else if (existingNames.contains(name) || existingNames.contains("$name.bnf")) {
+                    setState(() => errorText = '"$name" ${text.already_exists}');
                   } else {
                     Navigator.of(context).pop();
-                    //onCreate("test");
                     createBnfFile(name, currentDir, ref).then((_) {
                       onLoadDir(currentDir);
                     });
@@ -121,17 +111,12 @@ class NewFileButton extends ConsumerWidget {
 
 Future<void> createBnfFile(String name, dynamic currentDir, WidgetRef ref) async {
 
-  final file = File('${currentDir.path}/$name.bnf');
+  final file = File(p.join(currentDir.path, '$name.bnf'));
 
 
 
   final defaultPage = ref.read(editorSetupProvider)[editorIndex].defaultPage;
   DocumentModel newDoc = DocumentModel(pages: [defaultPage], defaultPage: defaultPage, author: 'name', title: 'title', created: DateTime.now(), pageHeights: [defaultPage.pageHeight], pageList: [defaultPage.pageID]);
-  final bytes = await newDoc.toBytes();
-
-
-  await file.writeAsBytes(
-    bytes,
-    flush: true,
-  );
+  final repository = await createDocumentFile(file.path, newDoc);
+  await repository.close();
 }

@@ -1,0 +1,52 @@
+# Release builds on master, v* tags and on demand (ROADMAP CI-03).
+# master only receives commits that passed checks.yml (ruleset, D19), so checks are not repeated here.
+name: build
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Keep in sync with checks.yml and the local Flutter version (D18).
+  FLUTTER_VERSION: "3.47.x"
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+          cache-dependency-path: |
+            android/*.gradle*
+            android/app/*.gradle*
+            android/gradle/wrapper/gradle-wrapper.properties
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      # cargokit compiles rust/ for each Android ABI inside the Gradle build.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+      - run: flutter pub get
+      # Signed with the debug key until CI-04 / P6-04.
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: betternotes-${{ github.ref_name }}-${{ github.sha }}-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error

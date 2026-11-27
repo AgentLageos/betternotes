@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:betternotes/features/editor/models/page/page_model.dart';
 import 'package:betternotes/features/editor/models/tools/eraser_tool.dart';
 import 'package:betternotes/features/editor/models/tools/laser_tool.dart';
@@ -11,12 +10,8 @@ import '../tools/shape_tool.dart';
 
 
 
-//import 'command/command.dart';
-//import 'package:betternotes/global_variables/functions/id_generator.dart';
-
 class EditorSetup {
   final List<int> selectorPools;
-  //final List<int> toolsOld;
   final List<Tool> tools;
   final List<double> widths;
   final List<Color> colors;
@@ -38,7 +33,6 @@ class EditorSetup {
 
   EditorSetup({
     List<int>? selectorPools,
-    //List<int>? toolsOld,
     List<Tool>? tools,
     List<double>? widths,
     List<Color>? colors,
@@ -52,7 +46,6 @@ class EditorSetup {
     List<double>? spaces,
     PageModel? defaultPage,
   }) : selectorPools = selectorPools ?? [0,1,2,3],
-        //toolsOld= toolsOld ?? [0,1,2,3,4,8,8,8],
         tools = tools ?? [PenTool(), EraserTool(), SelectionTool(), ShapeTool(), LaserTool()],
         widths = widths ?? [0.4, 1.2, 4.0],
         colors = colors ?? [Colors.black, Colors.blue, Colors.red, Colors.green, Colors.yellow],
@@ -64,14 +57,12 @@ class EditorSetup {
         colorIndex = colorIndex ?? 0,
         spaces = spaces ?? [0.4, 0.25, 0.25,0.1],
         eraserWidth = eraserWidth ?? 4.0,
-        defaultPage = defaultPage ?? PageModel(strokes: [], pageWidth: 210, pageHeight: 297, backgroundStrokes: [], images: [], pageColor: Colors.white, tiles: [])
+        defaultPage = defaultPage ?? PageModel(pageWidth: 210, pageHeight: 297, pageColor: Colors.white)
 
   ;
-      //selectorPools ?? [ToolSelector(tools: [0, 1, 2]), WidthSelector(widths: [0.4, 1.2, 4.0]), ColorSelector(colors: [Colors.black, Colors.red, Colors.green, Colors.blue, Colors.yellow])];
 
   EditorSetup copyWith({
     List<int>? selectorPools,
-    //List<int>? toolsOld,
     List<Tool>? tools,
     List<double>? widths,
     List<Color>? colors,
@@ -89,7 +80,6 @@ class EditorSetup {
   }) {
     return EditorSetup(
       selectorPools: selectorPools ?? this.selectorPools,
-      //toolsOld: toolsOld ?? this.toolsOld,
       tools : tools ?? this.tools,
       widths: widths?? this.widths,
       colors: colors ?? this.colors,

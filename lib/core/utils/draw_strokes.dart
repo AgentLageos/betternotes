@@ -1,14 +1,13 @@
 import 'dart:ui';
 import '../../features/editor/models/page/stroke.dart';
 
-void drawStrokes2(Canvas canvas, List<Stroke> strokes, double scale, double blur) {
+void drawStrokes(Canvas canvas, List<Stroke> strokes, double scale, double blur) {
   for (final stroke in strokes) {
     if (stroke.points.isEmpty) continue;
 
     final paint = Paint()
       ..color = stroke.color
       ..isAntiAlias = true
-      //..maskFilter = MaskFilter.blur(BlurStyle.normal, blur)
     ;
 
 
@@ -71,7 +70,7 @@ void drawStrokes2(Canvas canvas, List<Stroke> strokes, double scale, double blur
         canvas.drawCircle(stroke.points.first.pos * scale, stroke.points.first.width * scale / 2, paint);
         canvas.drawCircle(stroke.points.last.pos * scale, stroke.points.last.width * scale / 2, paint);
 
-        paint..style = PaintingStyle.fill;
+        paint.style = PaintingStyle.fill;
         canvas.drawPath(path, paint);
       }
     }
@@ -114,8 +113,6 @@ void drawStrokes2AfterIsolate(Canvas canvas, List<Stroke> strokes, double scale,
       }
     } else {
 
-      //print("drawStrokes: ${lefts[k].length}");
-
 
       if (lefts[k].isNotEmpty && rights[k].isNotEmpty) {
         final path = Path()..moveTo(lefts[k].first.dx, lefts[k].first.dy);
@@ -132,7 +129,7 @@ void drawStrokes2AfterIsolate(Canvas canvas, List<Stroke> strokes, double scale,
         canvas.drawCircle(stroke.points.first.pos * scale, stroke.points.first.width * scale / 2, paint);
         canvas.drawCircle(stroke.points.last.pos * scale, stroke.points.last.width * scale / 2, paint);
 
-        paint..style = PaintingStyle.fill;
+        paint.style = PaintingStyle.fill;
         canvas.drawPath(path, paint);
       }
     }

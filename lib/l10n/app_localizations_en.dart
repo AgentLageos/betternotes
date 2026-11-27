@@ -162,6 +162,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get debug_mode => 'Debug Mode';
 
   @override
+  String get mesh_renderer => 'Mesh renderer (experimental)';
+
+  @override
+  String get mesh_renderer_hint => 'New renderer in development; applies to documents opened afterwards';
+
+  @override
   String get manage_app_permissions => 'Manage App Permissions';
 
   @override
@@ -415,4 +421,78 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get coming_soon => 'COMING SOON';
+
+  @override
+  String get import_pdf_title => 'Import PDF?';
+
+  @override
+  String get import_pdf_question => 'Do you want to import this PDF file?';
+
+  @override
+  String get import_action => 'Import';
+
+  @override
+  String get import_failed => 'Import failed';
+
+  @override
+  String import_pdf_failed(String error) {
+    return 'The PDF could not be imported.\n\n$error';
+  }
+
+  @override
+  String get invalid_input => 'Invalid input';
+
+  @override
+  String get advanced_settings => 'Advanced Settings';
+
+  @override
+  String get more_settings_here => 'More settings will appear here';
+
+  @override
+  String get saved => 'Saved';
+
+  @override
+  String access_denied(String path) {
+    return 'Access denied: $path';
+  }
+
+  @override
+  String get choose_destination => 'Choose Destination';
+
+  @override
+  String files_exported_to(String path) {
+    return 'All files exported to: $path';
+  }
+
+  @override
+  String export_error(String error) {
+    return 'Error while exporting: $error';
+  }
+
+  @override
+  String get import_starting => 'Starting import...';
+
+  @override
+  String importing_progress(int done, int total) {
+    return 'Importing $done of $total';
+  }
+
+  @override
+  String get import_finished => 'Import finished.';
+
+  @override
+  String get files_imported => 'Files imported successfully.';
+
+  @override
+  String import_error(String error) {
+    return 'Error while importing: $error';
+  }
+
+  @override
+  String get open_failed => 'Could not open note';
+
+  @override
+  String open_failed_message(String error) {
+    return 'The note could not be opened. It may be damaged or saved by an older version of BetterNotes.\n\n$error';
+  }
 }

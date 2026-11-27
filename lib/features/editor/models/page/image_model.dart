@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:archive/archive.dart';
@@ -7,15 +6,26 @@ import 'package:betternotes/core/utils/id_generator.dart';
 import 'dart:typed_data';
 
 
+/// Encoded form (PNG, JPEG, ...) of a [ui.Image], computed at most once and shared by all copies of an
+/// [ImageModel] (they all point to the same image).
+class _EncodedImage {
+  _EncodedImage(this.bytes);
+
+  Uint8List? bytes;
+}
+
+/// An image placed on a page. Immutable (D1): changes produce a new model via [copyWith].
 class ImageModel {
-  double width;
-  double height;
-  Offset position;
-  double rotation;
-  //final int path;
+  final double width;
+  final double height;
+  final Offset position;
+  final double rotation;
   final ui.Image image;
   final int imageID;
+  final _EncodedImage _encoded;
 
+  /// [encodedBytes]: the file bytes (PNG, JPEG, ...) [image] was decoded from, if known.
+  /// They are stored as they are, so the image isn't re-encoded on save.
   ImageModel({
     required this.height,
     required this.width,
@@ -23,25 +33,35 @@ class ImageModel {
     required this.rotation,
     required this.image,
     //required this.path,
-    int? imageID
-  }) : imageID = imageID ?? IdGenerator.next();
+    int? imageID,
+    Uint8List? encodedBytes,
+  }) : imageID = imageID ?? IdGenerator.next(), _encoded = _EncodedImage(encodedBytes);
+
+  ImageModel._shared({
+    required this.height,
+    required this.width,
+    required this.position,
+    required this.rotation,
+    required this.image,
+    required this.imageID,
+    required _EncodedImage encoded,
+  }) : _encoded = encoded;
 
   ImageModel copyWith({
     double? height,
     double? width,
     Offset? position,
-    //int? path,
-
+    double? rotation,
     int? imageID
   }) {
-    return ImageModel(
+    return ImageModel._shared(
       height: height ?? this.height,
       width: width ?? this.width,
       position: position ?? this.position,
       rotation: rotation ?? this.rotation,
-      image: image ?? this.image,
-      //path : path ?? this.path,
-      imageID: imageID ?? this.imageID
+      image: image,
+      imageID: imageID ?? this.imageID,
+      encoded: _encoded,
     );
   }
 
@@ -50,27 +70,17 @@ class ImageModel {
   }
 
   ImageModel copy() {
-    return ImageModel(
+    return ImageModel._shared(
       position: position,
       height: height,
       width: width,
       rotation: rotation,
       image: image,
-      //path: path,
       imageID: IdGenerator.next(),
+      encoded: _encoded,
     );
   }
 
-  ImageModel copyWithID() {
-    return ImageModel(
-      position: position,
-      height: height,
-      width: width,
-      rotation: rotation,
-      image: image,
-      imageID: imageID,
-    );
-  }
 
 
 
@@ -86,69 +96,67 @@ class ImageModel {
     };
   }
 
-  Future<Uint8List> toBytes() async {
-    final byteData = await image.toByteData(
-      format: ui.ImageByteFormat.png,
-    );
-
+  /// Encoded bytes of [image]: the bytes it was decoded from, or a PNG encoded on the first
+  /// call and cached.
+  Future<Uint8List> encodedBytes() async {
+    final cached = _encoded.bytes;
+    if (cached != null) return cached;
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     if (byteData == null) {
-      throw Exception('Image konnte nicht konvertiert werden');
+      throw Exception('Image could not be converted');
     }
-
-    final pngBytes = byteData.buffer.asUint8List();
-    final builder = BytesBuilder();
-    final width = ByteData(8)..setFloat64(0, this.width, Endian.little);
-    final height = ByteData(8)..setFloat64(0, this.height, Endian.little);
-    final positionX = ByteData(8)..setFloat64(0, position.dx, Endian.little);
-    final positionY = ByteData(8)..setFloat64(0, position.dy, Endian.little);
-    final rotation = ByteData(8)..setFloat64(0, this.rotation, Endian.little);
-    final imageID = ByteData(8)..setUint64(0, this.imageID, Endian.little);
-    final pngLength = ByteData(8)..setUint64(0, pngBytes.length, Endian.little);
-
-    builder.add(width.buffer.asUint8List());
-    builder.add(height.buffer.asUint8List());
-    builder.add(positionX.buffer.asUint8List());
-    builder.add(positionY.buffer.asUint8List());
-    builder.add(rotation.buffer.asUint8List());
-    builder.add(imageID.buffer.asUint8List());
-    builder.add(pngLength.buffer.asUint8List());
-    builder.add(pngBytes);
-
-    return builder.takeBytes();
+    return _encoded.bytes = byteData.buffer.asUint8List();
   }
 
-  static Future<ImageModel> fromBytes(Uint8List bytes) async {
-    final data = ByteData.sublistView(bytes);
+  /// ID of the image block holding [encoded] in a `.bnf` file: a 53-bit FNV-1a hash of the content,
+  /// so the same picture is stored only once per file. (53 bits: exact integers on the web too.)
+  static int contentID(Uint8List encoded) {
+    // FNV-1a, 64 bit (wrapping multiplication on the native int).
+    var hash = 0xcbf29ce484222325;
+    for (final byte in encoded) {
+      hash ^= byte;
+      hash *= 0x100000001b3;
+    }
+    return hash & 0x1FFFFFFFFFFFFF;
+  }
 
-    int offset = 0;
-    final width = data.getFloat64(offset, Endian.little,);
-    offset += 8;
-    final height = data.getFloat64(offset, Endian.little,);
-    offset += 8;
-    final positionX = data.getFloat64(offset, Endian.little,);
-    offset += 8;
-    final positionY = data.getFloat64(offset, Endian.little,);
-    offset += 8;
-    final rotation = data.getFloat64(offset, Endian.little,);
-    offset += 8;
-    final imageID = data.getUint64(offset, Endian.little,);
-    offset += 8;
-    final pngLength = data.getUint64(offset, Endian.little,);
-    offset += 8;
-    final pngBytes = bytes.sublist(offset, offset + pngLength,);
-    final codec = await ui.instantiateImageCodec(pngBytes,);
+  /// Encodes the placement of this image plus a reference to its image block.
+  /// Returns the bytes for the page record and the image block (ID + encoded image) to store with it.
+  Future<({Uint8List bytes, int blockID, Uint8List image})> encode() async {
+    final encoded = await encodedBytes();
+    final blockID = contentID(encoded);
+    final data = ByteData(56)
+      ..setFloat64(0, width, Endian.little)
+      ..setFloat64(8, height, Endian.little)
+      ..setFloat64(16, position.dx, Endian.little)
+      ..setFloat64(24, position.dy, Endian.little)
+      ..setFloat64(32, rotation, Endian.little)
+      ..setUint64(40, imageID, Endian.little)
+      ..setUint64(48, blockID, Endian.little);
+    return (bytes: data.buffer.asUint8List(), blockID: blockID, image: encoded);
+  }
+
+  /// Length of the bytes produced by [encode].
+  static const int encodedLength = 56;
+
+  /// Decodes bytes produced by [encode]. [readImage] returns the content of an image block.
+  static Future<ImageModel> decode(Uint8List bytes, Future<Uint8List?> Function(int blockID) readImage) async {
+    final data = ByteData.sublistView(bytes);
+    final blockID = data.getUint64(48, Endian.little);
+    final encoded = await readImage(blockID);
+    if (encoded == null) {
+      throw Exception('Image block $blockID is missing');
+    }
+    final codec = await ui.instantiateImageCodec(encoded);
     final frame = await codec.getNextFrame();
-    final image = frame.image;
     return ImageModel(
-      width: width,
-      height: height,
-      position: Offset(
-        positionX,
-        positionY,
-      ),
-      rotation: rotation,
-      image: image,
-      imageID: imageID,
+      width: data.getFloat64(0, Endian.little),
+      height: data.getFloat64(8, Endian.little),
+      position: Offset(data.getFloat64(16, Endian.little), data.getFloat64(24, Endian.little)),
+      rotation: data.getFloat64(32, Endian.little),
+      image: frame.image,
+      imageID: data.getUint64(40, Endian.little),
+      encodedBytes: encoded,
     );
   }
 
@@ -171,22 +179,11 @@ class ImageModel {
       return null;
     }
 
-    final bytes = png.content as Uint8List;
+    final bytes = png.content;
 
     final codec = await ui.instantiateImageCodec(bytes);
     final frame = await codec.getNextFrame();
     final uiImage = frame.image;
-
-
-    /*
-    final bytes = await loadImageBytes(json['imageID']);
-
-    final codec = await ui.instantiateImageCodec(bytes);
-    final frame = await codec.getNextFrame();
-
-     */
-
-
 
 
     return ImageModel(

@@ -20,23 +20,25 @@ import 'package:betternotes/core/providers/global_providers.dart';
 import 'package:betternotes/features/editor/components/selection_drawer.dart';
 
 import '../models/tools/line_tool.dart';
+import '../rendering/page_tiles.dart';
+import '../rendering/dart_page_renderer.dart';
 
 
 
 
 
 class PageWidget extends ConsumerStatefulWidget {
-  int pageIndex = 0;
+  final int docID;
+  final int pageIndex;
   final int pageID;
 
 
 
 
 
-  //final GlobalKey<PageWidgetState> pageKey;
-
-  PageWidget({
+  const PageWidget({
     super.key,
+    required this.docID,
     required this.pageIndex,
     required this.pageID,
 
@@ -56,9 +58,8 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
   Set<int> activePointers = {};
 
+  late final bool usesDartRenderer = ref.read(documentProvider(widget.docID).notifier).renderer is DartPageRenderer;
 
-
-  //int selectedTool=0;
 
 
   double eraseRadius = 10.0;      //size of the eraser
@@ -69,31 +70,30 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
   bool penUsed = false;
 
-  //List<Stroke> erasedStrokes = [];                                              //stores all the strokes that get removed by the eraser in one move. needed for undo/redo
   bool eraserUsed = false;                                                      //used for undo, preventing adding command when eraser instead of pen was used
 
   int pageIndex = 0;
 
-  late final pageID;
+  late final int pageID;
 
   double variableWidth = 0.5;
 
   List<Stroke> activeStrokes = [];
   List<Stroke> erasedStrokes = [];
+  /// Strokes already committed to the document but not yet visible in the rendered tiles; drawn
+  /// like active strokes until [PageRenderer.updateStrokes] completes, so they never disappear.
+  List<Stroke> pendingStrokes = [];
 
   late double lastPressure;
 
 
 
-  //late Tile tile;
-
   Rect rect = Rect.fromLTWH(0, 0, 53, 50);
-  //late Tiles tiles;
 
 
   List<Stroke> selectionStrokes = [];           //used for displaying and calculation the selection area
   List<Stroke> laserStrokes = [];           //used for displaying the laserpointer
-  Map<Stroke, Timer> laserTimers = {};
+  Map<int, Timer> laserTimers = {};           //per laser strokeID
   bool selectionActive = false;
   int selectionOperation = -1;
   Offset oldPosition = Offset(0,0);
@@ -102,9 +102,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
   List<ImageModel> erasedImages = [];
 
-  final int docID = 0;
-
-  final int docIndex=0;
+  int get docID => widget.docID;
   final int editorIndex = 0;
 
 
@@ -137,7 +135,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     pageID = widget.pageID;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      //ref.read(documentsProvider.notifier).initializeAllPageTiles(docID);
     });
 
   }
@@ -145,7 +142,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
   @override
   void dispose() {
     activeStrokes.clear();
-    //erasedStrokes.clear();
 
     super.dispose();
   }
@@ -154,33 +150,21 @@ class PageWidgetState extends ConsumerState<PageWidget> {
   @override
   Widget build(BuildContext context) {
 
-    //print("PageWidget build triggered. Reason: ${context.owner?.debugBuilding}");
-    //debugPrintStack(maxFrames: 10);
 
-    final docs = ref.watch(documentsProvider);
+    final doc = ref.watch(documentProvider(docID));
 
 
 
     final setup =ref.read(editorSetupProvider.select((setup) => setup[editorIndex]));
-    //final Tool selectedTool = EraserTool();
 
     Tool selectedTool = ref.read(editorSetupProvider)[editorIndex].tools[setup.toolIndex];
     final selectionColor = setup.selectionColor;
-    //final selectionColor = Colors.black;
 
 
-    if (docIndex < 0 || docIndex >= docs.length) {
-      return const SizedBox();
-
-    }
-    final doc = docs[docIndex];
-
-    if (doc.pages.isEmpty) {
+    final page = doc.pages.where((p) => p.pageID == pageID).firstOrNull;
+    if (page == null) {
       return const SizedBox();
     }
-
-
-    final page = docs[docIndex].pages.firstWhere((p) => p.pageID == pageID);
     pageIndex = doc.pageList.indexWhere((p) => p == pageID);
 
 
@@ -207,14 +191,10 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
 
             ),
-            if (settings.debugMode && ref.read(documentsProvider)
-              [docIndex].pages.firstWhere((p) => p.pageID == page.pageID) == page.pageID
-
-            ) Container(
+            if (settings.debugMode) Container(
               height: pageHeight,
               width: pageWidth,
               decoration: BoxDecoration(
-                //color: Colors.red.withAlpha(64),
                 border: Border.all(
                   color: Colors.red,
                   width: 2,
@@ -231,7 +211,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
                   }
 
                   activePointers.add(event.pointer);
-                  //print(activePointers);
                   _pointerMove(event, activePointers.length);
                 },
                 onPointerMove: (event) {_pointerMove(event, activePointers.length);},
@@ -240,13 +219,14 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
                 child: Stack(
                     children: [
-                      DrawerWidget(pageID: pageID, docID: docID, activeStrokes: activeStrokes, erasedStrokes: erasedStrokes, laserStrokes: laserStrokes,),
+                      DrawerWidget(pageID: pageID, docID: docID, activeStrokes: [...pendingStrokes, ...activeStrokes], erasedStrokes: erasedStrokes, laserStrokes: laserStrokes,),
                       //ActiveDrawer(pageWidth: pageWidth, pageHeight: pageHeight, tiles: tiles, activeStrokes: activeStrokes, page: page, images: page.images),          //drawing currently active strokes, drawing images, manages smooth erasing behavior
                       //VVV  displaying selection outline and selection menu   VVV
                       SelectionDrawer(width: pageWidth, height: pageHeight, selectionStrokes: selectionStrokes, selectionActive: selectionActive, selectionOperation: selectionOperation, selectionColor: selectionColor, deleteSelection: () { deleteSelection(); }, copySelection: () { copySelection();}, colorSelection: () { colorSelection(ref); },),
-                      if (settings.debugMode) Positioned(right: 16, bottom: 16, child: Text("${pageID}    ${pageIndex + 1}", style: TextStyle(fontSize: 12, color: Colors.grey.shade700),),)       //displaying pagenumber and pageid, NEEDS TO BE HERE SO STYLUS IS RECOGNIZED OVER TEXT AND DOESNT GET OVERLAYED WHILE ERASING
+                      if (settings.debugMode) Positioned(right: 16, bottom: 16, child: Text("$pageID    ${pageIndex + 1}", style: TextStyle(fontSize: 12, color: Colors.grey.shade700),),)       //displaying pagenumber and pageid, NEEDS TO BE HERE SO STYLUS IS RECOGNIZED OVER TEXT AND DOESNT GET OVERLAYED WHILE ERASING
                       else Positioned(right: 16, bottom: 16, child: Text("${pageIndex + 1}", style: TextStyle(fontSize: 12, color: Colors.grey.shade700),),),
-                      if(page.tiles[0].isEmpty)   Positioned.fill(
+                      // Loading indicator until the Dart renderer has tiles (the Rust renderer is fast enough without).
+                      if(usesDartRenderer && ref.watch(pageTilesProvider.select((m) => m[(docID: docID, pageID: pageID)]?.isEmpty ?? true)))   Positioned.fill(
                         child: IgnorePointer(
                           child: Center(
                             child: SizedBox(
@@ -292,7 +272,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
                     height: selectedTool.width * 2,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                       border: Border.all(color: Colors.black54, width: selectedTool.width / 20),
                     ),
                   ),
@@ -307,35 +287,33 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
   void _pointerMove(PointerEvent event, int activePointers) {
 
-    //print("move");
 
     final setup = ref.read(editorSetupProvider.select((setup) => setup[editorIndex]));
     final color = setup.colors[setup.colorIndex];
     final width = setup.widths[setup.widthIndex];
     final selectedTool = setup.tools[setup.toolIndex];
 
-    final docs = ref.read(documentsProvider);
-    final page = docs[docIndex].pages.firstWhere((p) => p.pageID == pageID);
+    final page = ref.read(documentProvider(docID)).pages.firstWhere((p) => p.pageID == pageID);
 
     //prevents writing next to page
 
-    //print(activePointers);
 
     if (event.kind == PointerDeviceKind.stylus || event.kind == PointerDeviceKind.invertedStylus || selectedTool.finger && activePointers == 1) {
       final RenderBox canvasBox = _canvasKey.currentContext!.findRenderObject() as RenderBox;
       final Offset localPosition = canvasBox.globalToLocal(event.position);
-      //print("hi");
       if (selectedTool is PenTool) {                                                             //if pen (selectedTool==0)is selected
 
-        //print("pentool");
         if(selectedTool.penType == PenType.normal || selectedTool.penType == PenType.fountain && selectedTool.finger) {
           addPointsToActiveStrokes(color, PointModel(pos: localPosition, width: width));
         }
         else if (selectedTool.penType == PenType.fountain) {
           double pressure = width*((event.pressure)*1.5);
           if(activeStrokes.isNotEmpty && activeStrokes.last.points.isNotEmpty){
-            if (pressure-activeStrokes.last.points.last.width>0.1) pressure = activeStrokes.last.points.last.width+0.1;
-            else if(pressure-activeStrokes.last.points.last.width<-0.1) pressure = activeStrokes.last.points.last.width-0.1;
+            if (pressure-activeStrokes.last.points.last.width>0.1) {
+              pressure = activeStrokes.last.points.last.width+0.1;
+            } else if(pressure-activeStrokes.last.points.last.width<-0.1) {
+              pressure = activeStrokes.last.points.last.width-0.1;
+            }
           }
 
 
@@ -349,7 +327,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
         eraseRadius = selectedTool.width;
         _eraserPosition = localPosition; //update eraser circle  position
-        //erasedStrokes.insertAll(0, page.strokes.where((stroke) {final isInEraseRadius = stroke.points.any((point) => (point.pos - localPosition).distance < eraseRadius,);final notAlreadyErased = !erasedStrokes.contains(stroke);return isInEraseRadius && notAlreadyErased;}).toList(),);
 
         erasedStrokes.insertAll(0, page.strokes.where((stroke) {return !erasedStrokes.contains(stroke) && strokeHitByEraser(stroke, localPosition, eraseRadius);}).toList(),);
 
@@ -361,8 +338,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
           erasedImages.add(img);
 
-          //ref.read(documentsProvider.notifier).removeElements(docID, pageID, [], [img.imageID]);
-          ref.read(documentsProvider.notifier).modifyElementsExecute(docID, pageID,[], [], [], [img.imageID]);
+          ref.read(documentProvider(docID).notifier).modifyElementsExecute(pageID,[], [], [], [img.imageID]);
         }
 
         setState(() {});
@@ -390,17 +366,13 @@ class PageWidgetState extends ConsumerState<PageWidget> {
       else if (selectedTool is SelectionTool && selectionActive==false) {
         addPointsToSelectionStrokes(setup.selectionColor, PointModel(pos : localPosition, width: 0.3), selectedTool);
         setState(() {});
-        //print("renew");
 
       }
       else if (selectedTool is SelectionTool && selectionActive==true) {
-        //print("setstate selectiuon");
         setState(() {
-          //print("active");
           handleSelectionAction(localPosition);
         });
 
-        //print(selectionStrokes.length);
 
       }
 
@@ -412,11 +384,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
   Future<void> _pointerUp(PointerEvent event) async {
 
-    //print("up");
-    //ref.read(documentsProvider.notifier).initializeAllPageTiles(docID);
-
-    //ref.read(documentsProvider.notifier).setBackgroundStrokesExecute(docID, pageID, 150, 150, Colors.black, 1);
-    //tiles.updateBackground();
 
     activePointers.remove(event.pointer);
 
@@ -425,7 +392,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
 
     if(selectionOperation == 0){
-      //print("moved");
     }
 
     oldPosition=Offset(0,0);
@@ -434,21 +400,24 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
     if (event.kind == PointerDeviceKind.stylus || event.kind == PointerDeviceKind.invertedStylus || event.pressure!=variableWidth) {
 
-      if (activeStrokes.length>0 && (selectedTool is PenTool || selectedTool is ShapeTool || selectedTool is LineTool)) {
-        //print(activeStrokes.last.points.length);
-        ref.read(documentsProvider.notifier).modifyElements(docIndex, pageID, activeStrokes, [], [], []);
+      if (activeStrokes.isNotEmpty && (selectedTool is PenTool || selectedTool is ShapeTool || selectedTool is LineTool)) {
+        final committed = activeStrokes;
+        pendingStrokes = [...pendingStrokes, ...committed];
         activeStrokes = [];
+        unawaited(ref.read(documentProvider(docID).notifier).modifyElements(pageID, committed, [], [], []).whenComplete(() {
+          if (!mounted) return;
+          setState(() => pendingStrokes = [for (final s in pendingStrokes) if (!committed.contains(s)) s]);
+        }));
       }
-      else if ((erasedImages.length>0 || erasedStrokes.length>0) && selectedTool is EraserTool) {
+      else if ((erasedImages.isNotEmpty || erasedStrokes.isNotEmpty) && selectedTool is EraserTool) {
         Set<int>idsToRemove = erasedStrokes.map((s) => s.strokeID).toSet();
-        List<int>erasedImageIDs = erasedImages.map((s) => s.imageID).toList();
         _eraserPosition = null;
-        await ref.read(documentsProvider.notifier).modifyElements(docIndex, pageID, [], [], idsToRemove.toList(), erasedImages);
+        await ref.read(documentProvider(docID).notifier).modifyElements(pageID, [], [], idsToRemove.toList(), erasedImages);
         erasedImages = [];
         erasedStrokes =[];
       }
 
-      if (laserStrokes.length>0 && selectedTool is LaserTool) {
+      if (laserStrokes.isNotEmpty && selectedTool is LaserTool) {
         finishAddingPointsToLaserStrokes(selectedTool.color, selectedTool);
 
       }
@@ -456,26 +425,19 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
 
 
-      else if(selectionStrokes.length>0 && selectionActive == false && selectionStrokes.last.points.length>0){
-
-        //print(selectionStrokes.length);
-        //print(selectionActive);
-        //print("selection");
+      else if(selectionStrokes.isNotEmpty && selectionActive == false && selectionStrokes.last.points.isNotEmpty){
 
 
-
-
-        final page = ref.read(documentsProvider.select((docs) => docs[docIndex].pages[pageIndex]));          //important: this isnt a copy of the provider but a reference! youre modifying the provider live by calling this!
+        // Looked up by ID: pageIndex is a position in the whole document, pages only holds the loaded window.
+        final page = ref.read(documentProvider(docID)).pages.firstWhere((p) => p.pageID == pageID);
         final strokes = page.strokes;
         final images = page.images;
 
         final Rect selectionBounds = selectionStrokes.last.getStrokeBounds();
-        //Rect selectionHighlight = Rect.fromCenter(center: selectionBounds.center, width: 0, height: 0);
         Rect selectionHighlight = Rect.fromLTRB(0, 0, 0, 0);
 
         final setup = ref.read(editorSetupProvider.select((setup) => setup[editorIndex]));
 
-        //print(selectionBounds);
         for (int i = 0; i<strokes.length; i++) {
 
           Rect strokeBounds = strokes[i].getStrokeBounds();
@@ -485,15 +447,13 @@ class PageWidgetState extends ConsumerState<PageWidget> {
           }
 
           if(setup.selectionMode==false && strokeInsideLasso(strokes[i], selectionStrokes.last)) {
-            //tiles.erasedStrokes.add(strokes[i]);
-            erasedStrokes.add(strokes[i].copyWithID());
-            activeStrokes.add(strokes[i].copyWithID());
+            erasedStrokes.add(strokes[i]);
+            activeStrokes.add(strokes[i]);
             selectionHighlight=adjustSelectionHighlight(selectionHighlight, strokeBounds);
           }
           else if (setup.selectionMode==true && strokeTouchesLasso(strokes[i], selectionStrokes.last)){
-            //tiles.erasedStrokes.add(strokes[i]);
-            erasedStrokes.add(strokes[i].copyWithID());
-            activeStrokes.add(strokes[i].copyWithID());
+            erasedStrokes.add(strokes[i]);
+            activeStrokes.add(strokes[i]);
             selectionHighlight=adjustSelectionHighlight(selectionHighlight, strokeBounds);
           }
 
@@ -512,22 +472,20 @@ class PageWidgetState extends ConsumerState<PageWidget> {
           final imgStroke = Stroke(color: Colors.white, width: 0, points: [PointModel(pos: img.position, width:  0), PointModel(pos: img.position+Offset(0, img.height), width:  0), PointModel(pos: img.position+Offset(img.width, img.height), width:  0), PointModel(pos: img.position+Offset(img.width, 0), width:  0),]);
 
           if(setup.selectionMode==false && strokeInsideLasso(imgStroke, selectionStrokes.last)) {
-            //tiles.erasedStrokes.add(strokes[i]);
             activeImages.add(img);
-            erasedImages.add(img.copyWithID());
+            erasedImages.add(img);
             selectionHighlight=adjustSelectionHighlight(selectionHighlight, imgBounds);
           }
           else if (setup.selectionMode==true && strokeTouchesLasso(imgStroke, selectionStrokes.last)){
-            //tiles.erasedStrokes.add(strokes[i]);
             activeImages.add(img);
-            erasedImages.add(img.copyWithID());
+            erasedImages.add(img);
             selectionHighlight=adjustSelectionHighlight(selectionHighlight, imgBounds);
           }
         }
 
 
         selectionStrokes.last.points.clear();
-        if(activeStrokes.length>0 || activeImages.length>0){
+        if(activeStrokes.isNotEmpty || activeImages.isNotEmpty){
 
           selectionStrokes.last.points.add(PointModel(pos: selectionHighlight.topLeft, width: 0.3));
           selectionStrokes.last.points.add(PointModel(pos: selectionHighlight.bottomLeft, width: 0.3));
@@ -536,60 +494,35 @@ class PageWidgetState extends ConsumerState<PageWidget> {
           selectionActive = true;
 
         }
-        else selectionStrokes = [];
+        else {
+          selectionStrokes = [];
+        }
 
 
 
       }
 
-      //print("setstate51");
 
       setState(() {
-        //print("setstate52");
         newStroke = true;
         _eraserPosition = null;
         _currentPosition = null;
       });
-      //print("setstate53");
-
-
-
 
 
     }
 
-    //print(selectionOperation);
   }
-
-
-
-  /*
-  void setPageNumber(int number){
-    pageIndex = number;                                                     //this is the important one
-    //print("pagenumber"+pageNumber.toString());
-    //print("setstate6");
-    setState(() {
-
-    });
-  }
-   */
-
 
 
 
   Future<void> handleSelectionStart(PointerEvent event, Tool tool) async {
-    //print("hi");
 
     Offset pointer = event.localPosition;
     if (event.kind == PointerDeviceKind.touch){
-      //print("touch");
       return;
     }
 
-
-    //ref.read(documentsProvider.notifier).setNewImage(docID, pageID, false);
-
-    //print(oldPosition);
 
     final stroke = selectionStrokes.first;
 
@@ -600,7 +533,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
     const double hitRadius = 3;
 
-    //startPointer = pointer;
     Offset rotatePointer = p0-(p0-p1)/4+(p3-p0)/2;              //when changing this also change the detection area in selection_drawer (search for line with same formula)
 
 
@@ -618,93 +550,66 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
     }
     if ((pointer - rotatePointer).distance < hitRadius && (tool is SelectionTool)) {
-      //currentAction = SelectionAction.rotate;
-      //selectionCenter = center;
-      //print("rotate");
       selectionOperation = 1;         //rotating selection
       lastDistance = null;
       scaleCenter = null;
       lastVector = null;
-      //return;
     }
     else if(((pointer - p0).distance < hitRadius || (pointer - p1).distance < hitRadius || (pointer - p2).distance < hitRadius || (pointer - p3).distance < hitRadius) && (tool is SelectionTool)){
-      //print("scale");
       lastVector = null;
-      //currentAction = SelectionAction.scaleCorner;
-      //selectionCenter = center;
       selectionOperation = 2;           //scaling selection
-      //return;
 
     }
     else if (rect.contains(pointer)  && (tool is SelectionTool)) {
-      //print("move");
-      //currentAction = SelectionAction.move;
       selectionOperation = 0;       //moving selection
       lastDistance = null;
       scaleCenter = null;
       lastVector = null;
-      //return;
     }
     else if (sideMenu.contains(pointer)  && (tool is SelectionTool)) {
       selectionOperation = -1;
       lastDistance = null;
       scaleCenter = null;
       lastVector = null;
-      //print("sidemenu");
     }
     else {
-      //print("null");
 
       List<int>erasedStrokeIDs = erasedStrokes.map((s) => s.strokeID).toList();
-      List<int>erasedImageIDs = erasedImages.map((s) => s.imageID).toList();
 
       List<ImageModel> copiedAddedImages = [];
       for (final i in activeImages) {
-        copiedAddedImages.add(i.copyWithID());
+        copiedAddedImages.add(i);
       }
 
-      await ref.read(documentsProvider.notifier).modifyElements(docID, pageID, activeStrokes, copiedAddedImages, erasedStrokeIDs, erasedImages);
-      //await ref.read(documentsProvider.notifier).removeElements(docID, pageID, erasedStrokeIDs, []);
-      //ref.read(documentsProvider.notifier).addElements(docID, pageID, activeStrokes, []);
+      await ref.read(documentProvider(docID).notifier).modifyElements(pageID, activeStrokes, copiedAddedImages, erasedStrokeIDs, erasedImages);
 
 
       oldPosition = Offset(0,0);
       selectionOperation = -1;
       selectionActive = false;
-      //tiles.updateErased();
-      //tiles.update(activeStrokes);
       selectionStrokes = [];
-     // tiles.erasedStrokes = [];
       erasedStrokes = [];
       activeStrokes = [];
       lastDistance = null;
       scaleCenter = null;
       activeImages = [];
       erasedImages = [];
-
-      //print("selection finished");
-
-
-
-
+      // Rebuild so DrawerWidget sees the cleared lists (the Rust renderer would keep the
+      // selected strokes hidden otherwise).
+      if (mounted) setState(() {});
 
 
     }
 
 
-    //print(selectionOperation);
-
-
     if(selectionOperation==0 || selectionOperation==1 || selectionOperation==2) {
 
 
-      //
-      // print("case?");
       for(final image in activeImages){
-        rememberActiveImages.add(image.copyWithID());
+        rememberActiveImages.add(image);
       }
       for(final stroke in activeStrokes) {
-        rememberActiveStrokes.add(stroke.copyWithID());
+        rememberActiveStrokes.add(stroke);
       }
     }
 
@@ -737,21 +642,8 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
 
 
-    for (final stroke in activeStrokes) {
-      for (final p in stroke.points) {
-        p.pos += delta;
-      }
-    }
-
-    for (final image in activeImages) {
-      //print("hi");
-      image.position += delta;
-
-    }
-
-    for (PointModel p in selectionStrokes.last.points) {
-      p.pos += delta;
-    }
+    _mapSelectionPoints((pos) => pos + delta);
+    activeImages = [for (final image in activeImages) image.copyWith(position: image.position + delta)];
 
     oldPosition = currentPosition;
 
@@ -783,21 +675,19 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
     final double deltaAngle = newAngle - oldAngle;
 
-    for (final stroke in activeStrokes) {
-      for (final p in stroke.points) {
-        p.pos = rotatePoint(p.pos, center, deltaAngle);
-      }
-    }
-
-    for (final image in activeImages) {
-      image.rotation = image.rotation+deltaAngle;
-    }
-
-    for (final p in selectionStrokes.last.points) {
-      p.pos = rotatePoint(p.pos, center, deltaAngle);
-    }
+    _mapSelectionPoints((pos) => rotatePoint(pos, center, deltaAngle));
+    activeImages = [for (final image in activeImages) image.copyWith(rotation: image.rotation + deltaAngle)];
 
     oldPosition = currentPosition;
+  }
+
+  /// Moves every point of the selected strokes and of the selection outline through [f].
+  /// Builds new strokes: the selected strokes share their (immutable) points with the document.
+  void _mapSelectionPoints(Offset Function(Offset pos) f) {
+    List<PointModel> mapped(Stroke stroke) => [for (final p in stroke.points) p.copyWith(pos: f(p.pos))];
+    activeStrokes = [for (final stroke in activeStrokes) stroke.copyWith(points: mapped(stroke))];
+    final outline = selectionStrokes.last;
+    selectionStrokes[selectionStrokes.length - 1] = outline.copyWith(points: mapped(outline));
   }
 
   Offset rotatePoint(Offset point, Offset center, double angle) {
@@ -829,15 +719,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
     final double scale = distance / lastDistance!;
 
-    for (final stroke in activeStrokes) {
-      for (final p in stroke.points) {
-        p.pos = scalePoint(p.pos, center, scale);
-      }
-    }
-
-    for (final p in selectionStrokes.last.points) {
-      p.pos = scalePoint(p.pos, center, scale);
-    }
+    _mapSelectionPoints((pos) => scalePoint(pos, center, scale));
 
     lastDistance = distance;
   }
@@ -869,28 +751,23 @@ class PageWidgetState extends ConsumerState<PageWidget> {
       scaleY = vector.dy / lastVector!.dy;
     }
 
-    for (final stroke in activeStrokes) {
-      if (stroke.width!=-1) {
-        stroke.width = max((stroke.width*sqrt((scaleX*scaleY).abs())), 0.001);
-      }
-      for (final p in stroke.points) {
-        p.pos = scalePointXY(p.pos, center, scaleX, scaleY);
+    activeStrokes = [
+      for (final stroke in activeStrokes)
+        if (stroke.width != -1)
+          stroke.copyWith(width: max((stroke.width*sqrt((scaleX*scaleY).abs())), 0.001))
+        else
+          stroke
+    ];
+    _mapSelectionPoints((pos) => scalePointXY(pos, center, scaleX, scaleY));
 
-      }
-    }
-
-    for (final image in activeImages) {
-      //print("hi");
-      Offset bottomRight = image.position + Offset(image.width, image.height);
-      image.position = scalePointXY(image.position, center, scaleX, scaleY);
-      bottomRight = scalePointXY(bottomRight, center, scaleX, scaleY);
-      image.width = bottomRight.dx - image.position.dx;
-      image.height = bottomRight.dy - image.position.dy;
-    }
-
-    for (final p in selectionStrokes.last.points) {
-      p.pos = scalePointXY(p.pos, center, scaleX, scaleY);
-    }
+    activeImages = [
+      for (final image in activeImages)
+        () {
+          final topLeft = scalePointXY(image.position, center, scaleX, scaleY);
+          final bottomRight = scalePointXY(image.position + Offset(image.width, image.height), center, scaleX, scaleY);
+          return image.copyWith(position: topLeft, width: bottomRight.dx - topLeft.dx, height: bottomRight.dy - topLeft.dy);
+        }(),
+    ];
 
     lastVector = vector;
 
@@ -988,26 +865,17 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
 
   Future<void> deleteSelection() async {
-    //print("hi");
     final idsToRemove = activeStrokes.map((s) => s.strokeID).toList();
-    final imageIDsToRemove = activeImages.map((s) => s.imageID).toList();
 
-    await ref.read(documentsProvider.notifier).modifyElements(docIndex, pageID, [], [], idsToRemove.toList(), activeImages);
+    await ref.read(documentProvider(docID).notifier).modifyElements(pageID, [], [], idsToRemove.toList(), activeImages);
 
     eraserUsed = false;
 
 
     activeImages = [];
     selectionActive = false;
-    //tiles.updateErased();
-    //tiles.update(activeStrokes);
     selectionStrokes = [];
-    //tiles.erasedStrokes = [];
     erasedStrokes = [];
-    //activeStrokes = [];
-    //print("setstate l");
-    //setState(() {});
-    //rememberActiveStrokes = activeStrokes;
     activeStrokes = [];
 
     WidgetsBinding.instance.addPostFrameCallback((_) {            //TODO this is really funky there has to be a better way
@@ -1019,15 +887,9 @@ class PageWidgetState extends ConsumerState<PageWidget> {
   }
 
   Future<void> copySelection() async {
-    //print("copy");
 
     selectionOperation = -1;
-    //selectionActive = false;
 
-    //tiles.erasedStrokes = [];
-    //erasedStrokes = [];
-    //tiles.updateErased();
-    //tiles.update(activeStrokes);
     activeStrokes = activeStrokes.map((s) => s.copy()).toList();
     erasedStrokes = [];
 
@@ -1039,52 +901,21 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     oldPosition = Offset(1,1);
     moveSelection(Offset(3,3));
     oldPosition = Offset(0,0);
-    /*
-    setState(() {
 
-    });
+    await ref.read(documentProvider(docID).notifier).modifyElements(pageID, [], activeImages, [], []);
 
-     */
 
-    await ref.read(documentsProvider.notifier).modifyElements(docIndex, pageID, [], activeImages, [], []);
-    //tiles.erasedStrokes.addAll(activeStrokes);
-    //erasedStrokes.addAll(activeStrokes);
-
-    //tiles.update(activeStrokes);
-    //selectionStrokes = [];
-
-    //activeStrokes = [];
     lastDistance = null;
     scaleCenter = null;
 
-    //print(activeStrokes.length);
 
-
-
-    //copiedStrokes = activeStrokes.map((s) => s.copy()).toList();
   }
 
   void colorSelection(WidgetRef ref) async {       //TODO IMPLEMENT ME
     print("page_widget: color");
     final color = ref.read(editorSetupProvider)[editorIndex].colors[ref.read(editorSetupProvider)[editorIndex].colorIndex];
-    for (final s in activeStrokes) {
-      s.color = color;
-    }
+    activeStrokes = [for (final s in activeStrokes) s.copyWith(color: color)];
     setState(() {});
-    /*
-    final newColor = await showDialog<Color>(
-      context: context,
-      builder: (_) => ColorPickerDialog(currentColor: activeStrokes.first.color),
-    );
-
-    if (newColor != null) {
-      for (final stroke in activeStrokes) {
-        stroke.color = newColor;
-      }
-      setState(() {});
-    }
-
-     */
   }
 
 
@@ -1097,7 +928,6 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     else if ((point.pos-activeStrokes.last.points.last.pos).distance > activeStrokes.last.points.last.width*0.1){               //only add new point when the gap exceeds a minimum distance
       activeStrokes.last.points.add(point);
     }
-    //else print("tooclose");
 
   }
 
@@ -1122,14 +952,13 @@ class PageWidgetState extends ConsumerState<PageWidget> {
       }
       else if (tool.shape==SelectionShape.rect){
         if ((point.pos-selectionStrokes.last.points.last.pos).distance > selectionStrokes.last.points.first.width*5){               //only add new point when the gap exceeds a minimum distance
-          selectionStrokes.last.points[1].pos = Offset(selectionStrokes.last.points[1].pos.dx, point.pos.dy);
-          selectionStrokes.last.points[2].pos = point.pos;
-          selectionStrokes.last.points[3].pos = Offset(point.pos.dx, selectionStrokes.last.points[3].pos.dy);
+          selectionStrokes.last.points[1] = selectionStrokes.last.points[1].copyWith(pos: Offset(selectionStrokes.last.points[1].pos.dx, point.pos.dy));
+          selectionStrokes.last.points[2] = selectionStrokes.last.points[2].copyWith(pos: point.pos);
+          selectionStrokes.last.points[3] = selectionStrokes.last.points[3].copyWith(pos: Offset(point.pos.dx, selectionStrokes.last.points[3].pos.dy));
         }
       }
 
     }
-    //else print("tooclose");
 
 
   }
@@ -1145,53 +974,39 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     if(activeStrokes.isEmpty) {
       activeStrokes = [];
       initialPosition = point.pos;
-      activeStrokes.add(Stroke(color: color, width: -1, points: [point]));
+      activeStrokes.add(Stroke(color: color, width: -1, points: [point], kind: StrokeKind.shape));       //straight segments, sharp corners
 
-      if(tool.shape == ShapeShape.line) activeStrokes.last.points.addAll([point.copy(), point.copy()]);
-      if(tool.shape == ShapeShape.arrow) activeStrokes.last.points.addAll([point.copy(), point.copy(), point.copy(), point.copy(), point.copy()]);
-      if(tool.shape == ShapeShape.rect) activeStrokes.last.points.addAll([point.copy(), point.copy(), point.copy(), point.copy()]);
-      if(tool.shape == ShapeShape.triangle) activeStrokes.last.points.addAll([point.copy(), point.copy(), point.copy()]);
-      if(tool.shape == ShapeShape.pentagon) activeStrokes.last.points.addAll([point.copy(), point.copy(), point.copy(), point.copy(), point.copy()]);
-      if(tool.shape == ShapeShape.hexagon) activeStrokes.last.points.addAll([point.copy(), point.copy(), point.copy(), point.copy(), point.copy(), point.copy()]);
-      if(tool.shape == ShapeShape.octagon) activeStrokes.last.points.addAll([point.copy(), point.copy(), point.copy(), point.copy(), point.copy(), point.copy() , point.copy(), point.copy()]);
+      if(tool.shape == ShapeShape.line) activeStrokes.last.points.addAll([point, point]);
+      if(tool.shape == ShapeShape.arrow) activeStrokes.last.points.addAll([point, point, point, point, point]);
+      if(tool.shape == ShapeShape.rect) activeStrokes.last.points.addAll([point, point, point, point]);
+      if(tool.shape == ShapeShape.triangle) activeStrokes.last.points.addAll([point, point, point]);
+      if(tool.shape == ShapeShape.pentagon) activeStrokes.last.points.addAll([point, point, point, point, point]);
+      if(tool.shape == ShapeShape.hexagon) activeStrokes.last.points.addAll([point, point, point, point, point, point]);
+      if(tool.shape == ShapeShape.octagon) activeStrokes.last.points.addAll([point, point, point, point, point, point , point, point]);
 
     }
     else if ((point.pos-activeStrokes.last.points.last.pos).distance > activeStrokes.last.points.last.width*0.1 && tool.shapeOrigin == ShapeOrigin.corner){               //only add new point when the gap exceeds a minimum distance
-      if(tool.shape == ShapeShape.line) activeStrokes.last.points.last = point;
-      else if(tool.shape == ShapeShape.arrow) {
-        //print(activeStrokes.last.points.first.pos);
+      if(tool.shape == ShapeShape.line) {
+        activeStrokes.last.points.last = point;
+      } else if(tool.shape == ShapeShape.arrow) {
         activeStrokes.last.points[2] = point;
         activeStrokes.last.points[4] = point;
 
 
-        //print(activeStrokes.last.points[0].pos);
-
-        /*
-        if (tool.snapToGrid) {
-          activeStrokes.last.points[0].pos = Offset((initialPosition.dx/5).roundToDouble()*5, (initialPosition.dy/5).roundToDouble()*5);
-          activeStrokes.last.points[2].pos = Offset((initialPosition.dx/5).roundToDouble()*5, (initialPosition.dy/5).roundToDouble()*5);
-          point.pos = Offset((point.pos.dx/5).roundToDouble()*5, (point.pos.dy/5).roundToDouble()*5);
-          //b/activeStrokes.last.points[i].pos = Offset((activeStrokes.last.points[i].pos.dx/grid).roundToDouble()*grid, (activeStrokes.last.points[i].pos.dy/grid).roundToDouble()*grid);
-        }
-
-         */
-
         final dir = activeStrokes.last.points[2].pos - activeStrokes.last.points[0].pos;
-        //print(dir);
         final length = dir.distance;
         final unit = Offset(dir.dx / length, dir.dy / length);
         final normal = Offset(-unit.dy, unit.dx);
         double arrowLength = 5*point.width;
         double arrowWidth = 5*point.width;
         final base = activeStrokes.last.points[2].pos - unit * arrowLength;
-        activeStrokes.last.points[5].pos = base + normal * arrowWidth;
-        activeStrokes.last.points[3].pos = base - normal * arrowWidth;
+        activeStrokes.last.points[5] = activeStrokes.last.points[5].copyWith(pos: base + normal * arrowWidth);
+        activeStrokes.last.points[3] = activeStrokes.last.points[3].copyWith(pos: base - normal * arrowWidth);
       }
       else if(tool.shape == ShapeShape.rect) {
-        //print(activeStrokes.last.points.first.pos);
-        activeStrokes.last.points[1].pos = Offset(activeStrokes.last.points[1].pos.dx, point.pos.dy);
-        activeStrokes.last.points[2].pos = point.pos;
-        activeStrokes.last.points[3].pos = Offset(point.pos.dx, activeStrokes.last.points[3].pos.dy) ;
+        activeStrokes.last.points[1] = activeStrokes.last.points[1].copyWith(pos: Offset(activeStrokes.last.points[1].pos.dx, point.pos.dy));
+        activeStrokes.last.points[2] = activeStrokes.last.points[2].copyWith(pos: point.pos);
+        activeStrokes.last.points[3] = activeStrokes.last.points[3].copyWith(pos: Offset(point.pos.dx, activeStrokes.last.points[3].pos.dy) );
       }
       else if(tool.shape == ShapeShape.circle) {
         Stroke newStroke = Stroke(color: activeStrokes.last.color, width: -1, strokeID: activeStrokes.last.strokeID, points: []);
@@ -1205,8 +1020,7 @@ class PageWidgetState extends ConsumerState<PageWidget> {
           a = (a/5).roundToDouble()*5;
           b= (b/5).roundToDouble()*5;
           initialPosition = Offset((initialPosition.dx/5).roundToDouble()*5, (initialPosition.dy/5).roundToDouble()*5);
-          point.pos = Offset((point.pos.dx/5).roundToDouble()*5, (point.pos.dy/5).roundToDouble()*5);
-          //b/activeStrokes.last.points[i].pos = Offset((activeStrokes.last.points[i].pos.dx/grid).roundToDouble()*grid, (activeStrokes.last.points[i].pos.dy/grid).roundToDouble()*grid);
+          point = point.copyWith(pos: Offset((point.pos.dx/5).roundToDouble()*5, (point.pos.dy/5).roundToDouble()*5));
         }
 
         if(2*pi/step<30) step=2*pi/30;
@@ -1220,46 +1034,45 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
       }
       else if(tool.shape == ShapeShape.triangle) {
-        //print(activeStrokes.last.points.first.pos);
-        activeStrokes.last.points[1].pos = Offset(point.pos.dx, activeStrokes.last.points[0].pos.dy);
-        activeStrokes.last.points[2].pos = Offset((point.pos-(point.pos-activeStrokes.last.points[0].pos)/2).dx, (activeStrokes.last.points[0].pos-activeStrokes.last.points[0].pos+point.pos).dy);
+        activeStrokes.last.points[1] = activeStrokes.last.points[1].copyWith(pos: Offset(point.pos.dx, activeStrokes.last.points[0].pos.dy));
+        activeStrokes.last.points[2] = activeStrokes.last.points[2].copyWith(pos: Offset((point.pos-(point.pos-activeStrokes.last.points[0].pos)/2).dx, (activeStrokes.last.points[0].pos-activeStrokes.last.points[0].pos+point.pos).dy));
       }
       else if(tool.shape == ShapeShape.pentagon) {
         final middlePoint = initialPosition+(point.pos-initialPosition)/2;
         final dx = (point.pos-middlePoint).dx;
         final dy = (point.pos-middlePoint).dy;
-        activeStrokes.last.points[0].pos = middlePoint+Offset(0, -dy);
-        activeStrokes.last.points[5].pos = activeStrokes.last.points[0].pos;
-        activeStrokes.last.points[1].pos = middlePoint+Offset(dx*sin(2*pi*1/5), -dy*cos(2*pi*1/5));
-        activeStrokes.last.points[2].pos = middlePoint+Offset(dx*sin(2*pi*2/5), -dy*cos(2*pi*2/5));
-        activeStrokes.last.points[3].pos = middlePoint+Offset(dx*sin(2*pi*3/5), -dy*cos(2*pi*3/5));
-        activeStrokes.last.points[4].pos = middlePoint+Offset(dx*sin(2*pi*4/5), -dy*cos(2*pi*4/5));
+        activeStrokes.last.points[0] = activeStrokes.last.points[0].copyWith(pos: middlePoint+Offset(0, -dy));
+        activeStrokes.last.points[5] = activeStrokes.last.points[5].copyWith(pos: activeStrokes.last.points[0].pos);
+        activeStrokes.last.points[1] = activeStrokes.last.points[1].copyWith(pos: middlePoint+Offset(dx*sin(2*pi*1/5), -dy*cos(2*pi*1/5)));
+        activeStrokes.last.points[2] = activeStrokes.last.points[2].copyWith(pos: middlePoint+Offset(dx*sin(2*pi*2/5), -dy*cos(2*pi*2/5)));
+        activeStrokes.last.points[3] = activeStrokes.last.points[3].copyWith(pos: middlePoint+Offset(dx*sin(2*pi*3/5), -dy*cos(2*pi*3/5)));
+        activeStrokes.last.points[4] = activeStrokes.last.points[4].copyWith(pos: middlePoint+Offset(dx*sin(2*pi*4/5), -dy*cos(2*pi*4/5)));
       }
       else if(tool.shape == ShapeShape.hexagon) {
         final middlePoint = initialPosition+(point.pos-initialPosition)/2;
         final dx = (point.pos-middlePoint).dx;
         final dy = (point.pos-middlePoint).dy;
-        activeStrokes.last.points[0].pos = middlePoint+Offset(dx*sin(2*pi/12), dy*cos(2*pi/12));
-        activeStrokes.last.points[6].pos = activeStrokes.last.points[0].pos;
-        activeStrokes.last.points[1].pos = middlePoint+Offset(dx*sin(2*pi*3/12), dy*cos(2*pi*3/12));
-        activeStrokes.last.points[2].pos = middlePoint+Offset(dx*sin(2*pi*5/12), dy*cos(2*pi*5/12));
-        activeStrokes.last.points[3].pos = middlePoint+Offset(dx*sin(2*pi*7/12), dy*cos(2*pi*7/12));
-        activeStrokes.last.points[4].pos = middlePoint+Offset(dx*sin(2*pi*9/12), dy*cos(2*pi*9/12));
-        activeStrokes.last.points[5].pos = middlePoint+Offset(dx*sin(2*pi*11/12), dy*cos(2*pi*11/12));
+        activeStrokes.last.points[0] = activeStrokes.last.points[0].copyWith(pos: middlePoint+Offset(dx*sin(2*pi/12), dy*cos(2*pi/12)));
+        activeStrokes.last.points[6] = activeStrokes.last.points[6].copyWith(pos: activeStrokes.last.points[0].pos);
+        activeStrokes.last.points[1] = activeStrokes.last.points[1].copyWith(pos: middlePoint+Offset(dx*sin(2*pi*3/12), dy*cos(2*pi*3/12)));
+        activeStrokes.last.points[2] = activeStrokes.last.points[2].copyWith(pos: middlePoint+Offset(dx*sin(2*pi*5/12), dy*cos(2*pi*5/12)));
+        activeStrokes.last.points[3] = activeStrokes.last.points[3].copyWith(pos: middlePoint+Offset(dx*sin(2*pi*7/12), dy*cos(2*pi*7/12)));
+        activeStrokes.last.points[4] = activeStrokes.last.points[4].copyWith(pos: middlePoint+Offset(dx*sin(2*pi*9/12), dy*cos(2*pi*9/12)));
+        activeStrokes.last.points[5] = activeStrokes.last.points[5].copyWith(pos: middlePoint+Offset(dx*sin(2*pi*11/12), dy*cos(2*pi*11/12)));
       }
       else if(tool.shape == ShapeShape.octagon) {
         final middlePoint = initialPosition+(point.pos-initialPosition)/2;
         final dx = (point.pos-middlePoint).dx;
         final dy = (point.pos-middlePoint).dy;
-        activeStrokes.last.points[0].pos = middlePoint+Offset(dx*sin(2*pi/16), dy*cos(2*pi/16));
-        activeStrokes.last.points[8].pos = activeStrokes.last.points[0].pos;
-        activeStrokes.last.points[1].pos = middlePoint+Offset(dx*sin(2*pi*3/16), dy*cos(2*pi*3/16));
-        activeStrokes.last.points[2].pos = middlePoint+Offset(dx*sin(2*pi*5/16), dy*cos(2*pi*5/16));
-        activeStrokes.last.points[3].pos = middlePoint+Offset(dx*sin(2*pi*7/16), dy*cos(2*pi*7/16));
-        activeStrokes.last.points[4].pos = middlePoint+Offset(dx*sin(2*pi*9/16), dy*cos(2*pi*9/16));
-        activeStrokes.last.points[5].pos = middlePoint+Offset(dx*sin(2*pi*11/16), dy*cos(2*pi*11/16));
-        activeStrokes.last.points[6].pos = middlePoint+Offset(dx*sin(2*pi*13/16), dy*cos(2*pi*13/16));
-        activeStrokes.last.points[7].pos = middlePoint+Offset(dx*sin(2*pi*15/16), dy*cos(2*pi*15/16));
+        activeStrokes.last.points[0] = activeStrokes.last.points[0].copyWith(pos: middlePoint+Offset(dx*sin(2*pi/16), dy*cos(2*pi/16)));
+        activeStrokes.last.points[8] = activeStrokes.last.points[8].copyWith(pos: activeStrokes.last.points[0].pos);
+        activeStrokes.last.points[1] = activeStrokes.last.points[1].copyWith(pos: middlePoint+Offset(dx*sin(2*pi*3/16), dy*cos(2*pi*3/16)));
+        activeStrokes.last.points[2] = activeStrokes.last.points[2].copyWith(pos: middlePoint+Offset(dx*sin(2*pi*5/16), dy*cos(2*pi*5/16)));
+        activeStrokes.last.points[3] = activeStrokes.last.points[3].copyWith(pos: middlePoint+Offset(dx*sin(2*pi*7/16), dy*cos(2*pi*7/16)));
+        activeStrokes.last.points[4] = activeStrokes.last.points[4].copyWith(pos: middlePoint+Offset(dx*sin(2*pi*9/16), dy*cos(2*pi*9/16)));
+        activeStrokes.last.points[5] = activeStrokes.last.points[5].copyWith(pos: middlePoint+Offset(dx*sin(2*pi*11/16), dy*cos(2*pi*11/16)));
+        activeStrokes.last.points[6] = activeStrokes.last.points[6].copyWith(pos: middlePoint+Offset(dx*sin(2*pi*13/16), dy*cos(2*pi*13/16)));
+        activeStrokes.last.points[7] = activeStrokes.last.points[7].copyWith(pos: middlePoint+Offset(dx*sin(2*pi*15/16), dy*cos(2*pi*15/16)));
       }
 
     }
@@ -1279,16 +1092,16 @@ class PageWidgetState extends ConsumerState<PageWidget> {
         double arrowLength = 5*point.width;
         double arrowWidth = 5*point.width;
         final base = activeStrokes.last.points[2].pos - unit * arrowLength;
-        activeStrokes.last.points[5].pos = base + normal * arrowWidth;
-        activeStrokes.last.points[3].pos = base - normal * arrowWidth;
+        activeStrokes.last.points[5] = activeStrokes.last.points[5].copyWith(pos: base + normal * arrowWidth);
+        activeStrokes.last.points[3] = activeStrokes.last.points[3].copyWith(pos: base - normal * arrowWidth);
         activeStrokes.last.points.first = PointModel(pos: point.pos-(point.pos-activeStrokes.last.points[1].pos)*2, width: point.width);
       }
       else if(tool.shape == ShapeShape.rect) {
-        activeStrokes.last.points[0].pos = activeStrokes.last.points[0].pos-point.pos+activeStrokes.last.points[2].pos;
-        activeStrokes.last.points[4].pos = activeStrokes.last.points[0].pos;
-        activeStrokes.last.points[1].pos = Offset(activeStrokes.last.points[0].pos.dx, point.pos.dy);
-        activeStrokes.last.points[2].pos = point.pos;
-        activeStrokes.last.points[3].pos = Offset(point.pos.dx, activeStrokes.last.points[0].pos.dy) ;
+        activeStrokes.last.points[0] = activeStrokes.last.points[0].copyWith(pos: activeStrokes.last.points[0].pos-point.pos+activeStrokes.last.points[2].pos);
+        activeStrokes.last.points[4] = activeStrokes.last.points[4].copyWith(pos: activeStrokes.last.points[0].pos);
+        activeStrokes.last.points[1] = activeStrokes.last.points[1].copyWith(pos: Offset(activeStrokes.last.points[0].pos.dx, point.pos.dy));
+        activeStrokes.last.points[2] = activeStrokes.last.points[2].copyWith(pos: point.pos);
+        activeStrokes.last.points[3] = activeStrokes.last.points[3].copyWith(pos: Offset(point.pos.dx, activeStrokes.last.points[0].pos.dy) );
       }
       else if(tool.shape == ShapeShape.circle) {
         Stroke newStroke = Stroke(color: activeStrokes.last.color, width: -1, strokeID: activeStrokes.last.strokeID, points: []);
@@ -1302,57 +1115,55 @@ class PageWidgetState extends ConsumerState<PageWidget> {
         if (tool.snapToGrid) {
           radius = (radius/5).roundToDouble()*5;
           initialPosition = Offset((initialPosition.dx/5).roundToDouble()*5, (initialPosition.dy/5).roundToDouble()*5);
-          point.pos = Offset((point.pos.dx/5).roundToDouble()*5, (point.pos.dy/5).roundToDouble()*5);
-          //b/activeStrokes.last.points[i].pos = Offset((activeStrokes.last.points[i].pos.dx/grid).roundToDouble()*grid, (activeStrokes.last.points[i].pos.dy/grid).roundToDouble()*grid);
+          point = point.copyWith(pos: Offset((point.pos.dx/5).roundToDouble()*5, (point.pos.dy/5).roundToDouble()*5));
         }
 
         for(double i = 0; i<2*pi; i=i+step) {newStroke.points.add(PointModel(pos: initialPosition+Offset(radius*sin(i), radius*cos(i)), width: point.width));}
         newStroke.points.add(PointModel(pos: newStroke.points.first.pos, width: point.width));
-        //print(newStroke.points.length);
         activeStrokes.last = newStroke;
 
       }
       else if(tool.shape == ShapeShape.triangle) {
 
 
-        activeStrokes.last.points[0].pos = Offset((activeStrokes.last.points[0].pos-point.pos+activeStrokes.last.points[1].pos).dx, (activeStrokes.last.points[0].pos+point.pos-activeStrokes.last.points[1].pos).dy);
+        activeStrokes.last.points[0] = activeStrokes.last.points[0].copyWith(pos: Offset((activeStrokes.last.points[0].pos-point.pos+activeStrokes.last.points[1].pos).dx, (activeStrokes.last.points[0].pos+point.pos-activeStrokes.last.points[1].pos).dy));
 
-        activeStrokes.last.points[2].pos = Offset(activeStrokes.last.points[2].pos.dx, (activeStrokes.last.points[2].pos-point.pos+activeStrokes.last.points[1].pos).dy);
-        activeStrokes.last.points[1].pos = point.pos;
-        activeStrokes.last.points[3].pos = activeStrokes.last.points[0].pos;
+        activeStrokes.last.points[2] = activeStrokes.last.points[2].copyWith(pos: Offset(activeStrokes.last.points[2].pos.dx, (activeStrokes.last.points[2].pos-point.pos+activeStrokes.last.points[1].pos).dy));
+        activeStrokes.last.points[1] = activeStrokes.last.points[1].copyWith(pos: point.pos);
+        activeStrokes.last.points[3] = activeStrokes.last.points[3].copyWith(pos: activeStrokes.last.points[0].pos);
 
       }
       else if(tool.shape == ShapeShape.pentagon) {
         final radius = (point.pos-initialPosition).distance;
-        activeStrokes.last.points[0].pos = initialPosition+Offset(0, -radius);
-        activeStrokes.last.points[5].pos = activeStrokes.last.points[0].pos;
-        activeStrokes.last.points[1].pos = initialPosition+Offset(radius*sin(2*pi*1/5), -radius*cos(2*pi*1/5));
-        activeStrokes.last.points[2].pos = initialPosition+Offset(radius*sin(2*pi*2/5), -radius*cos(2*pi*2/5));
-        activeStrokes.last.points[3].pos = initialPosition+Offset(radius*sin(2*pi*3/5), -radius*cos(2*pi*3/5));
-        activeStrokes.last.points[4].pos = initialPosition+Offset(radius*sin(2*pi*4/5), -radius*cos(2*pi*4/5));
+        activeStrokes.last.points[0] = activeStrokes.last.points[0].copyWith(pos: initialPosition+Offset(0, -radius));
+        activeStrokes.last.points[5] = activeStrokes.last.points[5].copyWith(pos: activeStrokes.last.points[0].pos);
+        activeStrokes.last.points[1] = activeStrokes.last.points[1].copyWith(pos: initialPosition+Offset(radius*sin(2*pi*1/5), -radius*cos(2*pi*1/5)));
+        activeStrokes.last.points[2] = activeStrokes.last.points[2].copyWith(pos: initialPosition+Offset(radius*sin(2*pi*2/5), -radius*cos(2*pi*2/5)));
+        activeStrokes.last.points[3] = activeStrokes.last.points[3].copyWith(pos: initialPosition+Offset(radius*sin(2*pi*3/5), -radius*cos(2*pi*3/5)));
+        activeStrokes.last.points[4] = activeStrokes.last.points[4].copyWith(pos: initialPosition+Offset(radius*sin(2*pi*4/5), -radius*cos(2*pi*4/5)));
       }
       else if(tool.shape == ShapeShape.hexagon) {
         final radius = (point.pos-initialPosition).distance;
-        activeStrokes.last.points[0].pos = initialPosition+Offset(radius*sin(2*pi/12), radius*cos(2*pi/12));
-        activeStrokes.last.points[6].pos = activeStrokes.last.points[0].pos;
-        activeStrokes.last.points[1].pos = initialPosition+Offset(radius*sin(2*pi*3/12), radius*cos(2*pi*3/12));
-        activeStrokes.last.points[2].pos = initialPosition+Offset(radius*sin(2*pi*5/12), radius*cos(2*pi*5/12));
-        activeStrokes.last.points[3].pos = initialPosition+Offset(radius*sin(2*pi*7/12), radius*cos(2*pi*7/12));
-        activeStrokes.last.points[4].pos = initialPosition+Offset(radius*sin(2*pi*9/12), radius*cos(2*pi*9/12));
-        activeStrokes.last.points[5].pos = initialPosition+Offset(radius*sin(2*pi*11/12), radius*cos(2*pi*11/12));
+        activeStrokes.last.points[0] = activeStrokes.last.points[0].copyWith(pos: initialPosition+Offset(radius*sin(2*pi/12), radius*cos(2*pi/12)));
+        activeStrokes.last.points[6] = activeStrokes.last.points[6].copyWith(pos: activeStrokes.last.points[0].pos);
+        activeStrokes.last.points[1] = activeStrokes.last.points[1].copyWith(pos: initialPosition+Offset(radius*sin(2*pi*3/12), radius*cos(2*pi*3/12)));
+        activeStrokes.last.points[2] = activeStrokes.last.points[2].copyWith(pos: initialPosition+Offset(radius*sin(2*pi*5/12), radius*cos(2*pi*5/12)));
+        activeStrokes.last.points[3] = activeStrokes.last.points[3].copyWith(pos: initialPosition+Offset(radius*sin(2*pi*7/12), radius*cos(2*pi*7/12)));
+        activeStrokes.last.points[4] = activeStrokes.last.points[4].copyWith(pos: initialPosition+Offset(radius*sin(2*pi*9/12), radius*cos(2*pi*9/12)));
+        activeStrokes.last.points[5] = activeStrokes.last.points[5].copyWith(pos: initialPosition+Offset(radius*sin(2*pi*11/12), radius*cos(2*pi*11/12)));
       }
       else if(tool.shape == ShapeShape.octagon) {
         final middlePoint = initialPosition;
         final radius = (point.pos-initialPosition).distance;
-        activeStrokes.last.points[0].pos = middlePoint+Offset(radius*sin(2*pi/16), radius*cos(2*pi/16));
-        activeStrokes.last.points[8].pos = activeStrokes.last.points[0].pos;
-        activeStrokes.last.points[1].pos = middlePoint+Offset(radius*sin(2*pi*3/16), radius*cos(2*pi*3/16));
-        activeStrokes.last.points[2].pos = middlePoint+Offset(radius*sin(2*pi*5/16), radius*cos(2*pi*5/16));
-        activeStrokes.last.points[3].pos = middlePoint+Offset(radius*sin(2*pi*7/16), radius*cos(2*pi*7/16));
-        activeStrokes.last.points[4].pos = middlePoint+Offset(radius*sin(2*pi*9/16), radius*cos(2*pi*9/16));
-        activeStrokes.last.points[5].pos = middlePoint+Offset(radius*sin(2*pi*11/16), radius*cos(2*pi*11/16));
-        activeStrokes.last.points[6].pos = middlePoint+Offset(radius*sin(2*pi*13/16), radius*cos(2*pi*13/16));
-        activeStrokes.last.points[7].pos = middlePoint+Offset(radius*sin(2*pi*15/16), radius*cos(2*pi*15/16));
+        activeStrokes.last.points[0] = activeStrokes.last.points[0].copyWith(pos: middlePoint+Offset(radius*sin(2*pi/16), radius*cos(2*pi/16)));
+        activeStrokes.last.points[8] = activeStrokes.last.points[8].copyWith(pos: activeStrokes.last.points[0].pos);
+        activeStrokes.last.points[1] = activeStrokes.last.points[1].copyWith(pos: middlePoint+Offset(radius*sin(2*pi*3/16), radius*cos(2*pi*3/16)));
+        activeStrokes.last.points[2] = activeStrokes.last.points[2].copyWith(pos: middlePoint+Offset(radius*sin(2*pi*5/16), radius*cos(2*pi*5/16)));
+        activeStrokes.last.points[3] = activeStrokes.last.points[3].copyWith(pos: middlePoint+Offset(radius*sin(2*pi*7/16), radius*cos(2*pi*7/16)));
+        activeStrokes.last.points[4] = activeStrokes.last.points[4].copyWith(pos: middlePoint+Offset(radius*sin(2*pi*9/16), radius*cos(2*pi*9/16)));
+        activeStrokes.last.points[5] = activeStrokes.last.points[5].copyWith(pos: middlePoint+Offset(radius*sin(2*pi*11/16), radius*cos(2*pi*11/16)));
+        activeStrokes.last.points[6] = activeStrokes.last.points[6].copyWith(pos: middlePoint+Offset(radius*sin(2*pi*13/16), radius*cos(2*pi*13/16)));
+        activeStrokes.last.points[7] = activeStrokes.last.points[7].copyWith(pos: middlePoint+Offset(radius*sin(2*pi*15/16), radius*cos(2*pi*15/16)));
       }
     }
 
@@ -1362,15 +1173,13 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
       if (tool.shape==ShapeShape.line || tool.shape==ShapeShape.rect || tool.shape==ShapeShape.triangle) {
         for (int i = 0; i<activeStrokes.last.points.length;i++) {
-          activeStrokes.last.points[i].pos = Offset((activeStrokes.last.points[i].pos.dx/grid).roundToDouble()*grid, (activeStrokes.last.points[i].pos.dy/grid).roundToDouble()*grid);
+          activeStrokes.last.points[i] = activeStrokes.last.points[i].copyWith(pos: Offset((activeStrokes.last.points[i].pos.dx/grid).roundToDouble()*grid, (activeStrokes.last.points[i].pos.dy/grid).roundToDouble()*grid));
         }
       }
 
     }
 
 
-
-    //else print("tooclose");
 
   }
 
@@ -1382,37 +1191,28 @@ class PageWidgetState extends ConsumerState<PageWidget> {
     if(activeStrokes.isEmpty) {
       activeStrokes = [];
       initialPosition = point.pos;
-      activeStrokes.add(Stroke(color: color, width: -1, points: [point]));
+      activeStrokes.add(Stroke(color: color, width: -1, points: [point], kind: StrokeKind.shape));       //straight segments, sharp corners
 
-      if(tool.line == LineType.line) activeStrokes.last.points.addAll([point.copy(), point.copy()]);
-      if(tool.line == LineType.arrow) activeStrokes.last.points.addAll([point.copy(), point.copy(), point.copy(), point.copy(), point.copy()]);
-      if(tool.line == LineType.dotted) activeStrokes.last.points.addAll([point.copy(), point.copy(), point.copy(), point.copy()]);
-      if(tool.line == LineType.sine) activeStrokes.last.points.addAll([point.copy(), point.copy(), point.copy()]);
+      if(tool.line == LineType.line) activeStrokes.last.points.addAll([point, point]);
+      if(tool.line == LineType.arrow) activeStrokes.last.points.addAll([point, point, point, point, point]);
+      if(tool.line == LineType.dotted) activeStrokes.last.points.addAll([point, point, point, point]);
+      if(tool.line == LineType.sine) activeStrokes.last.points.addAll([point, point, point]);
 
     }
     else if ((point.pos-activeStrokes.last.points.last.pos).distance > activeStrokes.last.points.last.width*0.1 && tool.lineOrigin == LineOrigin.corner){               //only add new point when the gap exceeds a minimum distance
-      if(tool.line == LineType.line) activeStrokes.last.points.last = point;
-      else if(tool.line == LineType.arrow) {
-        //print(activeStrokes.last.points.first.pos);
+      if(tool.line == LineType.line) {
+        activeStrokes.last.points.last = point;
+      } else if(tool.line == LineType.arrow) {
         if (tool.snapToGrid) {
-          activeStrokes.last.points[0].pos = Offset((initialPosition.dx/5).roundToDouble()*5, (initialPosition.dy/5).roundToDouble()*5);
-          activeStrokes.last.points[1].pos = Offset((initialPosition.dx/5).roundToDouble()*5, (initialPosition.dy/5).roundToDouble()*5);
-          point.pos = Offset((point.pos.dx/5).roundToDouble()*5, (point.pos.dy/5).roundToDouble()*5);
-          //b/activeStrokes.last.points[i].pos = Offset((activeStrokes.last.points[i].pos.dx/grid).roundToDouble()*grid, (activeStrokes.last.points[i].pos.dy/grid).roundToDouble()*grid);
+          activeStrokes.last.points[0] = activeStrokes.last.points[0].copyWith(pos: Offset((initialPosition.dx/5).roundToDouble()*5, (initialPosition.dy/5).roundToDouble()*5));
+          activeStrokes.last.points[1] = activeStrokes.last.points[1].copyWith(pos: Offset((initialPosition.dx/5).roundToDouble()*5, (initialPosition.dy/5).roundToDouble()*5));
+          point = point.copyWith(pos: Offset((point.pos.dx/5).roundToDouble()*5, (point.pos.dy/5).roundToDouble()*5));
         }
         activeStrokes.last.points[2] = point;
         activeStrokes.last.points[4] = point;
 
 
-        //print(activeStrokes.last.points[0].pos);
-
-
-
-
-
-
         final dir = activeStrokes.last.points[2].pos - activeStrokes.last.points[0].pos;
-        //print(dir);
         double length = dir.distance;
         if (length == 0.0) length = 0.1;
         final unit = Offset(dir.dx / length, dir.dy / length);
@@ -1420,8 +1220,8 @@ class PageWidgetState extends ConsumerState<PageWidget> {
         double arrowLength = 5*point.width;
         double arrowWidth = 5*point.width;
         final base = activeStrokes.last.points[2].pos - unit * arrowLength;
-        activeStrokes.last.points[5].pos = base + normal * arrowWidth;
-        activeStrokes.last.points[3].pos = base - normal * arrowWidth;
+        activeStrokes.last.points[5] = activeStrokes.last.points[5].copyWith(pos: base + normal * arrowWidth);
+        activeStrokes.last.points[3] = activeStrokes.last.points[3].copyWith(pos: base - normal * arrowWidth);
       }
       else if (tool.line == LineType.dotted) {
 
@@ -1438,8 +1238,8 @@ class PageWidgetState extends ConsumerState<PageWidget> {
       }
       else if (tool.line == LineType.arrow) {
         if (tool.snapToGrid) {
-          activeStrokes.last.points[1].pos = Offset((initialPosition.dx/5).roundToDouble()*5, (initialPosition.dy/5).roundToDouble()*5);
-          point.pos = Offset((point.pos.dx/5).roundToDouble()*5, (point.pos.dy/5).roundToDouble()*5);
+          activeStrokes.last.points[1] = activeStrokes.last.points[1].copyWith(pos: Offset((initialPosition.dx/5).roundToDouble()*5, (initialPosition.dy/5).roundToDouble()*5));
+          point = point.copyWith(pos: Offset((point.pos.dx/5).roundToDouble()*5, (point.pos.dy/5).roundToDouble()*5));
         }
         activeStrokes.last.points[2] = point;
         activeStrokes.last.points[4] = point;
@@ -1451,8 +1251,8 @@ class PageWidgetState extends ConsumerState<PageWidget> {
         double arrowLength = 5 * point.width;
         double arrowWidth = 5 * point.width;
         final base = activeStrokes.last.points[2].pos - unit * arrowLength;
-        activeStrokes.last.points[5].pos = base + normal * arrowWidth;
-        activeStrokes.last.points[3].pos = base - normal * arrowWidth;
+        activeStrokes.last.points[5] = activeStrokes.last.points[5].copyWith(pos: base + normal * arrowWidth);
+        activeStrokes.last.points[3] = activeStrokes.last.points[3].copyWith(pos: base - normal * arrowWidth);
         activeStrokes.last.points.first = PointModel(pos: point.pos - (point.pos - activeStrokes.last.points[1].pos) * 2, width: point.width);
       }
     }
@@ -1463,14 +1263,12 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
       if (tool.line==LineType.line) {
         for (int i = 0; i<activeStrokes.last.points.length;i++) {
-          activeStrokes.last.points[i].pos = Offset((activeStrokes.last.points[i].pos.dx/grid).roundToDouble()*grid, (activeStrokes.last.points[i].pos.dy/grid).roundToDouble()*grid);
+          activeStrokes.last.points[i] = activeStrokes.last.points[i].copyWith(pos: Offset((activeStrokes.last.points[i].pos.dx/grid).roundToDouble()*grid, (activeStrokes.last.points[i].pos.dy/grid).roundToDouble()*grid));
         }
       }
     }
 
 
-
-    //else print("tooclose");
 
   }
 
@@ -1536,19 +1334,22 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
       laserStrokes.add(Stroke(color: color, width: -1, points: [point]));
     }
-    else if(laserStrokes.last.points.isEmpty) laserStrokes.last.points.add(point);
+    else if(laserStrokes.last.points.isEmpty) {
+      laserStrokes.last.points.add(point);
+    }
     else if ((point.pos-laserStrokes.last.points.last.pos).distance > laserStrokes.last.points.last.width*0.1 && tool.leaveTrail){               //only add new point when the gap exceeds a minimum distance
       laserStrokes.last.points.add(point);
     } else if(!tool.leaveTrail){
-      laserStrokes.last.points.last.pos = point.pos;
+      laserStrokes.last.points.last = laserStrokes.last.points.last.copyWith(pos: point.pos);
     }
-    //print("action");
 
   }
   void finishAddingPointsToLaserStrokes(Color color, LaserTool tool) {
-    final stroke = laserStrokes.last;
+    // Strokes are immutable, so the fade replaces the stroke; it is found again by its ID.
+    final strokeID = laserStrokes.last.strokeID;
+    int indexOfStroke() => laserStrokes.indexWhere((s) => s.strokeID == strokeID);
 
-    // Timer 1: startet nach 1 Sekunde
+    // Timer 1: starts after 1 second
     if(tool.fadeOut) {
 
       final durationBegin = (tool.fadeOutDuration*100).toInt();
@@ -1560,14 +1361,14 @@ class PageWidgetState extends ConsumerState<PageWidget> {
 
 
 
-      laserTimers[stroke] = Timer(Duration(milliseconds: durationBegin), () {
-        if (!mounted || !laserStrokes.contains(stroke)) return;
+      laserTimers[strokeID] = Timer(Duration(milliseconds: durationBegin), () {
+        if (!mounted || indexOfStroke() == -1) return;
 
         int alpha = 255;
 
         // smooth fade (~500ms)
         Timer.periodic(Duration(milliseconds: durationStep), (fadeTimer) {
-          if (!mounted || !laserStrokes.contains(stroke)) {
+          if (!mounted || indexOfStroke() == -1) {
             fadeTimer.cancel();
             return;
           }
@@ -1580,19 +1381,20 @@ class PageWidgetState extends ConsumerState<PageWidget> {
           }
 
           setState(() {
-            stroke.color = stroke.color.withAlpha(alpha);
+            final index = indexOfStroke();
+            laserStrokes[index] = laserStrokes[index].copyWith(color: laserStrokes[index].color.withAlpha(alpha));
           });
         });
 
         // deleting timer
-        laserTimers[stroke] = Timer(Duration(milliseconds: durationEnd), () {
+        laserTimers[strokeID] = Timer(Duration(milliseconds: durationEnd), () {
           if (!mounted) return;
 
-          laserTimers[stroke]?.cancel();
-          laserTimers.remove(stroke);
+          laserTimers[strokeID]?.cancel();
+          laserTimers.remove(strokeID);
 
           setState(() {
-            laserStrokes.remove(stroke);
+            laserStrokes.removeWhere((s) => s.strokeID == strokeID);
           });
         });
       });

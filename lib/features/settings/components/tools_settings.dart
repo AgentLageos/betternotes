@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -63,10 +62,8 @@ class _ToolSelectorPageState extends ConsumerState<ToolSelectorPage> {
     ToolType.laserTool,
   ];
 
-  //final List<Icon> tools = [];
   late final setup = ref.read(editorSetupProvider)[editorIndex];
 
-  //late final List<Icon> tools = ref.read(editorSetupProvider)[editorIndex].spaces;
 
   late List<ToolType> tools = setup.tools.map((tool) {
     switch (tool.type) {
@@ -115,8 +112,6 @@ class _ToolSelectorPageState extends ConsumerState<ToolSelectorPage> {
           return LineTool();
         case ToolType.laserTool:
           return LaserTool();
-        default:
-          return PenTool();
       }
     }).toList();
     ref.read(editorSetupProvider.notifier).setTools(editorIndex, newTools);
@@ -134,7 +129,6 @@ class _ToolSelectorPageState extends ConsumerState<ToolSelectorPage> {
         title: Text(language.customize_tools),
         actions: [
 
-          //IconButton(icon: const Icon(Icons.check), onPressed: finishSelection,)
           ElevatedButton(
             onPressed: (finishSelection),
             style: ElevatedButton.styleFrom(

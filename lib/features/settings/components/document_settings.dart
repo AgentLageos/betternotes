@@ -1,11 +1,8 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:betternotes/core/utils/build_color_tile.dart';
 import '../../../core/providers/global_providers.dart';
-import '../models/settings.dart';
-import '../providers/settings_notifier.dart';
 import '../../../l10n/app_localizations.dart';
 
 final editorIndex = 0;
@@ -18,7 +15,6 @@ final editorIndex = 0;
 
 
 
-final settingsProvider = NotifierProvider<SettingsNotifier, Settings>(() => SettingsNotifier());
 
 class DocumentSettings extends ConsumerStatefulWidget {
   const DocumentSettings({super.key});
@@ -64,33 +60,33 @@ class _DocumentSettingsState extends ConsumerState<DocumentSettings> {
             },
             children: [
               ListTile(
-                title: Text("A3 "+language.portrait, style: TextStyle(color: Theme.of(context).colorScheme.onSurface),),
+                title: Text("A3 ${language.portrait}", style: TextStyle(color: Theme.of(context).colorScheme.onSurface),),
                 onTap: () async {ref.read(editorSetupProvider.notifier).setDefaultPage(editorIndex: editorIndex, pageHeight: 420, pageWidth: 297);},
               ),
               ListTile(
-                title: Text("A3 "+language.landscape, style: TextStyle(color: Theme.of(context).colorScheme.onSurface),),
+                title: Text("A3 ${language.landscape}", style: TextStyle(color: Theme.of(context).colorScheme.onSurface),),
                 onTap: () async {ref.read(editorSetupProvider.notifier).setDefaultPage(editorIndex: editorIndex, pageHeight: 297, pageWidth: 410);},
               ),
               ListTile(
-                title: Text("A4 "+language.portrait, style: TextStyle(color: Theme.of(context).colorScheme.onSurface),),
+                title: Text("A4 ${language.portrait}", style: TextStyle(color: Theme.of(context).colorScheme.onSurface),),
                 onTap: () async {
                   ref.read(editorSetupProvider.notifier).setDefaultPage(editorIndex: editorIndex, pageHeight: 297, pageWidth: 210);
                 },
               ),
               ListTile(
-                title: Text("A4 "+language.landscape, style: TextStyle(color: Theme.of(context).colorScheme.onSurface),),
+                title: Text("A4 ${language.landscape}", style: TextStyle(color: Theme.of(context).colorScheme.onSurface),),
                 onTap: () async {
                   ref.read(editorSetupProvider.notifier).setDefaultPage(editorIndex: editorIndex, pageHeight: 210, pageWidth: 297);
                 },
               ),
               ListTile(
-                title: Text("A5 "+language.portrait, style: TextStyle(color: Theme.of(context).colorScheme.onSurface),),
+                title: Text("A5 ${language.portrait}", style: TextStyle(color: Theme.of(context).colorScheme.onSurface),),
                 onTap: () async {
                   ref.read(editorSetupProvider.notifier).setDefaultPage(editorIndex: editorIndex, pageHeight: 210, pageWidth: 148);
                 },
               ),
               ListTile(
-                title: Text("A5 "+language.landscape, style: TextStyle(color: Theme.of(context).colorScheme.onSurface),),
+                title: Text("A5 ${language.landscape}", style: TextStyle(color: Theme.of(context).colorScheme.onSurface),),
                 onTap: () async {
                   ref.read(editorSetupProvider.notifier).setDefaultPage(editorIndex: editorIndex, pageHeight: 148, pageWidth: 210);
                 },
@@ -144,7 +140,6 @@ class _NumberSettingRow extends StatelessWidget {
           child: TextField(
             controller: controller,
             keyboardType: TextInputType.number,
-            //textAlign: TextAlign.right,
             onSubmitted: (text) {
               final number = double.tryParse(text);
               if (number != null) {
@@ -174,10 +169,10 @@ class AdvancedSettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("advanced settings"),
+        title: Text(AppLocalizations.of(context)!.advanced_settings),
       ),
-      body: const Center(
-        child: Text("Hier kommen weitere Einstellungen hin"),
+      body: Center(
+        child: Text(AppLocalizations.of(context)!.more_settings_here),
       ),
     );
   }
@@ -215,10 +210,8 @@ class _ResizableToolbarState extends ConsumerState<ResizableToolbar> {
 
     List<String> titles = [language.tools, language.widths, language.colors, language.undo_redo];
     const textStyle = TextStyle(fontWeight: FontWeight.bold);
-    //final minWidths = titles.map((t) => measureTextWidth(t, textStyle) + 32).toList();
     final minWidths = [50, 50, 50, 50];
 
-    //print(minWidths);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -237,7 +230,7 @@ class _ResizableToolbarState extends ConsumerState<ResizableToolbar> {
                     width: widths[i] * w,
                     child: Container(
                       alignment: Alignment.center,
-                      color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                      color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
                       child: Text(
                         titles[i],
                         maxLines: 1,
@@ -291,7 +284,7 @@ class _ResizableToolbarState extends ConsumerState<ResizableToolbar> {
                           cursor: SystemMouseCursors.resizeColumn,
                           child: Container(
                             width: 20,
-                            color: Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.6),
+                            color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.6),
                           ),
                         ),
                       ),

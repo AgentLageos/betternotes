@@ -1,16 +1,13 @@
 import 'package:betternotes/core/components/color_picker.dart';
-import 'package:betternotes/main.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/settings.dart';
-import '../providers/settings_notifier.dart';
+import '../../../core/providers/global_providers.dart';
 
 import '../../../l10n/app_localizations.dart';
+import 'package:betternotes/core/utils/color_channels.dart';
 
 
-final settingsProvider = NotifierProvider<SettingsNotifier, Settings>(() => SettingsNotifier());
 
 class DesignSettings extends ConsumerStatefulWidget {
   const DesignSettings({super.key});
@@ -38,7 +35,6 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
           value: settings.darkMode,
           onChanged: (value) async {
             await ref.read(settingsProvider.notifier).setDarkMode(value);
-            RestartWidget.restartApp(context);
 
             },
         ),
@@ -53,7 +49,6 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
           color: settings.primary,
           onColorPicked: (color) async {
             await ref.read(settingsProvider.notifier).setAccentColor(color);
-            RestartWidget.restartApp(context);
             },
         ),
 
@@ -72,21 +67,18 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
             title: Text(language.relaxing_blue, style: TextStyle(color: Theme.of(context).colorScheme.onSurface),),
             onTap: () async {
               await ref.read(settingsProvider.notifier).setColors(primary: Colors.blue, onPrimary: Colors.white, secondary: Colors.blue, onSecondary: Colors.white, surface: Colors.white, onSurface: Colors.black, error: Colors.red, onError: Colors.pinkAccent);
-              RestartWidget.restartApp(context);
             },
           ),
           ListTile(
             title: Text(language.retrowave, style: TextStyle(color: Theme.of(context).colorScheme.onSurface),),
             onTap: () async {
               await ref.read(settingsProvider.notifier).setColors(primary: Color(0xFFCD5672), onPrimary: Color(0xFF2D4DEF), secondary: Color(0xFFDE7C4B), onSecondary: Color(0xFFFFFF99), surface: Color(0xFF700052), onSurface: Colors.tealAccent, error: Colors.red, onError: Colors.pinkAccent);
-              RestartWidget.restartApp(context);
             },
           ),
           ListTile(
             title: Text(language.enter_matrix, style: TextStyle(color: Theme.of(context).colorScheme.onSurface),),
             onTap: () async {
               await ref.read(settingsProvider.notifier).setColors(primary: Colors.grey.shade800, onPrimary: Colors.green, secondary: Colors.grey.shade800, onSecondary: Colors.greenAccent, surface: Colors.black54, onSurface: Colors.lightGreen, error: Colors.red, onError: Colors.pinkAccent);
-              RestartWidget.restartApp(context);
             },
           )
         ]),
@@ -108,7 +100,6 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
               color: settings.primary,
               onColorPicked: (color) async {
                 await ref.read(settingsProvider.notifier).setPrimaryColor(color);
-                RestartWidget.restartApp(context);
               },
             ),
             buildColorTile(
@@ -117,7 +108,6 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
               color: settings.onPrimary,
               onColorPicked: (color) async {
                 await ref.read(settingsProvider.notifier).setOnPrimaryColor(color);
-                RestartWidget.restartApp(context);
               },
             ),
             buildColorTile(
@@ -126,7 +116,6 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
               color: settings.secondary,
               onColorPicked: (color) async {
                 await ref.read(settingsProvider.notifier).setSecondaryColor(color);
-                RestartWidget.restartApp(context);
               },
             ),
             buildColorTile(
@@ -134,8 +123,7 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
               label: language.on_secondary_color,
               color: settings.onSecondary,
               onColorPicked: (color) async {
-                ref.read(settingsProvider.notifier).setOnSecondaryColor(color);
-                RestartWidget.restartApp(context);
+                await ref.read(settingsProvider.notifier).setOnSecondaryColor(color);
               },
             ),
             buildColorTile(
@@ -144,7 +132,6 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
               color: settings.surface,
               onColorPicked: (color) async {
                 await ref.read(settingsProvider.notifier).setSurfaceColor(color);
-                RestartWidget.restartApp(context);
               },
             ),
             buildColorTile(
@@ -153,7 +140,6 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
               color: settings.onSurface,
               onColorPicked: (color) async {
                 await ref.read(settingsProvider.notifier).setOnSurfaceColor(color);
-                RestartWidget.restartApp(context);
               },
             ),
             buildColorTile(
@@ -161,8 +147,7 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
               label: language.error_color,
               color: settings.error,
               onColorPicked: (color) async {
-                ref.read(settingsProvider.notifier).setErrorColor(color);
-                RestartWidget.restartApp(context);
+                await ref.read(settingsProvider.notifier).setErrorColor(color);
               },
             ),
             buildColorTile(
@@ -171,7 +156,6 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
               color: settings.error,
               onColorPicked: (color) async {
                 await ref.read(settingsProvider.notifier).setOnErrorColor(color);
-                RestartWidget.restartApp(context);
               },
             ),
           ],
@@ -206,16 +190,16 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
   }
 
   Future<Color?> pickRGBColor(BuildContext context, Color current) async {
-    int r = current.red;
-    int g = current.green;
-    int b = current.blue;
-    int a = current.alpha;
+    int r = current.red8;
+    int g = current.green8;
+    int b = current.blue8;
+    int a = current.alpha8;
 
     return showDialog<Color>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text("Farbe auswählen"),
+          title: Text(AppLocalizations.of(context)!.select_color),
           content: StatefulBuilder(
             builder: (context, setStateDialog) {
               Color preview = Color.fromARGB(a, r, g, b);
@@ -247,8 +231,8 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
             },
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text("Abbrechen")),
-            TextButton(onPressed: () => Navigator.of(context).pop(Color.fromARGB(a, r, g, b)), child: const Text("OK")),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(AppLocalizations.of(context)!.cancel)),
+            TextButton(onPressed: () => Navigator.of(context).pop(Color.fromARGB(a, r, g, b)), child: Text(AppLocalizations.of(context)!.ok)),
           ],
         );
       },
@@ -275,16 +259,16 @@ class _DesignSettingsState extends ConsumerState<DesignSettings> {
 }
 
 Future<Color?> pickRGBColor(BuildContext context, Color current, String message) async {
-  int r = current.red;
-  int g = current.green;
-  int b = current.blue;
-  int a = current.alpha;
+  int r = current.red8;
+  int g = current.green8;
+  int b = current.blue8;
+  int a = current.alpha8;
 
   return showDialog<Color>(
     context: context,
     builder: (context) {
       return AlertDialog(
-        title: const Text("Farbe auswählen"),
+        title: Text(AppLocalizations.of(context)!.select_color),
         content: StatefulBuilder(
           builder: (context, setDialogState) {
             Color preview = Color.fromARGB(a, r, g, b);
@@ -381,12 +365,12 @@ Future<Color?> pickRGBColor(BuildContext context, Color current, String message)
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(null),
-            child: const Text("Abbrechen"),
+            child: Text(AppLocalizations.of(context)!.cancel),
           ),
           TextButton(
             onPressed: () =>
                 Navigator.of(context).pop(Color.fromARGB(a, r, g, b)),
-            child: const Text("OK"),
+            child: Text(AppLocalizations.of(context)!.ok),
           ),
         ],
       );

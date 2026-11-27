@@ -1,5 +1,5 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:betternotes/l10n/app_localizations.dart';
 
 class LanguageSettings extends StatefulWidget {
   const LanguageSettings({super.key});
@@ -25,8 +25,8 @@ class _LanguageSettingsState extends State<LanguageSettings> {
       padding: const EdgeInsets.all(16),
       children: [
 
-        const Text(
-          "Sprache",
+        Text(
+          AppLocalizations.of(context)!.language,
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
 
@@ -43,7 +43,7 @@ class _LanguageSettingsState extends State<LanguageSettings> {
               });
             },
           );
-        }).toList(),
+        }),
       ],
     );
   }

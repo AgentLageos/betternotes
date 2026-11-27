@@ -64,6 +64,8 @@
 
  "danger_zone": "Erweitert",
  "debug_mode": "Entwicklermodus",
+ "mesh_renderer": "Mesh-Renderer (experimentell)",
+ "mesh_renderer_hint": "Neuer Renderer in Entwicklung; gilt für danach geöffnete Dokumente",
  "manage_app_permissions":"App Berechtigungen Verwalten",
 
 
@@ -167,6 +169,27 @@
   "delete": "Löschen von",
   "elements": "Elementen",
 
-  "coming_soon": "BALD"
+  "coming_soon": "BALD",
 
+  "import_pdf_title": "PDF importieren?",
+  "import_pdf_question": "Möchtest du diese PDF-Datei importieren?",
+  "import_action": "Importieren",
+  "import_failed": "Import fehlgeschlagen",
+  "import_pdf_failed": "Die PDF konnte nicht importiert werden.\n\n{error}",
+  "invalid_input": "Ungültige Eingabe",
+  "advanced_settings": "Erweiterte Einstellungen",
+  "more_settings_here": "Hier kommen weitere Einstellungen hin",
+  "saved": "Gespeichert",
+  "access_denied": "Zugriff verweigert: {path}",
+  "choose_destination": "Ziel auswählen",
+  "files_exported_to": "Alle Dateien exportiert nach: {path}",
+  "export_error": "Fehler beim Exportieren: {error}",
+  "import_starting": "Import wird gestartet...",
+  "importing_progress": "Importiere {done} von {total}",
+  "import_finished": "Import abgeschlossen.",
+  "files_imported": "Dateien erfolgreich importiert.",
+  "import_error": "Fehler beim Importieren: {error}",
+  "open_failed": "Notiz konnte nicht geöffnet werden",
+  "open_failed_message": "Die Notiz konnte nicht geöffnet werden. Sie ist möglicherweise beschädigt oder wurde mit einer älteren Version von BetterNotes gespeichert.\n\n{error}",
+  "@open_failed_message": {"placeholders": {"error": {"type": "String"}}}
 }

@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import 'package:provider/provider.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:betternotes/core/providers/global_providers.dart';
 
-import 'package:betternotes/l10n/app_localizations.dart';
 
 import '../../../../../core/components/color_picker.dart';
+import 'package:betternotes/core/utils/color_channels.dart';
 
 class ColorSelectorBar extends ConsumerStatefulWidget {
   final double height;
@@ -43,60 +41,9 @@ class _ColorSelectorBarState extends ConsumerState<ColorSelectorBar> {
       setState(() {
         selectedIndex =ref.read(editorSetupProvider.select((editors) => editors[editorIndex].colorIndex));
         colors = ref.read(editorSetupProvider.select((editors) => editors[editorIndex].colors));
-        //selectedIndex = context.read<GlobalState>().selectedColorIndex;       //overwrite colors and currently selected with global_state
-        //colors = context.read<GlobalState>().colors;
 
       });
     });
-  }
-
-  Future<void> _pickColor(int index) async {
-
-    final text = AppLocalizations.of(context)!;
-
-    Color? picked = await showDialog<Color>(
-      context: context,
-      builder: (context) {
-        Color tempColor = colors[index];
-        return AlertDialog(
-          title: Text(text.select_color),
-          content: SingleChildScrollView(
-            child: ColorPicker(
-              initialColor: tempColor,
-              onColorChanged: (color) {
-                tempColor = color;
-
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(text.cancel),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context, tempColor);
-
-                //Provider.of<GlobalState>(context, listen: false).setDrawingColors(colors);        //globally set colors in the color selection bar
-              },
-              child: Text(text.apply),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (picked != null) {
-      setState(() {
-        colors[index] = picked;
-      });
-      if (index == selectedIndex) {
-        widget.onColorSelected(picked);
-        //Provider.of<GlobalState>(context, listen: false).setStrokeColor(picked);        //globally set current pen color
-        //Provider.of<GlobalState>(context, listen: false).setSelectedColorIndex(index);        //globally set currently selected color button
-      }
-    }
   }
 
   void _onTap(int index) {
@@ -112,20 +59,18 @@ class _ColorSelectorBarState extends ConsumerState<ColorSelectorBar> {
   Widget build(BuildContext context) {
     return Container(
       height: widget.height,
-      //color: widget.backgroundColor,
       alignment: Alignment.centerLeft,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 10),
         itemCount: colors.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           final color = colors[index];
           final isSelected = index == selectedIndex;
 
           return GestureDetector(
             onTap: () => _onTap(index),
-            //onLongPress: () => _pickColor(index),
             onLongPress: () async {
               final picked = await pickColor(context, color);
               if (picked != null) {
@@ -178,9 +123,9 @@ class _ColorPickerState extends State<ColorPicker> {
   @override
   void initState() {
     super.initState();
-    red = widget.initialColor.red.toDouble();
-    green = widget.initialColor.green.toDouble();
-    blue = widget.initialColor.blue.toDouble();
+    red = widget.initialColor.red8.toDouble();
+    green = widget.initialColor.green8.toDouble();
+    blue = widget.initialColor.blue8.toDouble();
   }
 
   void _updateColor() {

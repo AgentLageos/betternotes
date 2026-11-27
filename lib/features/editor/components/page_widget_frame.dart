@@ -1,7 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import '../models/page/page_model.dart';
 
 ///////////this widget mainly exists to avoid having to deal with offsets in pagewidget because of padding and margin, that shift the pen position if not corrected
 ///////////pagewidgetframe however solves this!!!

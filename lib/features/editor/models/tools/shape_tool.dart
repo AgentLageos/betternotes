@@ -1,4 +1,3 @@
-import 'dart:ui';
 
 import 'package:betternotes/features/editor/models/tools/tool.dart';
 import 'package:flutter/material.dart';
@@ -45,18 +44,17 @@ class ShapeTool extends Tool{
   ShapeTool({
     Color? iconColor,
     double? width,
-    bool? finger,
+    super.finger,
     ShapeShape? shape,
     ShapeOrigin? shapeOrigin,
     bool? snapToGrid,
-    int? toolID,
+    super.toolID,
   })
       : iconColor = iconColor ?? Colors.greenAccent,
         width = width ?? 0.4,
         shape = shape ?? ShapeShape.rect,
         shapeOrigin = shapeOrigin ?? ShapeOrigin.corner,
-        snapToGrid = snapToGrid ?? false,
-        super(finger: finger, toolID: toolID)
+        snapToGrid = snapToGrid ?? false
   ;
 
   ShapeTool copyWith({
@@ -80,9 +78,10 @@ class ShapeTool extends Tool{
     );
   }
 
+  @override
   Map<String, dynamic> toJson() => {
     'type': type,
-    'iconColor': iconColor.value,
+    'iconColor': iconColor.toARGB32(),
     'width': width,
     'finger': finger,
     'shape': shape.toJson(),

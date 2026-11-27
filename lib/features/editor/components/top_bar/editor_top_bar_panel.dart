@@ -15,7 +15,10 @@ class EditorTopBarPanel extends ConsumerWidget implements PreferredSizeWidget {
 
 
 
-  EditorTopBarPanel({super.key,});
+  const EditorTopBarPanel({super.key, this.docID});
+
+  /// The document shown in the editor; null for the preview in the settings.
+  final int? docID;
 
   final height3 = 30.0;      //height of the lower container
 
@@ -27,7 +30,6 @@ class EditorTopBarPanel extends ConsumerWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
 
-    int docIndex = ref.read(documentsProvider.notifier).currentDocIndex;
 
     final double spacing = (MediaQuery.of(context).size.width)/80;
 
@@ -59,10 +61,9 @@ class EditorTopBarPanel extends ConsumerWidget implements PreferredSizeWidget {
                       height: height3,
                       backgroundColor: Theme.of(context).colorScheme.surface,
                       ref: ref,
-                      docIndex: docIndex,
                     ),
                   );
-                }).toList(),
+                }),
 
                 SizedBox(width: spacing),
               ],
@@ -89,7 +90,6 @@ class EditorTopBarPanel extends ConsumerWidget implements PreferredSizeWidget {
     required double height,
     required Color backgroundColor,
     required WidgetRef ref,
-    required int docIndex,
   }) {
     switch (poolType) {
       case 0: // tools
@@ -101,7 +101,6 @@ class EditorTopBarPanel extends ConsumerWidget implements PreferredSizeWidget {
         return StrokeWidthSelectorBar(
           height: height,
           onStrokeWidthSelected: (width) {
-            //print("StrokeWidth: $width");
           },
         );
       case 2: // colors
@@ -109,22 +108,20 @@ class EditorTopBarPanel extends ConsumerWidget implements PreferredSizeWidget {
           height: height,
           backgroundColor: backgroundColor,
           onColorSelected: (color) {
-            //print("Farbe ausgewählt: $color");
           },
         );
       case 3: // undo/redo
         return ListView(
 
           scrollDirection: Axis.horizontal,
-          //padding: const EdgeInse`ts.symmetric(horizontal: 10),
           children: [
             UndoButton(
-              onPressed: () {ref.read(documentsProvider.notifier).undo(docIndex);},
+              onPressed: () {if (docID != null) ref.read(documentProvider(docID!).notifier).undo();},
           ),
           const SizedBox(width: 5),
           RedoButton(
             onPressed: () {
-              ref.read(documentsProvider.notifier).redo(docIndex);
+              if (docID != null) ref.read(documentProvider(docID!).notifier).redo();
             },
           ),
           ],
@@ -182,11 +179,11 @@ class ColoredCircleButton extends StatelessWidget {   //widget for displaying co
   final String snackBarText;
 
   const ColoredCircleButton({
-    Key? key,
+    super.key,
     required this.color,
     this.onPressed,
     this.snackBarText = '',
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -225,10 +222,10 @@ class PenButton extends StatelessWidget {   //widget for displaying colored butt
   final String snackBarText;
 
   const PenButton({
-    Key? key,
+    super.key,
     this.onPressed,
     this.snackBarText = '',
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -263,10 +260,10 @@ class UndoButton extends StatelessWidget {   //widget for displaying colored but
 
 
   const UndoButton({
-    Key? key,
+    super.key,
     this.onPressed,
     this.snackBarText = '',
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -281,7 +278,7 @@ class UndoButton extends StatelessWidget {   //widget for displaying colored but
             }
           },
       style: ElevatedButton.styleFrom(
-        backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.4),
+        backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         minimumSize: const Size(0, 20),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -300,10 +297,10 @@ class RedoButton extends StatelessWidget {   //widget for displaying colored but
   final String snackBarText;
 
   const RedoButton({
-    Key? key,
+    super.key,
     this.onPressed,
     this.snackBarText = '',
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -317,7 +314,7 @@ class RedoButton extends StatelessWidget {   //widget for displaying colored but
             }
           },
       style: ElevatedButton.styleFrom(
-        backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.4),
+        backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         minimumSize: const Size(0, 20),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,

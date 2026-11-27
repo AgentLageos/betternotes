@@ -4,7 +4,6 @@ import 'package:betternotes/features/settings/components/developer_settings.dart
 import 'package:betternotes/features/settings/components/document_settings.dart';
 import 'package:betternotes/features/settings/components/editor_settings.dart';
 import 'package:betternotes/features/settings/components/general_settings.dart';
-import 'package:betternotes/features/settings/components/language_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -29,6 +28,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   int selectedIndex = 0;
+  @override
   void initState() {
     super.initState();
     loadLastSettingsCategory();

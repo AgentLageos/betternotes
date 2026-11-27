@@ -20,7 +20,6 @@ class NewFolderButton extends StatelessWidget {
   Widget build(BuildContext context) {
 
 
-    final text = AppLocalizations.of(context)!;
 
 
     return IconButton(
@@ -29,11 +28,11 @@ class NewFolderButton extends StatelessWidget {
 
         final existingNames = await _getExistingFolderNames();
         print(existingNames);
+        if (!context.mounted) return;
         _showNewFolderDialog(context, existingNames);
       },
 
       icon: Icon(Icons.create_new_folder_outlined),
-      //child: Text(text.new_directory, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSecondary),),
     );
   }
 
@@ -59,10 +58,9 @@ class NewFolderButton extends StatelessWidget {
 
   Future<void> createNewFolder(String name, Directory currentDir) async {
 
-    //print("hi");
 
-    if (name != null && name.isNotEmpty) {
-      final newDir = Directory('${currentDir.path}/$name');
+    if (name.isNotEmpty) {
+      final newDir = Directory(p.join(currentDir.path, name));
       if (!(await newDir.exists())) {
         await newDir.create();
       }
@@ -104,22 +102,15 @@ class NewFolderButton extends StatelessWidget {
                   print(existingNames);
                   if (name.isEmpty) {
                     setState(() => errorText = text.name_cannot_be_empty);
-                  } else if (existingNames.contains("$name")) {
-                    setState(() => errorText = '\"$name\" '+text.already_exists);
+                  } else if (existingNames.contains(name)) {
+                    setState(() => errorText = '"$name" ${text.already_exists}');
                   } else {
                     Navigator.of(context).pop();
                     createNewFolder(name, currentDir).then((_) {
-                      onLoadDir(currentDir); // Aktualisiert die Dateiansicht
-                    }); // Aktualisiert die Dateiansicht
-                    //onCreate("test");
-                    /*
-                    createBnfFile(name, currentDir).then((_) {
+                      onLoadDir(currentDir); // refreshes the file view
+                    }); // refreshes the file view
 
-                    });
-
-                     */
-
-                  };
+                  }
 
 
                 },

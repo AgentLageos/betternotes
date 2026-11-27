@@ -1,0 +1,74 @@
+# Analyzer, tests and generated-code check on every push and PR (ROADMAP CI-01).
+# The job names are the required status checks of the master ruleset (D19, CI-02).
+name: checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Keep in sync with build.yml and the local Flutter version (D18).
+  FLUTTER_VERSION: "3.47.x"
+  FRB_VERSION: "2.13.0"   # must match flutter_rust_bridge in pubspec.yaml and rust/Cargo.toml
+
+jobs:
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
+  rust:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - run: cargo test --locked
+
+  # Fails if lib/src/rust or rust/src/frb_generated.rs were not regenerated after an API change.
+  codegen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          cache-bin: true
+      - run: cargo install flutter_rust_bridge_codegen --version ${{ env.FRB_VERSION }} --locked
+      - run: flutter pub get
+      - run: flutter_rust_bridge_codegen generate
+      - name: Generated code is up to date
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --short
+            git diff
+            echo "::error::flutter_rust_bridge output is outdated, run 'flutter_rust_bridge_codegen generate' and commit the result."
+            exit 1
+          fi

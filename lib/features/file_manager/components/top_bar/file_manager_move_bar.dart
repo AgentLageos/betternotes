@@ -52,7 +52,7 @@ class FileManagerMoveBar extends StatelessWidget implements PreferredSizeWidget 
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
 
-                    if (currentDir.path != '/')
+                    if (currentDir.parent.path != currentDir.path)         //not the filesystem root
                       IconButton(
                         icon: const Icon(Icons.drive_folder_upload),
                         onPressed: () {
@@ -66,23 +66,23 @@ class FileManagerMoveBar extends StatelessWidget implements PreferredSizeWidget 
                     Spacer(),                                                    //move everything after this to the right
 
                     ElevatedButton(
-                      child: Text(text.move, style: TextStyle(fontSize: 10)),
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(0, 30),
 
                       ),
                       onPressed: onMoveEntities,
+                      child: Text(text.move, style: TextStyle(fontSize: 10)),
                     ),
 
                     SizedBox(width: 10),
 
                     ElevatedButton(
-                      child: Text(text.cancel, style: TextStyle(fontSize: 10)),
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(0, 30),
 
                       ),
                       onPressed: onCancelSelection,
+                      child: Text(text.cancel, style: TextStyle(fontSize: 10)),
                     ),
 
                     SizedBox(width: 20),

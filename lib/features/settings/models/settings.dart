@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
 
@@ -25,17 +24,12 @@ class Settings {
   final Color onError;
   final ThemeData theme;
   final bool restartRequest;
-  //final Color appColor; //color of onSurfaces, etc
-  //final Color textColor; //color of text, buttons
-  //final Color barColor; //color of top bars, highlighting
-
-
-
-
 
 
   //danger zone
   final bool debugMode; //when enabled shows additional information like grid of page-tiles and pageID
+  /// Use the mesh renderer (R12-01) for documents opened afterwards.
+  final bool meshRenderer;
 
 
 
@@ -56,6 +50,7 @@ class Settings {
     Locale? language,
     bool? showPageNumbers,
     bool? debugMode,
+    bool? meshRenderer,
     ThemeData? theme,
     bool? restartRequest,
   }) : darkMode = darkMode ?? false,
@@ -72,13 +67,12 @@ class Settings {
         language = language ?? const Locale('en'),
         showPageNumbers = showPageNumbers ?? true,
         debugMode = debugMode ?? false,
+        meshRenderer = meshRenderer ?? false,
         theme = theme ?? ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue ,brightness: Brightness.light,)),
         restartRequest = restartRequest ?? false
   ;
 
 
-
-  //selectorPools ?? [ToolSelector(tools: [0, 1, 2]), WidthSelector(widths: [0.4, 1.2, 4.0]), ColorSelector(colors: [Colors.black, Colors.red, Colors.green, Colors.blue, Colors.yellow])];
 
   Settings copyWith({
     bool? darkMode,
@@ -95,6 +89,7 @@ class Settings {
     Locale? language,
     bool? showPageNumbers,
     bool? debugMode,
+    bool? meshRenderer,
     ThemeData? theme,
     bool? restartRequest,
 
@@ -115,6 +110,7 @@ class Settings {
       language: language ?? this.language,
       showPageNumbers: showPageNumbers ?? this.showPageNumbers,
       debugMode: debugMode ?? this.debugMode,
+      meshRenderer: meshRenderer ?? this.meshRenderer,
       theme: theme ?? this.theme,
       restartRequest: restartRequest ?? this.restartRequest,
 

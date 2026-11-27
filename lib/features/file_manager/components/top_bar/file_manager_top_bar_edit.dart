@@ -4,13 +4,11 @@ import 'package:betternotes/features/file_manager/components/buttons/delete_butt
 import 'package:betternotes/features/file_manager/components/buttons/rename_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../l10n/app_localizations.dart';
-import '../../../../core/providers/global_providers.dart';
 
 
 class FileManagerTopBarEdit extends ConsumerWidget implements PreferredSizeWidget {
 
 
-  //final VoidCallback? onCreateNewFolder;
   final VoidCallback onCancelSelection;
   final VoidCallback onDeleteSelected;
   final VoidCallback onSelectAll;
@@ -59,7 +57,6 @@ class FileManagerTopBarEdit extends ConsumerWidget implements PreferredSizeWidge
   Widget build(BuildContext context, WidgetRef  ref) {
 
     final text = AppLocalizations.of(context)!;
-    final settings = ref.watch(settingsProvider);
 
 
 
@@ -86,7 +83,7 @@ class FileManagerTopBarEdit extends ConsumerWidget implements PreferredSizeWidge
                       onPressed: onCancelSelection,
                     ),
 
-                    Text('${numberOfSelectedFiles} '+text.selected, style: TextStyle(color: Theme.of(context).colorScheme.onPrimary,),),
+                    Text('$numberOfSelectedFiles ${text.selected}', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary,),),
 
                     Spacer(), //move everything after this to the right
 

@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'command.dart';
 import 'package:betternotes/features/editor/models/page/page_model.dart';
 
@@ -15,7 +14,7 @@ class ModifyPagesCommand extends Command {
     required this.addPageIndexes,
     required this.removePages,
     required this.removePageIndexes,
-    int? commandID,
-  }): super(commandID: commandID);
+    super.commandID,
+  });
 
 }

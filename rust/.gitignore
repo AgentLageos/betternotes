@@ -1,0 +1,3 @@
+/target
+# written by failing reference tests
+/tests/reference/*.actual.png

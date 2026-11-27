@@ -1,8 +1,6 @@
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
-import 'package:flutter/cupertino.dart';
 
 import 'package:betternotes/features/editor/models/page/stroke.dart';
 import 'dart:core';
@@ -20,7 +18,7 @@ class SelectionDrawer extends StatelessWidget {
   final VoidCallback colorSelection;
 
   const SelectionDrawer({
-    Key? key,
+    super.key,
     required this.width,
     required this.height,
     required this.selectionStrokes,
@@ -30,7 +28,7 @@ class SelectionDrawer extends StatelessWidget {
     required this.deleteSelection,
     required this.copySelection,
     required this.colorSelection,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -121,17 +119,17 @@ class SelectionPainter extends CustomPainter {
         path.close();
 
         Paint fillPaint = Paint()
-          ..color = stroke.color.withOpacity(0.3)
+          ..color = stroke.color.withValues(alpha: 0.3)
           ..style = PaintingStyle.fill;
 
-        // Fläche zeichnen
+        // draw the fill
         canvas.drawPath(path, fillPaint);
 
-        // 2️⃣ Kontur / Stroke in voller Farbe
+        // 2️⃣ outline / stroke in full color
         Paint strokePaint = Paint()
           ..color = stroke.color // volle Deckkraft
           ..style = PaintingStyle.stroke
-          ..strokeWidth = stroke.points.first.width; // z.B. Thickness des Stifts
+          ..strokeWidth = stroke.points.first.width; // e.g. the pen thickness
 
         // Kontur zeichnen
         canvas.drawPath(path, strokePaint);

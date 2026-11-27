@@ -1,24 +1,27 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:betternotes/features/editor/models/page/image_model.dart';
-import 'package:betternotes/features/editor/providers/documents_notifier.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:provider/provider.dart';
+import 'package:path/path.dart' as p;
 
-//import 'package:betternotes/page_list_screen.dart';                  //no longer exists
 
 import 'package:betternotes/features/editor/editor_screen.dart';
 
 import '../../../core/providers/global_providers.dart';
+import '../../editor/data/document_file.dart';
 import '../../editor/models/page/document_model.dart';
 import '../../editor/models/page/page_model.dart';
 import '../../../l10n/app_localizations.dart';
 
 import 'package:pdfx/pdfx.dart';
-import 'dart:typed_data';
 
 class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
+
+  /// True while a PDF import is running (see the PDF branch in build).
+  static bool _importRunning = false;
 
 
   final VoidCallback onCancelSelection;
@@ -52,7 +55,6 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
 
       itemCount: files.length,
       itemBuilder: (context, index) {
-        final text = AppLocalizations.of(context)!;
         final f = files[index];
         final isDir = FileSystemEntity.isDirectorySync(f.path);
         final isSelected = selectedFiles.contains(f);
@@ -60,12 +62,10 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
         return ListTile(
           leading: Icon(
             isDir ? Icons.folder : Icons.insert_drive_file,
-            //color: isSelected ? Theme.of(context).colorScheme.onPrimaryContainer : Theme.of(context).colorScheme.onSurface,
           ),
           title: Text(
-            f.path.split('/').last,
+            p.basename(f.path),
             style: TextStyle(
-              //color: isSelected ? Theme.of(context).colorScheme.onPrimaryContainer : Theme.of(context).colorScheme.onSurface,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
           ),
@@ -82,12 +82,29 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
             } else if (f.path.endsWith('.bnf') || f.path.endsWith('.bnf2')) {
               final stringFile = f.path;
 
-              //print("file_manager_list: currentDir= ${ref.read(platformProvider).currentDirectory}");
               Navigator.push(context, MaterialPageRoute(builder: (_) => const LoadingPage()),);
 
-              await ref.read(documentsProvider.notifier).loadDoc2(stringFile, 0);
-              ref.read(documentsProvider.notifier).updateIsolatedPages(0);
+              final int? docID;
+              try {
+                docID = await ref.read(openDocumentsProvider.notifier).open(stringFile);
+              } catch (e) {
+                print("file_manager_list: open failed: $e");
+                if (context.mounted) {
+                  Navigator.pop(context);       //close the loading page
+                  await _showOpenErrorDialog(context, e);
+                }
+                return;
+              }
+              if (docID != null) {
+                ref.read(activeDocumentProvider.notifier).set(docID);
+                unawaited(ref.read(documentProvider(docID).notifier).loadWindowPages());    //pages load while the editor opens
+              }
 
+              if (!context.mounted) return;
+              if (docID == null) {
+                Navigator.pop(context);         //close the loading page, the file is gone
+                return;
+              }
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => Editor()),
@@ -103,46 +120,32 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
 
               print("HIIII");
 
-              /*
+              // Only one import at a time: the import uses the editor's document slot, so a second
+              // import (or opening a note) while one is running would replace its document.
+              if (_importRunning || !context.mounted) return;
+              _importRunning = true;
+
+              // (pages done, total pages); null until the PDF is opened
+              final progress = ValueNotifier<(int, int)?>(null);
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const LoadingPage(),
-                ),
+                MaterialPageRoute(builder: (_) => LoadingPage(blockBack: true, progress: progress)),
               );
 
-               */
-
-              await _importPdf(f.path, ref);
-
-              /*
               try {
-                await _importPdf(f.path, ref);
-                //return;
-                /*
+                await _importPdf(f.path, ref, progress);
+                if (context.mounted) Navigator.pop(context);      //close the loading page
+                onLoadDir?.call(currentDir);                       //show the new note
+              } catch (e) {
+                print("file_manager_list: importPdf failed: $e");
                 if (context.mounted) {
                   Navigator.pop(context);
+                  await _showImportErrorDialog(context, e);
                 }
-
-
-                if (context.mounted) {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => Editor(),
-                    ),
-                  );
-                }
-
-                 */
-              } catch (e) {
-                if (context.mounted) {
-                Navigator.pop(context);
-                await _showImportErrorDialog(context, e);
-                }
+              } finally {
+                _importRunning = false;
+                progress.dispose();
               }
-
-               */
 
 
             }
@@ -154,24 +157,21 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
   }
 
   Future<bool> _showImportPdfDialog(BuildContext context) async {
-    final text = AppLocalizations.of(context)!;
     final result = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
 
-          title: const Text('PDF importieren?'),
-          content: const Text(
-            'Möchtest du diese PDF-Datei importieren?',
-          ),
+          title: Text(AppLocalizations.of(context)!.import_pdf_title),
+          content: Text(AppLocalizations.of(context)!.import_pdf_question),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Abbrechen'),
+              child: Text(AppLocalizations.of(context)!.cancel),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Importieren'),
+              child: Text(AppLocalizations.of(context)!.import_action),
             ),
           ],
         );
@@ -190,14 +190,12 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Import fehlgeschlagen'),
-          content: Text(
-            'Die PDF konnte nicht importiert werden.\n\n$error',
-          ),
+          title: Text(AppLocalizations.of(context)!.import_failed),
+          content: Text(AppLocalizations.of(context)!.import_pdf_failed(error.toString())),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
+              child: Text(AppLocalizations.of(context)!.ok),
             ),
           ],
         );
@@ -208,58 +206,74 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
 
 
 
-  Future<void> _importPdf(String path, WidgetRef ref) async {
+  Future<void> _showOpenErrorDialog(BuildContext context, Object error) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(AppLocalizations.of(context)!.open_failed),
+          content: Text(AppLocalizations.of(context)!.open_failed_message(error.toString())),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(AppLocalizations.of(context)!.ok),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
-    final newPath = path.replaceFirst('.pdf', '.bnf');
+
+  Future<void> _importPdf(String path, WidgetRef ref, ValueNotifier<(int, int)?> progress) async {
+
+    final newPath = await _freeBnfPath(path);
 
     final document = await PdfDocument.openFile(path);
 
-    print('Anzahl Seiten: ${document.pagesCount}');
+    print('Page count: ${document.pagesCount}');
 
     if (document.pagesCount == 0) return;
 
     final file = File(newPath);
     final defaultPage = ref.read(editorSetupProvider)[editorIndex].defaultPage;
     DocumentModel newDoc = DocumentModel(pages: [], defaultPage: defaultPage, author: 'name', title: 'title', created: DateTime.now(), pageHeights: [], pageList: []);
-    final bytes = await newDoc.toBytes();
-    await file.writeAsBytes(bytes, flush: true,);
+    await (await createDocumentFile(file.path, newDoc)).close();
 
-    List<PageModel> pages = [];
-    List<double> pageHeights = [];
-    List<int> pageIds = [];
 
-    //final docIndex = ref.read(documentsProvider).length;
+    final docID = await ref.read(openDocumentsProvider.notifier).open(newPath);
+    if (docID == null) {
+      await document.close();
+      return;
+    }
 
-    final docIndex = 0;
-
-    //print(ref.read(documentsProvider).);
-
-    await ref.read(documentsProvider.notifier).loadDoc2(newPath, docIndex);
+    progress.value = (0, document.pagesCount);
 
     for (int i = 1; i <= document.pagesCount; i++) {
       final page = await document.getPage(i);
 
-      print('Seite $i');
-      print('Breite: ${page.width}');
-      print('Höhe: ${page.height}');
+      print('Page $i');
+      print('Width: ${page.width}');
+      print('Height: ${page.height}');
 
-      final height = page.height/3;
-      final width = page.width/3;
+      // PDF page sizes are in points (1/72 inch); page units are millimetres.
+      final height = page.height * 25.4 / 72;
+      final width = page.width * 25.4 / 72;
 
       PageModel newPage = PageModel(pageHeight: height, pageWidth: width);
 
 
 
       final image = await page.render(
-        width: width*6,
-        height: height*6,
+        width: page.width*2,          //2 px per point (same resolution as before)
+        height: page.height*2,
       );
       if (image != null) {
         final Uint8List bytes = image.bytes;
 
         final ui.Image uiImage = await bytesToUiImage(bytes);
 
-        final background = ImageModel(height: height, width: width, position: Offset(0,0), rotation: 0, image: uiImage);
+        final background = ImageModel(height: height, width: width, position: Offset(0,0), rotation: 0, image: uiImage, encodedBytes: bytes);
         print("file_manager_list: importpdf: $uiImage");
         newPage = newPage.copyWith(backgroundImage: background);
 
@@ -267,21 +281,23 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
 
 
 
-        final document = ref.read(documentsProvider)[docIndex];
-        await ref.read(documentsProvider.notifier).modifyPages(docIndex, [newPage], [document.pageList.length], []);
-        await ref.read(documentsProvider.notifier).saveDoc2(docIndex, [newPage]);
+        if (!ref.read(openDocumentsProvider).contains(docID)) {
+          throw StateError('The document was closed during the import, $newPath is incomplete.');
+        }
+        final notifier = ref.read(documentProvider(docID).notifier);
+        await notifier.modifyPages([newPage], [ref.read(documentProvider(docID)).pageList.length], []);
+        await notifier.saveDoc([newPage]);
 
-        //await writeDoc(newPath, [newPage], newDoc);
 
       }
       await page.close();
+      progress.value = (i, document.pagesCount);
     }
 
     await document.close();
 
 
-    await ref.read(documentsProvider.notifier).compactDoc(docIndex);
-    ref.read(documentsProvider.notifier).clearDoc(docIndex);
+    await ref.read(openDocumentsProvider.notifier).close(docID);
 
 
 
@@ -289,6 +305,20 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
 
     return;
 
+  }
+
+
+  /// Path for the note created from the PDF at [pdfPath]: same folder and name with a `.bnf`
+  /// extension. If that file exists, `name (1).bnf`, `name (2).bnf`, ... is used, so neither the
+  /// PDF nor an existing note is overwritten.
+  Future<String> _freeBnfPath(String pdfPath) async {
+    final dir = p.dirname(pdfPath);
+    final name = p.basenameWithoutExtension(pdfPath);
+    String candidate = p.join(dir, '$name.bnf');
+    for (int i = 1; await FileSystemEntity.type(candidate) != FileSystemEntityType.notFound; i++) {
+      candidate = p.join(dir, '$name ($i).bnf');
+    }
+    return candidate;
   }
 
 
@@ -308,18 +338,47 @@ class FileManagerList extends ConsumerWidget implements PreferredSizeWidget {
 
 
   @override
-  Size get preferredSize => Size.fromHeight(height1); // Höhe frei wählbar
+  Size get preferredSize => Size.fromHeight(height1); // any height
 }
 
 
 class LoadingPage extends StatelessWidget {
-  const LoadingPage({super.key});
+  /// If true, the back button/gesture can't close the page (used while an import runs).
+  final bool blockBack;
+
+  /// Optional progress as (done, total). Shows a progress bar and "done / total" when set,
+  /// otherwise a spinner.
+  final ValueListenable<(int, int)?>? progress;
+
+  const LoadingPage({super.key, this.blockBack = false, this.progress});
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
+    return PopScope(
+      canPop: !blockBack,
+      child: Scaffold(
+        body: Center(
+          child: progress == null
+              ? const CircularProgressIndicator()
+              : ValueListenableBuilder<(int, int)?>(
+                  valueListenable: progress!,
+                  builder: (context, value, _) {
+                    if (value == null) return const CircularProgressIndicator();
+                    final (done, total) = value;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 48),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          LinearProgressIndicator(value: total == 0 ? null : done / total),
+                          const SizedBox(height: 12),
+                          Text('$done / $total'),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
       ),
     );
   }

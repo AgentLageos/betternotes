@@ -5,14 +5,11 @@ import 'package:betternotes/features/editor/models/page/document_model.dart';
 import 'package:betternotes/features/editor/models/page/image_model.dart';
 import 'package:betternotes/features/editor/models/page/page_model.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart'; // Für PointerDeviceKind
+// for PointerDeviceKind
 import 'package:betternotes/features/file_manager/file_manager_screen.dart';
 import 'dart:ui' as ui;
 
 
-import 'package:betternotes/features/editor/components/top_bar/buttons/color_selector_bar.dart';
-import 'package:betternotes/features/editor/components/top_bar/buttons/width_selector_bar.dart';
-import 'package:betternotes/features/editor/components/top_bar/buttons/tool_selector_bar.dart';
 import 'package:betternotes/features/editor/components/top_bar/drop_down_menu_button.dart';
 import 'package:betternotes/features/editor/components/top_bar/page_setup_menu.dart';
 
@@ -20,9 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:betternotes/core/providers/global_providers.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../models/page/editor_setup.dart';
 
-import 'package:image/image.dart' as img;
 
 import 'package:betternotes/l10n/app_localizations.dart';
 
@@ -36,7 +31,10 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
 
 
 
-  EditorTopBar({super.key,});
+  EditorTopBar({super.key, required this.docID});
+
+  /// The document shown in the editor.
+  final int docID;
 
 
 
@@ -44,34 +42,21 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
   final height2 = 30.0;     //height of the middle container
   final height3 = 30.0;      //height of the lower container
 
-  //final color1 =Colors.lightBlueAccent;
-  //final color2 =Colors.lightBlue;
-  //final color3 =Colors.white;
-
-
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
 
-    int docIndex = ref.read(documentsProvider.notifier).currentDocIndex;
-    //int currentPageIndex = ref.watch(currentPagesProvider)[docIndex];
-    DocumentModel document = ref.read(documentsProvider.select((docs) => docs[docIndex]));
-
-    //int pageID = document.pages.where(test)
+    DocumentModel document = ref.read(documentProvider(docID));
 
 
 
-    final double spacing = (MediaQuery.of(context).size.width)/80;
-    final editorSetup = ref.watch(editorSetupProvider.notifier).state[docIndex];
-
-    final text = AppLocalizations.of(context)!;
 
     return Container(
       color: Theme.of(context).colorScheme.secondary,
       child: SafeArea(
         bottom: false,
         child: Column(
-          mainAxisSize: MainAxisSize.min, // nur so hoch wie nötig
+          mainAxisSize: MainAxisSize.min, // only as tall as needed
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
 
@@ -109,12 +94,10 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
 
                   IconButton(
                     onPressed: () async {
-                      await ref.read(documentsProvider.notifier).saveAsBnf(docIndex);
-                      await ref.read(documentsProvider.notifier).compactDoc(docID);
-                      ref.read(editorSetupProvider.notifier).saveToJson();
-                      //ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gespeichert')),);
-                      ref.read(documentsProvider.notifier).clearDoc(0);
+                      await ref.read(openDocumentsProvider.notifier).close(docID);
+                      await ref.read(editorSetupProvider.notifier).saveToJson();
                       print("editor_top_bar: currnetDir= ${ref.read(platformProvider).currentDirectory}");
+                      if (!context.mounted) return;
                       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const FileManager()),);
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                       });
@@ -125,11 +108,10 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
 
                   IconButton(
                     onPressed: () {
-                      //onSave();
-                      ref.read(documentsProvider.notifier).saveAsBnf(docIndex);
+                      ref.read(documentProvider(docID).notifier).save();
 
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Saved')),
+                        SnackBar(content: Text(AppLocalizations.of(context)!.saved)),
                       );
                     },
                     icon: Icon(Icons.save, color: Theme.of(context).colorScheme.onPrimary,),
@@ -139,28 +121,26 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
                   Spacer(),
                   IconButton(
                     onPressed: () async {
-                      //onAddPage();
-                      //print(document.docBackgroundColor);
-                      document = ref.read(documentsProvider)[0];
-                      //print(document.defaultPage.pageColor);
-                      //ref.read(documentsProvider.notifier).addPage(docIndex, document.defaultPage);
-                      await ref.read(documentsProvider.notifier).modifyPages(document.docID, [PageModel(strokes: [], backgroundStrokes: document.defaultPage.backgroundStrokes, images: [], pageWidth: document.defaultPage.pageWidth, pageHeight: document.defaultPage.pageHeight, pageColor: document.defaultPage.pageColor)], [document.currentPageIndex+1], []);
-                      //ref.read(documentsProvider.notifier).setCurrentPageIndex3(document.docID, document.currentPageIndex);
-                      //ref.read(documentsProvider.notifier).updateIsolatedPages(document.docID);
-                      //ref.read(documentsProvider.notifier).setBackgroundStrokesExecute(document.docID, document.pages[document.currentPageIndex].pageID, 5, 5, Colors.grey, 0.2);
+                      document = ref.read(documentProvider(docID));
+                      await ref.read(documentProvider(docID).notifier).modifyPages([PageModel(strokes: [], backgroundStrokes: document.defaultPage.backgroundStrokes, images: [], pageWidth: document.defaultPage.pageWidth, pageHeight: document.defaultPage.pageHeight, pageColor: document.defaultPage.pageColor)], [document.currentPageIndex+1], []);
                     },
                     icon: Icon(Icons.note_add, color: Theme.of(context).colorScheme.onPrimary,),
                     padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
                   ),
                   IconButton(
                     onPressed: () {
-                      document = ref.read(documentsProvider)[docIndex];
+                      document = ref.read(documentProvider(docID));
 
-
-                      int removeIndex = document.currentPageIndex;
-                      if(removeIndex>document.pages.length-1) removeIndex = document.pages.length-1;
-                      //ref.read(documentsProvider.notifier).removePages(docIndex, [document.pages[removeIndex].pageID]);
-                      ref.read(documentsProvider.notifier).modifyPages(document.docID, [], [], [document.pages[removeIndex].pageID]);
+                      // currentPageIndex is a position in pageList (the whole document); doc.pages only
+                      // holds the loaded window around it, so look the current page up by ID.
+                      if (document.currentPageIndex < 0 || document.currentPageIndex >= document.pageList.length) return;
+                      final pageID = document.pageList[document.currentPageIndex];
+                      final page = document.pages.where((p) => p.pageID == pageID).firstOrNull;
+                      if (page == null || page.isTemp) {
+                        print("editor_top_bar: delete page: current page $pageID is not loaded yet, not deleted");
+                        return;     //undo needs the page content
+                      }
+                      ref.read(documentProvider(docID).notifier).modifyPages([], [], [pageID]);
                     },
                     icon: Icon(Icons.delete, color: Theme.of(context).colorScheme.onPrimary,),
                     padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
@@ -179,7 +159,7 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
             ),
 
             //bottom bar
-            EditorTopBarPanel(),
+            EditorTopBarPanel(docID: docID),
 
           ],
         ),
@@ -195,14 +175,13 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
       context: context,
       builder: (context) {
 
-        return PageSetupMenu(onSelected: onSelected);
+        return PageSetupMenu(docID: docID, onSelected: onSelected);
       },
     );
   }
 
 
   final ImagePicker _picker = ImagePicker();
-  File? _image;
 
 
 
@@ -233,32 +212,27 @@ class EditorTopBar extends ConsumerWidget implements PreferredSizeWidget {
     if (source != null) {
       final XFile? pickedFile = await _picker.pickImage(source: source);
       if (pickedFile != null) {
-        _image = File(pickedFile.path);
-        final bytes = _image?.readAsBytesSync();
-        final imageDecoded = img.decodeImage(bytes!);
-        //print("Gewähltes Bild: ${pickedFile.path}");
+        final bytes = File(pickedFile.path).readAsBytesSync();
 
-        if (imageDecoded != null) {
-          //print("Breite: ${imageDecoded.width}, Höhe: ${imageDecoded.height}");
-          final docs = ref.read(documentsProvider.notifier);
-          final docIndex =docs.currentDocIndex;
-          final doc = ref.read(documentsProvider.select((docs) => docs[docIndex]));
-          int pageID = 0;
-          int index = 0;
-          if (doc.pages.length >= 1) {
-            pageID = doc.pages[1].pageID;
-            index = 1;
-
-          } else if (doc.pages.length == 0) {
-            pageID = doc.pages.first.pageID;
-            index = 0;
-          } else return;
+        {
           final codec = await ui.instantiateImageCodec(bytes);
           final frame = await codec.getNextFrame();
+          final imageDecoded = frame.image;
+
+          // Insert into the current page. Look it up by ID after the awaits: `pages` only holds
+          // the loaded window around the current page, so its positions say nothing about which
+          // page is current, and the window may have changed while decoding.
+          final doc = ref.read(documentProvider(docID));
+          if (doc.currentPageIndex < 0 || doc.currentPageIndex >= doc.pageList.length) return;
+          final pageID = doc.pageList[doc.currentPageIndex];
+          final pageIndex = doc.pages.indexWhere((p) => p.pageID == pageID && !p.isTemp);
+          if (pageIndex == -1) {
+            print("editor_top_bar: importImage: current page $pageID is not loaded, image not inserted");
+            return;
+          }
+          final page = doc.pages[pageIndex];
           //imageDecoded.width.toDouble()/100
-          ref.read(documentsProvider.notifier).modifyElements(docIndex, pageID, [], [ImageModel(height: imageDecoded.height/imageDecoded.width*doc.pages[index].pageWidth*0.8, width: doc.pages[index].pageWidth*0.8, position: Offset(doc.pages[index].pageWidth*0.1,doc.pages[index].pageHeight*0.1), image: frame.image, rotation: 0)], [], []);
-          //final editorIndex = ref.read(editorSetupProvider.notifier).currentEditorID;
-          //ref.read(editorSetupProvider.notifier).setToolIndex(editorIndex, 3);
+          await ref.read(documentProvider(docID).notifier).modifyElements(pageID, [], [ImageModel(height: imageDecoded.height/imageDecoded.width*page.pageWidth*0.8, width: page.pageWidth*0.8, position: Offset(page.pageWidth*0.1,page.pageHeight*0.1), image: frame.image, rotation: 0, encodedBytes: bytes)], [], []);
 
 
         }
@@ -317,11 +291,11 @@ class ColoredCircleButton extends StatelessWidget {   //widget for displaying co
   final String snackBarText;
 
   const ColoredCircleButton({
-    Key? key,
+    super.key,
     required this.color,
     this.onPressed,
     this.snackBarText = '',
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -360,10 +334,10 @@ class PenButton extends StatelessWidget {   //widget for displaying colored butt
   final String snackBarText;
 
   const PenButton({
-    Key? key,
+    super.key,
     this.onPressed,
     this.snackBarText = '',
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -396,10 +370,10 @@ class UndoButton extends StatelessWidget {   //widget for displaying colored but
   final String snackBarText;
 
   const UndoButton({
-    Key? key,
+    super.key,
     this.onPressed,
     this.snackBarText = '',
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -432,10 +406,10 @@ class RedoButton extends StatelessWidget {   //widget for displaying colored but
   final String snackBarText;
 
   const RedoButton({
-    Key? key,
+    super.key,
     this.onPressed,
     this.snackBarText = '',
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
