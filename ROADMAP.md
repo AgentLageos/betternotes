@@ -13,6 +13,11 @@ status when work is done, and record new decisions in the "Decisions" section.
 
 ## Ground rules
 
+- **No feature may lose or corrupt document content** (lazy loading, saving, compaction,
+  undo/redo, page operations, renderer). The file format itself may change freely during alpha
+  (see below). Features that store new data extend the save → load round-trip test; changes to
+  saving, lazy loading or undo come with a reload test.
+- **Changes go through a PR into `master`; CI checks must pass** (D19). No direct pushes.
 - **Keep the `print` calls for now.** They are used for debugging. Do not remove or replace them
   unless this rule is changed here.
 - **All comments in English.** German comments get translated (P2-04), new comments are English.
@@ -50,6 +55,11 @@ status when work is done, and record new decisions in the "Decisions" section.
 | D14 | **(obsolete 2026-11-26 with D12/D15)** Linux shows the Rust canvas through a Flutter texture (no front buffer). | Lower priority platform; latency matters less with mouse/desktop tablets. |
 | D15 | Strokes are GPU triangle meshes drawn by Flutter (`Canvas.drawVertices`, current transform each frame); live and finished strokes share mesh code and draw call. Android first; antialiasing via Impeller MSAA. Linux antialiasing deferred. | Benchmark on the Pad 6 passed all gates (no lost frames during 1×↔8× zoom on a 3000-stroke page, smooth edges, no flicker after drawing). See `docs/renderer-design.md` 4.4–4.5. |
 | D16 | Android first for the renderer; Linux must keep working but may lag behind (e.g. jagged edges). | Decided with the project owner 2026-11-26. |
+| D17 | CI runs on GitHub-hosted runners. Reconsider a self-hosted runner only if build times become a problem. | Free for public repos, nothing to maintain, safe to run on PRs from forks (a self-hosted runner would run fork code on the owner's server). |
+| D18 | CI pins the Flutter version (`FLUTTER_VERSION` in the workflow files) to the one used locally. | A new Flutter release must not break CI builds without a visible change in the repo. |
+| D19 | `master` is protected by a ruleset: PR required, `checks` must pass, no bypass. No review approval required (single developer). Builds only run on `master`, `v*` tags and manually. | Nothing reaches `master` without passing tests; feature branches get checks on every push. Decided with the project owner 2026-11-27. |
+| D20 | Document integrity is protected by tests that are independent of the file format (round trips, operation sequences with reload) and target behavior, not internals. | The format may still change (alpha); the content must never get lost. |
+| D21 | The mesh renderer becomes the default. The old Dart renderer is cleaned up and kept permanently as a fallback, selectable by hand in the settings (no automatic switching). It is frozen at the current tools: documents must open, display and edit correctly and lose no data; new visual features (highlighter, PDF backgrounds, partial eraser, …) may be mesh-only and degrade gracefully there. Replaces "delete the old renderer" (R5-03, design doc §4.13). | A known-good renderer to switch to if the mesh renderer misbehaves on a device, without doubling the work for new features. Decided with the project owner 2026-11-27. |
 
 ---
 
@@ -356,6 +366,56 @@ Mechanical work that makes the rest easier. **Prints stay** (see Ground rules).
 
 ---
 
+## CI and integrity tests (next, before continuing with R12-02)
+
+Planned with the project owner 2026-11-27 (D17–D20). Replaces P6-05. Workflows live in
+`.github/workflows/`: `checks.yml` (every branch and PR) and `build.yml` (`master`, `v*` tags,
+manual).
+
+### CI
+
+- [~] **CI-01** `checks.yml` on every push and PR: `flutter analyze`, `flutter test`, `cargo test`
+  (`rust/`), and a check that the committed `flutter_rust_bridge` output (`lib/src/rust/`,
+  `rust/src/frb_generated.rs`) matches what codegen produces. `flutter test` doesn't build the
+  Rust library (no test calls `RustLib.init`); if that changes, the job has to build it first.
+  **Open:** `FLUTTER_VERSION` in both workflows is a placeholder (`3.47.x`, the minimum from
+  `pubspec.lock`); set it to the exact local version (`flutter --version` on the dev machine).
+- [ ] **CI-02** Ruleset on `master` (D19): PR required, the `checks` jobs must pass, no bypass,
+  no required approvals. Turn on after `update/rework` is merged through a PR with green checks.
+- [~] **CI-03** `build.yml`: Flutter (pinned, D18) + Java 17 + Rust with Android targets
+  (cargokit compiles `rust/` inside the Gradle build) → `flutter build apk --release` → APK as
+  workflow artifact. Debug-signed until CI-04. Workflow artifacts expire after 90 days.
+- [ ] **CI-04** Release signing in CI (with P6-04): keystore (base64) and passwords as repo
+  secrets, the workflow writes `android/key.properties`; `build.gradle.kts` falls back to debug
+  signing when the file is missing, so local builds keep working. Switching from debug to release
+  signing needs one uninstall on each device (different key).
+- [ ] **CI-05** GitHub Release on `v*` tags with the build outputs attached; fail if the tag doesn't
+  match `version:` in `pubspec.yaml`.
+- [ ] **CI-06** Linux build (`flutter build linux --release`, GTK/ninja/clang packages, Rust) as
+  `.tar.gz`. Open decision: AppImage / Flatpak later.
+- [ ] **CI-07** Windows build (`flutter build windows`, zip of the release folder). Installer
+  (MSIX / Inno Setup) later. **(low)**
+- [ ] **CI-08** macOS / iOS. Unsigned macOS builds work on GitHub's macOS runners; iOS needs a paid
+  Apple Developer account for signing. **(low, future)**
+
+### Integrity tests (gaps in the existing tests)
+
+Already covered: `bnf_repository_test` (round trip, append, compaction, concurrent writes,
+corrupted / truncated files, interrupted save), `document_file_test` (strokes and images survive
+save → load), `undo_redo_test` (page add/delete, strokes and deletes on unloaded pages, two
+documents, history cap).
+
+- [ ] **T-01** Random operation sequences with a fixed seed: strokes, erasing, page add / delete /
+  move, page navigation (lazy loading and unloading), undo/redo, save, compaction. After every
+  save: reload from disk and compare with the in-memory document. The seed is printed on failure
+  so a run can be reproduced.
+- [ ] **T-02** The renderer doesn't change document data: points stored after pen-up through the
+  mesh path equal the input points (automates the check in R9-04).
+- [ ] **T-03** Smoke widget test: the app starts and the file manager lists the files of a temp
+  directory.
+
+---
+
 ## Phase 5: Renderer (GPU meshes)
 
 > **Rewritten 2026-11-26** after all points in `docs/renderer-design.md` §4 were decided (D15, D16).
@@ -388,7 +448,8 @@ around Flutter's async timing.
 - **PDFs (D8):** pdfium in Rust; a base image per page that is never removed, sharper tiles
   (about 1024 px) for zoomed-in areas on top. Ink stays independent.
 - **Rollout:** behind a developer switch until every tool works; Android first (D16), Linux built and
-  run at every step; old renderers deleted only when all platforms run the new one.
+  run at every step. The mesh renderer becomes the default; the old Dart renderer is cleaned up
+  and stays as a user-selectable fallback (D21).
 
 ### Done before the rewrite (Rust tile renderer, removed in R12-02 on 2026-11-26)
 
@@ -495,7 +556,16 @@ thread; R7-05 passes with **~8k-vertex chunks**.
 ### M5: Default on Android and Linux
 
 - [ ] **R11-01** Full check on the tablet and on Linux (all tools, no-go list from the design doc
-  §4.1), then the mesh renderer becomes the default there. Old renderers stay for other platforms.
+  §4.1), then the mesh renderer becomes the default there. Other platforms keep the old renderer
+  as default until R5-01.
+- [ ] **R11-02** Renderer choice becomes a normal setting (**Settings → Renderer**: "Mesh"
+  (default) / "Classic (fallback)") instead of the developer switch. Manual only, no automatic
+  switching (D21). Changing it doesn't touch the document data.
+- [ ] **R11-03** Clean up the old Dart renderer as a maintained fallback (D21): remove testing
+  leftovers and dead paths, keep it fully behind the `PageRenderer` interface, document what it
+  supports (current tools) and what it doesn't (mesh-only features), and make mesh-only features
+  degrade gracefully there instead of failing. Integrity tests (T-01..T-03) run against document
+  data and stay renderer-independent.
 
 ### M6: PDFs (right after the stroke renderer)
 
@@ -514,13 +584,13 @@ thread; R7-05 passes with **~8k-vertex chunks**.
   every open, or store the PDF decrypted inside the `.bnf`.
 - [ ] **R3-06** Remove `pdfx` (it doesn't support Linux anyway).
 
-### M7: Other platforms, then remove the old renderers
+### M7: Other platforms
 
-- [ ] **R5-01** Build and test on Windows, macOS, iOS, incl. whether mesh edges are smoothed. **(low)**
+- [ ] **R5-01** Build and test on Windows, macOS, iOS, incl. whether mesh edges are smoothed; where
+  it passes, the mesh renderer becomes the default there too. **(low)**
 - [ ] **R5-02** Web via WASM (threads need cross-origin isolation headers). **(low)**
-- [ ] **R5-03** Delete the old Dart renderer (`tile.dart`, `initialize_tiles.dart`,
-  `rendering/tile_renderer.dart`, `rendering/page_tiles.dart`, `draw_strokes.dart`), **only when
-  every platform runs the mesh renderer** (the Rust tile renderer is already gone, R12-02).
+- [-] **R5-03** Delete the old Dart renderer (dropped 2026-11-27: it stays as a fallback, D21;
+  cleanup in R11-03).
 
 ### Later / optional
 
@@ -656,6 +726,5 @@ thread; R7-05 passes with **~8k-vertex chunks**.
   - Until then: when export fails for lack of permission, explain it and offer to open the
     "All files access" settings page instead of showing the raw error.
 - [ ] **P6-04** Android release signing (release builds currently use debug keys).
-- [ ] **P6-05** CI (GitHub Actions): `flutter analyze`, `flutter test`, `cargo test`,
-  Android + Linux builds.
+- [-] **P6-05** CI (GitHub Actions): moved to the CI section (CI-01..CI-08).
 - [ ] **P6-06** README: project status (early), tested platforms, build instructions incl. Rust.

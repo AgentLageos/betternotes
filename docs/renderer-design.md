@@ -346,8 +346,10 @@ mesh build in Dart 90 ms on the tablet. Auto-zoom 1×↔8×, 12 s, 4 s period.
   until then.
 - **Web:** needs the Rust code as WebAssembly with threads and cross-origin isolation (R5-02); low
   priority.
-- **The old renderers (Dart, and the Rust tile renderer) are only deleted (R5-03) once every
-  platform runs the new one.** No platform may lose rendering temporarily.
+- **The old Dart renderer is not deleted** (changed 2026-11-27, D21): it is cleaned up and stays
+  as a fallback the user can select in the settings. It guarantees that documents open, display
+  and edit correctly with the existing tools; new visual features may be mesh-only. The Rust tile
+  renderer is gone (R12-02).
 
 ## 5. M1 measurement results
 
